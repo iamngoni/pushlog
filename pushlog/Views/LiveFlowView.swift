@@ -3,6 +3,7 @@ import UIKit
 
 struct LiveFlowView: View {
     @EnvironmentObject private var store: PushLogStore
+    @EnvironmentObject private var healthKitManager: HealthKitManager
     @Environment(\.colorScheme) private var colorScheme
 
     @Binding var isPresented: Bool
@@ -12,6 +13,7 @@ struct LiveFlowView: View {
 
     private enum Step {
         case setup
+        case preflight
         case tracking
         case summary
     }
@@ -23,10 +25,12 @@ struct LiveFlowView: View {
                 LiveSetupScreen(
                     tracker: tracker,
                     dismiss: { isPresented = false },
-                    start: {
-                        step = .tracking
-                        tracker.startTracking()
-                    }
+                    start: { tracker.startTracking() }
+                )
+            case .preflight:
+                LivePreflightScreen(
+                    tracker: tracker,
+                    dismiss: { isPresented = false }
                 )
             case .tracking:
                 LiveTrackingScreen(
@@ -47,6 +51,17 @@ struct LiveFlowView: View {
                         },
                         save: {
                             store.saveLiveSession(completedSession)
+
+                            if store.preferences.healthSyncEnabled {
+                                Task {
+                                    await healthKitManager.saveLiveSession(
+                                        completedSession,
+                                        endedAt: .now,
+                                        externalID: UUID()
+                                    )
+                                }
+                            }
+
                             isPresented = false
                         }
                     )
@@ -54,6 +69,14 @@ struct LiveFlowView: View {
             }
         }
         .preferredColorScheme(colorScheme)
+        .onChange(of: tracker.isInPreflightMode) { _, isInPreflightMode in
+            guard isInPreflightMode else { return }
+            step = .preflight
+        }
+        .onChange(of: tracker.isActivelyCounting) { _, isActivelyCounting in
+            guard isActivelyCounting else { return }
+            step = .tracking
+        }
         .onDisappear {
             tracker.resetForNewSession()
         }
@@ -131,7 +154,7 @@ private struct LiveSetupScreen: View {
             Text(tracker.setupTitle)
                 .font(.pressMono(10))
                 .tracking(1.6)
-                .foregroundStyle(tracker.canStartSession ? theme.secondaryInk : theme.accent)
+                .foregroundStyle(tracker.canStartSession ? theme.secondaryInk : theme.accentInk)
 
             Rectangle()
                 .fill(theme.divider)
@@ -142,7 +165,7 @@ private struct LiveSetupScreen: View {
                 .background(RoundedRectangle(cornerRadius: 28).fill(theme.surface))
                 .frame(height: 286)
                 .overlay(alignment: .topLeading) {
-                    Text("CAM CHECK")
+                    Text("PRE-FLIGHT")
                         .font(.pressMono(10))
                         .tracking(1.8)
                         .foregroundStyle(theme.secondaryInk)
@@ -163,7 +186,7 @@ private struct LiveSetupScreen: View {
             Text(tracker.setupChecklist)
                 .font(.pressMono(11))
                 .tracking(1.1)
-                .foregroundStyle(tracker.cameraAccess == .denied || !tracker.isSupported ? theme.accent : theme.ink)
+                .foregroundStyle(tracker.cameraAccess == .denied || !tracker.isSupported ? theme.accentInk : theme.ink)
                 .lineSpacing(6)
                 .padding(.top, 2)
 
@@ -173,6 +196,123 @@ private struct LiveSetupScreen: View {
                 .foregroundStyle(theme.secondaryInk)
                 .lineSpacing(5)
                 .padding(.top, 6)
+        }
+    }
+}
+
+private struct LivePreflightScreen: View {
+    @ObservedObject var tracker: FaceTrackingSessionController
+    @Environment(\.colorScheme) private var colorScheme
+
+    let dismiss: () -> Void
+
+    private var theme: AppTheme {
+        AppTheme.resolve(for: colorScheme)
+    }
+
+    var body: some View {
+        ZStack {
+            theme.background.ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 0) {
+                WordmarkHeader(trailingText: "PRE-FLIGHT", theme: theme)
+                    .padding(.top, 8)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(tracker.preflightTitle)
+                        .font(.pressMono(10))
+                        .tracking(2.2)
+                        .foregroundStyle(tracker.canBeginCountdown ? theme.accentInk : theme.secondaryInk)
+                        .padding(.top, 22)
+
+                    Text("ALIGN")
+                        .font(.pressDisplay(150))
+                        .foregroundStyle(theme.ink)
+
+                    Text("CONFIRM FACE LOCK BEFORE THE SESSION GOES LIVE.")
+                        .font(.pressMono(10))
+                        .tracking(1.2)
+                        .foregroundStyle(theme.secondaryInk)
+
+                    Rectangle()
+                        .fill(theme.divider)
+                        .frame(height: 1)
+
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 28)
+                            .stroke(theme.divider, lineWidth: 1)
+                            .background(RoundedRectangle(cornerRadius: 28).fill(theme.surface))
+
+                        FaceTrackingCameraView(controller: tracker)
+                            .clipShape(RoundedRectangle(cornerRadius: 28))
+                            .opacity(tracker.isSupported ? 1 : 0)
+
+                        VStack(spacing: 18) {
+                            Circle()
+                                .stroke(theme.accent, lineWidth: 3)
+                                .frame(width: 104, height: 104)
+
+                            Text(tracker.preflightPrimaryActionTitle)
+                                .font(.pressDisplay(52))
+                                .foregroundStyle(theme.ink)
+                        }
+                        .padding(.top, 36)
+
+                        if let overlayTitle = tracker.overlayTitle, let overlayDetail = tracker.overlayDetail {
+                            RoundedRectangle(cornerRadius: 28)
+                                .fill(Color.black.opacity(colorScheme == .dark ? 0.54 : 0.34))
+                                .overlay {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text(overlayTitle)
+                                            .font(.pressDisplay(48))
+                                            .foregroundStyle(Color.white)
+                                        Text(overlayDetail.uppercased())
+                                            .font(.pressMono(10))
+                                            .tracking(1.4)
+                                            .foregroundStyle(Color.white.opacity(0.88))
+                                            .lineSpacing(6)
+                                    }
+                                    .padding(26)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                                }
+                        }
+                    }
+                    .frame(height: 340)
+                    .overlay(alignment: .topLeading) {
+                        Text("FACE LOCK")
+                            .font(.pressMono(10))
+                            .tracking(1.8)
+                            .foregroundStyle(theme.secondaryInk)
+                            .padding(18)
+                    }
+
+                    Text(tracker.metricsLine)
+                        .font(.pressMono(11))
+                        .tracking(1.1)
+                        .foregroundStyle(theme.ink)
+                        .padding(.top, 2)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 28)
+            .padding(.top, 24)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            ActionStrip(theme: theme) {
+                ActionCell(title: "EXIT", subtitle: nil, emphasized: false, theme: theme, action: dismiss)
+                Rectangle().fill(theme.divider).frame(width: 1)
+                ActionCell(
+                    title: tracker.preflightPrimaryActionTitle,
+                    subtitle: tracker.canBeginCountdown ? "COUNTDOWN" : nil,
+                    emphasized: tracker.canBeginCountdown,
+                    isEnabled: tracker.canBeginCountdown,
+                    theme: theme
+                ) {
+                    tracker.confirmFaceLock()
+                }
+            }
+            .background(theme.background)
         }
     }
 }
@@ -225,7 +365,7 @@ private struct LiveTrackingScreen: View {
             Text(tracker.statusLabel)
                 .font(.pressMono(10))
                 .tracking(2.2)
-                .foregroundStyle(tracker.phase == .locked ? theme.accent : theme.secondaryInk)
+                .foregroundStyle(tracker.phase == .locked ? theme.accentInk : theme.secondaryInk)
                 .padding(.top, 22)
 
             Text("\(tracker.repCount)")
@@ -376,7 +516,7 @@ private struct LiveSummaryScreen: View {
             Text(saveEnabled ? "SAVE THIS LIVE SESSION TO TODAY'S COUNT." : "ZERO REP SESSIONS WON'T CHANGE YOUR HISTORY.")
                 .font(.pressMono(10))
                 .tracking(1.0)
-                .foregroundStyle(saveEnabled ? theme.secondaryInk : theme.accent)
+                .foregroundStyle(saveEnabled ? theme.secondaryInk : theme.accentInk)
                 .lineSpacing(5)
                 .padding(.top, 18)
         }

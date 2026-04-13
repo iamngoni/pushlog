@@ -4,6 +4,7 @@ import Combine
 import Foundation
 import SceneKit
 import SwiftUI
+import UIKit
 
 @MainActor
 final class FaceTrackingSessionController: NSObject, ObservableObject {
@@ -11,6 +12,7 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
         case setup
         case calibrating
         case locked
+        case countdown
         case lost
         case paused
         case unavailable
@@ -27,12 +29,24 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
         case denied
     }
 
+    private enum SessionMode {
+        case setup
+        case preflight
+        case active
+    }
+
+    private enum PauseReason {
+        case manual
+        case trackingLoss
+    }
+
     @Published private(set) var phase: Phase
     @Published private(set) var repCount = 0
     @Published private(set) var statusLabel = "READY"
     @Published private(set) var movementLabel = "READY"
     @Published private(set) var metricsLine = "ALIGN FACE WITH FRAME"
     @Published private(set) var cameraAccess: CameraAccessState
+    @Published private(set) var countdownValue: Int?
 
     private weak var sceneView: ARSCNView?
     private var sessionStartedAt: Date?
@@ -46,6 +60,11 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
     private var repTimestamps: [Date] = []
     private var manualAdjustmentCount = 0
     private var shouldStartWhenAttached = false
+    private var sessionMode: SessionMode = .setup
+    private var pauseReason: PauseReason?
+    private var lossBeganAt: Date?
+    private var countdownTask: Task<Void, Never>?
+    private let impactGenerator = UIImpactFeedbackGenerator(style: .rigid)
 
     var isSupported: Bool {
         ARFaceTrackingConfiguration.isSupported
@@ -55,6 +74,18 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
         isSupported && cameraAccess != .denied
     }
 
+    var canBeginCountdown: Bool {
+        sessionMode == .preflight && phase == .locked && countdownValue == nil
+    }
+
+    var isInPreflightMode: Bool {
+        sessionMode == .preflight
+    }
+
+    var isActivelyCounting: Bool {
+        sessionMode == .active
+    }
+
     var setupTitle: String {
         guard isSupported else { return "TRUEDEPTH REQUIRED" }
 
@@ -62,7 +93,7 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
         case .unknown:
             return "ALLOW FRONT CAMERA"
         case .ready:
-            return "READY TO LOCK"
+            return "READY FOR PRE-FLIGHT"
         case .denied:
             return "CAMERA BLOCKED"
         }
@@ -90,40 +121,81 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
 
         switch cameraAccess {
         case .unknown:
-            return "START WILL TRIGGER THE CAMERA PERMISSION PROMPT."
+            return "START WILL TRIGGER THE CAMERA PROMPT, THEN OPEN PRE-FLIGHT."
         case .ready:
-            return "START LIVE THEN HOLD THE TOP OF THE REP FOR A QUICK LOCK."
+            return "PRE-FLIGHT CONFIRMS FACE LOCK, THEN A SHORT COUNTDOWN STARTS THE SESSION."
         case .denied:
             return "CAMERA ACCESS IS OFF FOR PUSHLOG. ENABLE IT IN SETTINGS."
         }
     }
 
-    var overlayTitle: String? {
+    var preflightTitle: String {
         switch phase {
         case .calibrating:
             return "LOCKING"
+        case .locked:
+            return countdownValue == nil ? "LOCK CONFIRMED" : "COUNTDOWN"
+        case .countdown:
+            return "COUNTDOWN"
         case .lost:
             return "FACE LOST"
         case .paused:
             return "PAUSED"
         case .unavailable:
             return "UNAVAILABLE"
-        case .setup, .locked:
+        case .setup:
+            return "READY"
+        }
+    }
+
+    var preflightPrimaryActionTitle: String {
+        if let countdownValue {
+            return "\(countdownValue)"
+        }
+
+        if canBeginCountdown {
+            return "BEGIN"
+        }
+
+        return phase == .lost ? "REALIGN" : "HOLD"
+    }
+
+    var overlayTitle: String? {
+        if let countdownValue {
+            return "\(countdownValue)"
+        }
+
+        switch phase {
+        case .calibrating:
+            return "LOCKING"
+        case .lost:
+            return "FACE LOST"
+        case .paused:
+            return pauseReason == .trackingLoss ? "AUTO PAUSED" : "PAUSED"
+        case .unavailable:
+            return "UNAVAILABLE"
+        case .setup, .locked, .countdown:
             return nil
         }
     }
 
     var overlayDetail: String? {
+        if countdownValue != nil {
+            return "HOLD THE TOP POSITION. COUNTING STARTS WHEN THE COUNTDOWN ENDS."
+        }
+
         switch phase {
         case .calibrating:
-            return "Hold the top position and let the front camera establish your baseline."
+            return "HOLD THE TOP POSITION AND LET THE FRONT CAMERA ESTABLISH YOUR BASELINE."
         case .lost:
-            return "Bring your face and shoulders back into frame. Counting will continue once lock returns."
+            return "BRING YOUR FACE AND SHOULDERS BACK INTO FRAME. THE SESSION WILL RESUME WHEN LOCK RETURNS."
         case .paused:
-            return "Tracking is paused. Resume when you're set to continue."
+            return pauseReason == .trackingLoss
+                ? "TRACKING DROPPED LONG ENOUGH TO PAUSE COUNTING. LOCK WILL RESUME AUTOMATICALLY."
+                : "TRACKING IS PAUSED. RESUME WHEN YOU ARE READY."
         case .unavailable:
-            return "This device cannot run TrueDepth face tracking."
-        case .setup, .locked:
+            return "THIS DEVICE CANNOT RUN TRUEDEPTH FACE TRACKING."
+        case .setup, .locked, .countdown:
             return nil
         }
     }
@@ -174,7 +246,7 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
 
         switch cameraAccess {
         case .ready:
-            beginTrackingWhenPossible()
+            beginPreflightWhenPossible()
         case .unknown:
             requestCameraAccessAndStart()
         case .denied:
@@ -185,18 +257,63 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
         }
     }
 
+    func confirmFaceLock() {
+        guard canBeginCountdown else { return }
+
+        countdownTask?.cancel()
+        countdownTask = Task { [weak self] in
+            guard let self else { return }
+
+            self.phase = .countdown
+
+            for value in stride(from: 3, through: 1, by: -1) {
+                self.countdownValue = value
+                self.statusLabel = "COUNTDOWN"
+                self.movementLabel = "HOLD"
+                self.metricsLine = "GOING LIVE IN \(value)"
+                try? await Task.sleep(for: .seconds(1))
+
+                if Task.isCancelled || self.phase == .lost || self.phase == .paused {
+                    self.countdownValue = nil
+                    return
+                }
+            }
+
+            self.countdownValue = nil
+            self.sessionMode = .active
+            self.phase = .locked
+            self.statusLabel = "LOCKED"
+            self.movementLabel = "UP"
+            self.metricsLine = "PACE --   DEPTH READY   TRACK STABLE"
+            self.motionState = .up
+            self.downTimestamp = nil
+            self.repCount = 0
+            self.repDurations.removeAll(keepingCapacity: true)
+            self.repTimestamps.removeAll(keepingCapacity: true)
+            self.lossBeganAt = nil
+            self.pauseReason = nil
+            self.impactGenerator.prepare()
+        }
+    }
+
     func togglePause() {
         guard isSupported, let sceneView else { return }
 
-        if phase == .paused {
+        if phase == .paused, pauseReason == .manual {
             runFaceTrackingSession(on: sceneView, options: [])
-            phase = baselineDistance == nil ? .calibrating : .locked
-            statusLabel = baselineDistance == nil ? "LOCKING" : "LOCKED"
-            movementLabel = baselineDistance == nil ? "READY" : movementLabel
-            metricsLine = baselineDistance == nil ? "HOLD TOP POSITION" : metricsLine
-        } else {
+            pauseReason = nil
+            phase = sessionMode == .active ? .locked : .calibrating
+            statusLabel = sessionMode == .active ? "LOCKED" : "LOCKING"
+            movementLabel = sessionMode == .active ? movementLabel : "READY"
+            metricsLine = sessionMode == .active ? "PACE \(paceString)   DEPTH READY   TRACK STABLE" : "HOLD TOP POSITION"
+            return
+        }
+
+        if phase != .paused {
+            countdownTask?.cancel()
             sceneView.session.pause()
             phase = .paused
+            pauseReason = .manual
             statusLabel = "PAUSED"
             movementLabel = "PAUSED"
             metricsLine = "SESSION HOLD"
@@ -208,9 +325,12 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
         manualAdjustmentCount += 1
         repTimestamps.append(Date())
         metricsLine = "MANUAL ADJUSTMENT ADDED"
+        impactGenerator.impactOccurred(intensity: 0.85)
+        impactGenerator.prepare()
     }
 
     func finishSession() -> LiveSessionResult {
+        countdownTask?.cancel()
         sceneView?.session.pause()
         shouldStartWhenAttached = false
 
@@ -228,12 +348,14 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
     }
 
     func resetForNewSession() {
+        countdownTask?.cancel()
         sceneView?.session.pause()
         restoreSetupState()
     }
 
-    private func beginTrackingWhenPossible() {
+    private func beginPreflightWhenPossible() {
         resetSessionState()
+        sessionMode = .preflight
         phase = .calibrating
         statusLabel = "LOCKING"
         movementLabel = "READY"
@@ -267,7 +389,7 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
                 controller.refreshCameraAccess()
 
                 if granted {
-                    controller.beginTrackingWhenPossible()
+                    controller.beginPreflightWhenPossible()
                 } else {
                     controller.phase = .setup
                     controller.statusLabel = "BLOCKED"
@@ -282,6 +404,8 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
         refreshCameraAccess()
         resetSessionState()
         shouldStartWhenAttached = false
+        countdownTask?.cancel()
+        countdownValue = nil
 
         guard isSupported else {
             phase = .unavailable
@@ -334,6 +458,9 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
         sessionStartedAt = nil
         lastAnchorAt = nil
         manualAdjustmentCount = 0
+        sessionMode = .setup
+        pauseReason = nil
+        lossBeganAt = nil
     }
 
     private func process(distance rawDistance: Float, at timestamp: Date) {
@@ -348,10 +475,17 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
                 baselineDistance = sorted[sorted.count / 2]
                 phase = .locked
                 statusLabel = "LOCKED"
-                movementLabel = "UP"
-                metricsLine = "PACE --   DEPTH READY   TRACK STABLE"
+                movementLabel = sessionMode == .active ? "UP" : "READY"
+                metricsLine = sessionMode == .active
+                    ? "PACE --   DEPTH READY   TRACK STABLE"
+                    : "FACE LOCK CONFIRMED   TAP BEGIN"
             }
 
+            return
+        }
+
+        guard sessionMode == .active, pauseReason == nil else {
+            metricsLine = phase == .locked ? "FACE LOCK CONFIRMED   READY TO BEGIN" : metricsLine
             return
         }
 
@@ -385,6 +519,8 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
 
                 movementLabel = "UP"
                 metricsLine = "PACE \(paceString)   DEPTH GOOD   TRACK STABLE"
+                impactGenerator.impactOccurred(intensity: 0.9)
+                impactGenerator.prepare()
             }
         }
     }
@@ -398,13 +534,28 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
 
 extension FaceTrackingSessionController: ARSessionDelegate {
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
-        guard phase != .paused, phase != .unavailable else { return }
+        guard phase != .unavailable else { return }
 
-        if let lastAnchorAt, Date().timeIntervalSince(lastAnchorAt) > 0.6, phase != .calibrating {
+        let now = Date()
+
+        if let lastAnchorAt, now.timeIntervalSince(lastAnchorAt) > 0.7, phase != .calibrating, countdownValue == nil {
             phase = .lost
             statusLabel = "LOST"
             movementLabel = "HOLD"
             metricsLine = "BRING FACE BACK INTO FRAME"
+            lossBeganAt = lossBeganAt ?? now
+        }
+
+        if sessionMode == .active,
+           let lossBeganAt,
+           now.timeIntervalSince(lossBeganAt) > 1.6,
+           phase == .lost
+        {
+            phase = .paused
+            pauseReason = .trackingLoss
+            statusLabel = "PAUSED"
+            movementLabel = "PAUSED"
+            metricsLine = "AUTO PAUSED · WAITING FOR LOCK"
         }
 
         switch frame.camera.trackingState {
@@ -414,6 +565,7 @@ extension FaceTrackingSessionController: ARSessionDelegate {
                 statusLabel = "LOST"
                 movementLabel = "HOLD"
                 metricsLine = "MOVE PHONE INTO BETTER LIGHT"
+                lossBeganAt = lossBeganAt ?? now
             }
         case .normal:
             break
@@ -421,15 +573,21 @@ extension FaceTrackingSessionController: ARSessionDelegate {
     }
 
     func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-        guard phase != .paused, phase != .unavailable else { return }
+        guard phase != .unavailable else { return }
         guard let faceAnchor = anchors.compactMap({ $0 as? ARFaceAnchor }).first else { return }
 
         let timestamp = Date()
         lastAnchorAt = timestamp
+        lossBeganAt = nil
 
-        if phase == .lost {
+        if phase == .lost || (phase == .paused && pauseReason == .trackingLoss) {
             phase = baselineDistance == nil ? .calibrating : .locked
             statusLabel = baselineDistance == nil ? "LOCKING" : "LOCKED"
+            movementLabel = baselineDistance == nil ? "READY" : "UP"
+            metricsLine = sessionMode == .active
+                ? "TRACK RESTORED   RESUMING LIVE COUNT"
+                : "FACE LOCK CONFIRMED   READY TO BEGIN"
+            pauseReason = nil
         }
 
         let translation = faceAnchor.transform.columns.3

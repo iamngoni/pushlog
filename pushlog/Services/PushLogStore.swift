@@ -272,12 +272,8 @@ final class PushLogStore: ObservableObject {
         persist()
     }
 
-    func exportData() throws -> URL {
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("pushlog-export-\(Self.dayKey(for: .now)).json")
-
-        try exportSnapshot().write(to: fileURL, options: [.atomic])
-        return fileURL
+    func exportData() throws -> Data {
+        try exportSnapshot()
     }
 
     func resetAllData() {
@@ -362,10 +358,21 @@ final class PushLogStore: ObservableObject {
         pendingUndo = nil
     }
 
+    private func exportSnapshot() throws -> Data {
+        let snapshot = StoredPushlogData(
+            dayTotals: dayTotals,
+            sessions: sessions,
+            preferences: preferences,
+            updatedAt: lastUpdatedAt
+        )
+        return try JSONEncoder.exportEncoder.encode(snapshot)
+    }
+
     private func persist() {
         let snapshot = StoredPushlogData(
             dayTotals: dayTotals,
             sessions: sessions,
+            preferences: preferences,
             updatedAt: .now
         )
         lastUpdatedAt = snapshot.updatedAt
@@ -375,6 +382,7 @@ final class PushLogStore: ObservableObject {
     private func apply(snapshot: StoredPushlogData) {
         dayTotals = snapshot.dayTotals
         sessions = snapshot.sessions.sorted { $0.date > $1.date }
+        preferences = snapshot.preferences
         pendingUndo = nil
         lastUpdatedAt = snapshot.updatedAt
     }
@@ -385,6 +393,7 @@ final class PushLogStore: ObservableObject {
         defaults.set(data, forKey: localStorageKey)
         cloudStore.set(data, forKey: cloudStorageKey)
         cloudStore.synchronize()
+        lastCloudSyncAt = iCloudAvailable ? .now : nil
     }
 
     private static func preferredSnapshot(
@@ -422,5 +431,14 @@ final class PushLogStore: ObservableObject {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
+    }()
+}
+
+private extension JSONEncoder {
+    static let exportEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
     }()
 }

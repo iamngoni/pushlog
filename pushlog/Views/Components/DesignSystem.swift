@@ -3,6 +3,7 @@ import SwiftUI
 enum PushlogTab {
     case today
     case history
+    case settings
 }
 
 struct AppTheme {
@@ -12,6 +13,7 @@ struct AppTheme {
     let secondaryInk: Color
     let divider: Color
     let accent: Color
+    let accentInk: Color
     let accentStroke: Color
 
     static func resolve(for colorScheme: ColorScheme) -> AppTheme {
@@ -24,6 +26,7 @@ struct AppTheme {
                 secondaryInk: Color(hex: 0x706D68),
                 divider: Color(hex: 0x282522),
                 accent: Color(hex: 0xD7FF1F),
+                accentInk: Color(hex: 0xD7FF1F),
                 accentStroke: Color(hex: 0xF8F5F0, alpha: 0.16)
             )
         default:
@@ -34,6 +37,7 @@ struct AppTheme {
                 secondaryInk: Color(hex: 0x9A9590),
                 divider: Color(hex: 0xD5D2CE),
                 accent: Color(hex: 0xD7FF1F),
+                accentInk: Color(hex: 0x718500),
                 accentStroke: Color(hex: 0x0A0908, alpha: 0.14)
             )
         }
@@ -65,7 +69,7 @@ struct WordmarkHeader: View {
 
     var body: some View {
         HStack {
-            Text("PRESS")
+            Text("PUSHLOG")
                 .font(.pressMono(10))
                 .tracking(3)
             Spacer()
@@ -85,6 +89,7 @@ struct BottomTabBar: View {
         HStack(spacing: 0) {
             tabButton(title: "TODAY", tab: .today)
             tabButton(title: "HISTORY", tab: .history)
+            tabButton(title: "SETTINGS", tab: .settings)
         }
         .frame(height: 64)
         .overlay(alignment: .top) {

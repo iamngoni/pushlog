@@ -95,13 +95,13 @@ struct HistoryScreen: View {
                         Text(HistoryCopy.rowTitle(for: entry.date))
                             .font(.pressMono(11))
                             .tracking(1.6)
-                            .foregroundStyle(entry.isToday ? theme.accent : theme.secondaryInk)
+                            .foregroundStyle(entry.isToday ? theme.accentInk : theme.secondaryInk)
 
                         Spacer()
 
                         Text("\(entry.count)")
                             .font(.pressDisplay(42))
-                            .foregroundStyle(entry.isToday ? theme.accent : theme.ink)
+                            .foregroundStyle(entry.isToday ? theme.accentInk : theme.ink)
                     }
                     .padding(.vertical, 14)
 
@@ -240,7 +240,7 @@ private struct SessionCorrectionSheet: View {
                         Text(deltaLabel)
                             .font(.pressMono(10))
                             .tracking(1.5)
-                            .foregroundStyle(isDirty ? theme.accent : theme.secondaryInk)
+                            .foregroundStyle(isDirty ? theme.accentInk : theme.secondaryInk)
 
                         Text(HistoryCopy.sessionMeta(for: session))
                             .font(.pressMono(9))

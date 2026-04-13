@@ -11,6 +11,8 @@ struct RootView: View {
                 TodayScreen(selectedTab: $selectedTab, isPresentingLive: $isPresentingLive)
             case .history:
                 HistoryScreen(selectedTab: $selectedTab)
+            case .settings:
+                SettingsScreen(selectedTab: $selectedTab)
             }
         }
         .fullScreenCover(isPresented: $isPresentingLive) {
