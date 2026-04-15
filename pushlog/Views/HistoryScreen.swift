@@ -6,6 +6,7 @@ struct HistoryScreen: View {
 
     @Binding var selectedTab: PushlogTab
     @State private var editingSession: WorkoutSessionRecord?
+    @State private var selectedEntry: HistoryEntry?
 
     private var theme: AppTheme {
         AppTheme.resolve(for: colorScheme)
@@ -39,6 +40,9 @@ struct HistoryScreen: View {
             } onDelete: {
                 store.deleteSession(session.id)
             }
+        }
+        .sheet(item: $selectedEntry) { entry in
+            DayDetailSheet(entry: entry, theme: theme)
         }
     }
 
@@ -90,25 +94,24 @@ struct HistoryScreen: View {
     private var dailyList: some View {
         LazyVStack(spacing: 0) {
             ForEach(store.historyEntries) { entry in
-                VStack(spacing: 0) {
-                    HStack(alignment: .firstTextBaseline) {
+                Button {
+                    selectedEntry = entry
+                } label: {
+                    VStack(spacing: 0) {
                         Text(HistoryCopy.rowTitle(for: entry.date))
                             .font(.pressMono(11))
                             .tracking(1.6)
                             .foregroundStyle(entry.isToday ? theme.accentInk : theme.secondaryInk)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 14)
 
-                        Spacer()
-
-                        Text("\(entry.count)")
-                            .font(.pressDisplay(42))
-                            .foregroundStyle(entry.isToday ? theme.accentInk : theme.ink)
+                        Rectangle()
+                            .fill(theme.divider)
+                            .frame(height: 1)
                     }
-                    .padding(.vertical, 14)
-
-                    Rectangle()
-                        .fill(theme.divider)
-                        .frame(height: 1)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
             }
         }
         .padding(.top, 10)
@@ -186,6 +189,40 @@ private struct SessionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct DayDetailSheet: View {
+    let entry: HistoryEntry
+    let theme: AppTheme
+
+    var body: some View {
+        ZStack {
+            theme.background
+                .ignoresSafeArea()
+
+            VStack(spacing: 6) {
+                Text(HistoryCopy.rowTitle(for: entry.date))
+                    .font(.pressMono(11))
+                    .tracking(1.6)
+                    .foregroundStyle(theme.secondaryInk)
+
+                Text("\(entry.count)")
+                    .font(.pressDisplay(120))
+                    .foregroundStyle(theme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+
+                Text("REPS")
+                    .font(.pressMono(10))
+                    .tracking(1.6)
+                    .foregroundStyle(theme.secondaryInk)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 28)
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 }
 

@@ -190,15 +190,26 @@ struct DayStripView: View {
     let summary: [DaySummary]
     let theme: AppTheme
 
+    private var maxCount: Int {
+        summary.map(\.count).max() ?? 1
+    }
+
+    private func barHeight(for count: Int) -> CGFloat {
+        let minH: CGFloat = 3
+        let maxH: CGFloat = 28
+        guard maxCount > 0, count > 0 else { return minH }
+        return minH + (maxH - minH) * CGFloat(count) / CGFloat(maxCount)
+    }
+
     var body: some View {
         HStack(spacing: 6) {
             ForEach(summary) { day in
-                RoundedRectangle(cornerRadius: 1)
+                RoundedRectangle(cornerRadius: 2)
                     .fill(day.isToday ? theme.accent : day.count > 0 ? theme.ink : theme.divider)
-                    .frame(width: day.isToday ? 10 : 8, height: day.isToday ? 10 : 8)
+                    .frame(width: day.isToday ? 10 : 8, height: barHeight(for: day.count))
                     .overlay {
                         if day.isToday {
-                            RoundedRectangle(cornerRadius: 1)
+                            RoundedRectangle(cornerRadius: 2)
                                 .stroke(theme.accentStroke, lineWidth: 1)
                         }
                     }
