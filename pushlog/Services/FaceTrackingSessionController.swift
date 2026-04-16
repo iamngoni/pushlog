@@ -281,6 +281,7 @@ final class FaceTrackingSessionController: NSObject, ObservableObject {
 
             self.countdownValue = nil
             self.sessionMode = .active
+            self.sessionStartedAt = Date()
             self.phase = .locked
             self.statusLabel = "LOCKED"
             self.movementLabel = "UP"

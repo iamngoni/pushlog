@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchConnectivity
 
 @main
 struct PushlogApp: App {
@@ -6,6 +7,7 @@ struct PushlogApp: App {
     @StateObject private var store = PushLogStore()
     @StateObject private var reminderManager = ReminderManager()
     @StateObject private var healthKitManager = HealthKitManager()
+    @StateObject private var phoneSessionManager = PhoneSessionManager()
 
     var body: some Scene {
         WindowGroup {
@@ -13,6 +15,10 @@ struct PushlogApp: App {
                 .environmentObject(store)
                 .environmentObject(reminderManager)
                 .environmentObject(healthKitManager)
+                .environmentObject(phoneSessionManager)
+                .onAppear {
+                    phoneSessionManager.activateWithStore(store)
+                }
         }
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
@@ -25,6 +31,7 @@ struct PushlogApp: App {
                     }
                 }
                 healthKitManager.refreshAuthorization()
+                phoneSessionManager.activateWithStore(store)
             case .background:
                 store.flushToICloud()
             case .inactive:

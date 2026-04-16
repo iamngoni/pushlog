@@ -4,12 +4,16 @@ import UIKit
 struct LiveFlowView: View {
     @EnvironmentObject private var store: PushLogStore
     @EnvironmentObject private var healthKitManager: HealthKitManager
+    @EnvironmentObject private var phoneSessionManager: PhoneSessionManager
     @Environment(\.colorScheme) private var colorScheme
 
     @Binding var isPresented: Bool
     @State private var step: Step = .setup
     @State private var completedSession: LiveSessionResult?
     @StateObject private var tracker = FaceTrackingSessionController()
+    @State private var sessionStartTime = Date()
+    @State private var activeSessionID: UUID?
+    @State private var completedSessionEndedAt: Date?
 
     private enum Step {
         case setup
@@ -35,29 +39,42 @@ struct LiveFlowView: View {
             case .tracking:
                 LiveTrackingScreen(
                     tracker: tracker,
-                    end: {
-                        completedSession = tracker.finishSession()
-                        step = .summary
-                    }
+                    end: finishTracking
                 )
             case .summary:
                 if let completedSession {
                     LiveSummaryScreen(
                         result: completedSession,
-                        dismiss: { isPresented = false },
+                        dismiss: {
+                            discardPendingWorkout()
+                            isPresented = false
+                        },
                         retry: {
+                            discardPendingWorkout()
                             self.completedSession = nil
+                            completedSessionEndedAt = nil
+                            activeSessionID = nil
                             step = .setup
                         },
                         save: {
-                            store.saveLiveSession(completedSession)
+                            let endedAt = completedSessionEndedAt ?? .now
+                            store.saveLiveSession(completedSession, date: endedAt)
 
+                            let healthOwner: HealthKitWriteOwner
                             if store.preferences.healthSyncEnabled {
+                                healthOwner = phoneSessionManager.commitStoppedWorkout(sessionID: activeSessionID)
+                            } else {
+                                phoneSessionManager.discardStoppedWorkout(sessionID: activeSessionID)
+                                healthOwner = .phone
+                            }
+
+                            if store.preferences.healthSyncEnabled && healthOwner == .phone {
+                                let sessionID = activeSessionID ?? UUID()
                                 Task {
                                     await healthKitManager.saveLiveSession(
                                         completedSession,
-                                        endedAt: .now,
-                                        externalID: UUID()
+                                        endedAt: endedAt,
+                                        externalID: sessionID
                                     )
                                 }
                             }
@@ -75,16 +92,118 @@ struct LiveFlowView: View {
         }
         .onChange(of: tracker.isActivelyCounting) { _, isActivelyCounting in
             guard isActivelyCounting else { return }
+            sessionStartTime = Date()
+            activeSessionID = phoneSessionManager.beginLiveWorkout(
+                startedAt: sessionStartTime,
+                devicePreference: store.preferences.liveDevice
+            )
             step = .tracking
         }
+        .onChange(of: tracker.repCount) { _, newCount in
+            guard tracker.isActivelyCounting else { return }
+            phoneSessionManager.sendLiveUpdate(
+                reps: newCount,
+                phase: tracker.movementLabel,
+                elapsed: currentElapsed,
+                trackingState: trackingStateLabel,
+                isPaused: tracker.phase == .paused
+            )
+        }
+        .onChange(of: tracker.phase) { _, _ in
+            guard tracker.isActivelyCounting else { return }
+            phoneSessionManager.sendLiveUpdate(
+                reps: tracker.repCount,
+                phase: tracker.movementLabel,
+                elapsed: currentElapsed,
+                trackingState: trackingStateLabel,
+                isPaused: tracker.phase == .paused
+            )
+            phoneSessionManager.sendTrackingState(
+                phase: trackingStateLabel,
+                elapsed: currentElapsed,
+                isPaused: tracker.phase == .paused
+            )
+        }
+        .onChange(of: phoneSessionManager.watchControlRequest) { _, request in
+            handleWatchControl(request)
+        }
         .onDisappear {
+            if step == .tracking || (completedSession == nil && activeSessionID != nil) {
+                phoneSessionManager.cancelLiveWorkout(sessionID: activeSessionID)
+            }
             tracker.resetForNewSession()
         }
+    }
+
+    private var currentElapsed: Double {
+        Date().timeIntervalSince(sessionStartTime)
+    }
+
+    private var trackingStateLabel: String {
+        switch tracker.phase {
+        case .setup:
+            return "SETUP"
+        case .calibrating:
+            return "LOCKING"
+        case .locked:
+            return "LOCKED"
+        case .countdown:
+            return "COUNTDOWN"
+        case .lost:
+            return "LOST"
+        case .paused:
+            return "PAUSED"
+        case .unavailable:
+            return "UNAVAILABLE"
+        }
+    }
+
+    private func finishTracking() {
+        guard step == .tracking else { return }
+
+        let endedAt = Date()
+        let result = tracker.finishSession()
+        completedSession = result
+        completedSessionEndedAt = endedAt
+        _ = phoneSessionManager.stopLiveWorkout(
+            sessionID: activeSessionID,
+            reps: result.reps,
+            duration: result.duration,
+            endedAt: endedAt
+        )
+        step = .summary
+    }
+
+    private func handleWatchControl(_ request: WatchControlRequest?) {
+        guard
+            let request,
+            step == .tracking,
+            request.sessionID == activeSessionID
+        else { return }
+
+        switch request.action {
+        case .pause:
+            if tracker.phase != .paused {
+                tracker.togglePause()
+            }
+        case .resume:
+            if tracker.phase == .paused {
+                tracker.togglePause()
+            }
+        case .end:
+            finishTracking()
+        }
+    }
+
+    private func discardPendingWorkout() {
+        phoneSessionManager.discardStoppedWorkout(sessionID: activeSessionID)
     }
 }
 
 private struct LiveSetupScreen: View {
     @ObservedObject var tracker: FaceTrackingSessionController
+    @EnvironmentObject private var store: PushLogStore
+    @EnvironmentObject private var phoneSessionManager: PhoneSessionManager
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.openURL) private var openURL
 
@@ -190,6 +309,8 @@ private struct LiveSetupScreen: View {
                 .lineSpacing(6)
                 .padding(.top, 2)
 
+            deviceSelector
+
             Text(tracker.setupFootnote)
                 .font(.pressMono(10))
                 .tracking(1.0)
@@ -197,6 +318,84 @@ private struct LiveSetupScreen: View {
                 .lineSpacing(5)
                 .padding(.top, 6)
         }
+    }
+
+    private var deviceSelector: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("DEVICE")
+                .font(.pressMono(9))
+                .tracking(1.8)
+                .foregroundStyle(theme.secondaryInk)
+
+            HStack(spacing: 8) {
+                LiveDeviceOptionButton(
+                    title: "IPHONE",
+                    detail: "PHONE WRITES",
+                    isSelected: store.preferences.liveDevice == .iphoneOnly,
+                    isEnabled: true,
+                    theme: theme
+                ) {
+                    store.setLiveDevicePreference(.iphoneOnly)
+                }
+
+                LiveDeviceOptionButton(
+                    title: "IPHONE + WATCH",
+                    detail: phoneSessionManager.canUseWatchForWorkout ? "WATCH WRITES" : "WATCH NOT READY",
+                    isSelected: store.preferences.liveDevice == .iphoneAndWatch,
+                    isEnabled: phoneSessionManager.canUseWatchForWorkout,
+                    theme: theme
+                ) {
+                    store.setLiveDevicePreference(.iphoneAndWatch)
+                }
+            }
+
+            Text(phoneSessionManager.watchWorkoutStatus)
+                .font(.pressMono(9))
+                .tracking(1.0)
+                .foregroundStyle(phoneSessionManager.canUseWatchForWorkout ? theme.secondaryInk : theme.accentInk)
+        }
+        .padding(.top, 4)
+    }
+}
+
+private struct LiveDeviceOptionButton: View {
+    let title: String
+    let detail: String
+    let isSelected: Bool
+    let isEnabled: Bool
+    let theme: AppTheme
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(.pressMono(10, weight: .semibold))
+                    .tracking(0.8)
+                    .foregroundStyle(isSelected ? Color(hex: 0x0A0908) : theme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                Text(detail)
+                    .font(.pressMono(8))
+                    .tracking(0.8)
+                    .foregroundStyle(isSelected ? Color(hex: 0x0A0908).opacity(0.72) : theme.secondaryInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(isSelected ? theme.accent : theme.surface)
+            .overlay {
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isSelected ? theme.accentStroke : theme.divider, lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.45)
     }
 }
 

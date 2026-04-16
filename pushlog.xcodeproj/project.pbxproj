@@ -6,20 +6,115 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D6B03CCC2F90440000C53ECE /* pushlog watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = D6B03CA12F9040FF00C53ECE /* pushlog watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D6B03CAE2F90410100C53ECE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10B7C7B2F50000100AA0009 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6B03CA02F9040FF00C53ECE;
+			remoteInfo = "pushlog watch Watch App";
+		};
+		D6B03CB82F90410100C53ECE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10B7C7B2F50000100AA0009 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6B03CA02F9040FF00C53ECE;
+			remoteInfo = "pushlog watch Watch App";
+		};
+		D6B03CCD2F90440000C53ECE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10B7C7B2F50000100AA0009 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D6B03CA02F9040FF00C53ECE;
+			remoteInfo = "pushlog watch Watch App";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D6B03CCF2F90440000C53ECE /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				D6B03CCC2F90440000C53ECE /* pushlog watch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		A10B7C7B2F50000100AA0001 /* pushlog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = pushlog.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6B03CA12F9040FF00C53ECE /* pushlog watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "pushlog watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6B03CAD2F90410100C53ECE /* pushlog watch Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "pushlog watch Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6B03CB72F90410100C53ECE /* pushlog watch Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "pushlog watch Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D6B03CCB2F9041DE00C53ECE /* Exceptions for "pushlog" folder in "pushlog watch Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Models/WorkoutSessionRecord.swift,
+				Views/Components/DesignSystem.swift,
+			);
+			target = D6B03CA02F9040FF00C53ECE /* pushlog watch Watch App */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A10B7C7B2F50000100AA0002 /* pushlog */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D6B03CCB2F9041DE00C53ECE /* Exceptions for "pushlog" folder in "pushlog watch Watch App" target */,
+			);
 			path = pushlog;
+			sourceTree = "<group>";
+		};
+		D6B03CA22F9040FF00C53ECE /* pushlog watch Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "pushlog watch Watch App";
+			sourceTree = "<group>";
+		};
+		D6B03CB02F90410100C53ECE /* pushlog watch Watch AppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "pushlog watch Watch AppTests";
+			sourceTree = "<group>";
+		};
+		D6B03CBA2F90410100C53ECE /* pushlog watch Watch AppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "pushlog watch Watch AppUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A10B7C7B2F50000100AA0003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6B03C9E2F9040FF00C53ECE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6B03CAA2F90410100C53ECE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6B03CB42F90410100C53ECE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +128,9 @@
 			isa = PBXGroup;
 			children = (
 				A10B7C7B2F50000100AA0002 /* pushlog */,
+				D6B03CA22F9040FF00C53ECE /* pushlog watch Watch App */,
+				D6B03CB02F90410100C53ECE /* pushlog watch Watch AppTests */,
+				D6B03CBA2F90410100C53ECE /* pushlog watch Watch AppUITests */,
 				A10B7C7B2F50000100AA0005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +139,9 @@
 			isa = PBXGroup;
 			children = (
 				A10B7C7B2F50000100AA0001 /* pushlog.app */,
+				D6B03CA12F9040FF00C53ECE /* pushlog watch Watch App.app */,
+				D6B03CAD2F90410100C53ECE /* pushlog watch Watch AppTests.xctest */,
+				D6B03CB72F90410100C53ECE /* pushlog watch Watch AppUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,10 +156,12 @@
 				A10B7C7B2F50000100AA0007 /* Sources */,
 				A10B7C7B2F50000100AA0003 /* Frameworks */,
 				A10B7C7B2F50000100AA0008 /* Resources */,
+				D6B03CCF2F90440000C53ECE /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D6B03CCE2F90440000C53ECE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A10B7C7B2F50000100AA0002 /* pushlog */,
@@ -69,6 +172,74 @@
 			productName = pushlog;
 			productReference = A10B7C7B2F50000100AA0001 /* pushlog.app */;
 			productType = "com.apple.product-type.application";
+		};
+		D6B03CA02F9040FF00C53ECE /* pushlog watch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6B03CC52F90410100C53ECE /* Build configuration list for PBXNativeTarget "pushlog watch Watch App" */;
+			buildPhases = (
+				D6B03C9D2F9040FF00C53ECE /* Sources */,
+				D6B03C9E2F9040FF00C53ECE /* Frameworks */,
+				D6B03C9F2F9040FF00C53ECE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D6B03CA22F9040FF00C53ECE /* pushlog watch Watch App */,
+			);
+			name = "pushlog watch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "pushlog watch Watch App";
+			productReference = D6B03CA12F9040FF00C53ECE /* pushlog watch Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D6B03CAC2F90410100C53ECE /* pushlog watch Watch AppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6B03CC62F90410100C53ECE /* Build configuration list for PBXNativeTarget "pushlog watch Watch AppTests" */;
+			buildPhases = (
+				D6B03CA92F90410100C53ECE /* Sources */,
+				D6B03CAA2F90410100C53ECE /* Frameworks */,
+				D6B03CAB2F90410100C53ECE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D6B03CAF2F90410100C53ECE /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D6B03CB02F90410100C53ECE /* pushlog watch Watch AppTests */,
+			);
+			name = "pushlog watch Watch AppTests";
+			packageProductDependencies = (
+			);
+			productName = "pushlog watch Watch AppTests";
+			productReference = D6B03CAD2F90410100C53ECE /* pushlog watch Watch AppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		D6B03CB62F90410100C53ECE /* pushlog watch Watch AppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6B03CC72F90410100C53ECE /* Build configuration list for PBXNativeTarget "pushlog watch Watch AppUITests" */;
+			buildPhases = (
+				D6B03CB32F90410100C53ECE /* Sources */,
+				D6B03CB42F90410100C53ECE /* Frameworks */,
+				D6B03CB52F90410100C53ECE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D6B03CB92F90410100C53ECE /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D6B03CBA2F90410100C53ECE /* pushlog watch Watch AppUITests */,
+			);
+			name = "pushlog watch Watch AppUITests";
+			packageProductDependencies = (
+			);
+			productName = "pushlog watch Watch AppUITests";
+			productReference = D6B03CB72F90410100C53ECE /* pushlog watch Watch AppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
@@ -82,6 +253,17 @@
 				TargetAttributes = {
 					A10B7C7B2F50000100AA0006 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					D6B03CA02F9040FF00C53ECE = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					D6B03CAC2F90410100C53ECE = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = D6B03CA02F9040FF00C53ECE;
+					};
+					D6B03CB62F90410100C53ECE = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = D6B03CA02F9040FF00C53ECE;
 					};
 				};
 			};
@@ -100,12 +282,36 @@
 			projectRoot = "";
 			targets = (
 				A10B7C7B2F50000100AA0006 /* pushlog */,
+				D6B03CA02F9040FF00C53ECE /* pushlog watch Watch App */,
+				D6B03CAC2F90410100C53ECE /* pushlog watch Watch AppTests */,
+				D6B03CB62F90410100C53ECE /* pushlog watch Watch AppUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A10B7C7B2F50000100AA0008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6B03C9F2F9040FF00C53ECE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6B03CAB2F90410100C53ECE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6B03CB52F90410100C53ECE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +328,46 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D6B03C9D2F9040FF00C53ECE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6B03CA92F90410100C53ECE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6B03CB32F90410100C53ECE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D6B03CAF2F90410100C53ECE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6B03CA02F9040FF00C53ECE /* pushlog watch Watch App */;
+			targetProxy = D6B03CAE2F90410100C53ECE /* PBXContainerItemProxy */;
+		};
+		D6B03CB92F90410100C53ECE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6B03CA02F9040FF00C53ECE /* pushlog watch Watch App */;
+			targetProxy = D6B03CB82F90410100C53ECE /* PBXContainerItemProxy */;
+		};
+		D6B03CCE2F90440000C53ECE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D6B03CA02F9040FF00C53ECE /* pushlog watch Watch App */;
+			targetProxy = D6B03CCD2F90440000C53ECE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A10B7C7B2F50000100AA000B /* Debug */ = {
@@ -323,6 +568,173 @@
 			};
 			name = Release;
 		};
+		D6B03CBF2F90410100C53ECE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "pushlog watch Watch App/pushlog watch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4973Y692JU;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "pushlog watch";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pushlog Watch reads heart rate and active energy during live push-up sessions.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pushlog Watch saves live push-up sessions as strength workouts.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = za.co.codecraftsolutions.pushlog;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = za.co.codecraftsolutions.pushlog.watch;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D6B03CC02F90410100C53ECE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "pushlog watch Watch App/pushlog watch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4973Y692JU;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "pushlog watch";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Pushlog Watch reads heart rate and active energy during live push-up sessions.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Pushlog Watch saves live push-up sessions as strength workouts.";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = za.co.codecraftsolutions.pushlog;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = za.co.codecraftsolutions.pushlog.watch;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		D6B03CC12F90410100C53ECE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4973Y692JU;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "za.co.codecraftsolutions.pushlog-watch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/pushlog watch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/pushlog watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D6B03CC22F90410100C53ECE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4973Y692JU;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "za.co.codecraftsolutions.pushlog-watch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/pushlog watch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/pushlog watch Watch App";
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		D6B03CC32F90410100C53ECE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4973Y692JU;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "za.co.codecraftsolutions.pushlog-watch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "pushlog watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D6B03CC42F90410100C53ECE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4973Y692JU;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "za.co.codecraftsolutions.pushlog-watch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "pushlog watch Watch App";
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -340,6 +752,33 @@
 			buildConfigurations = (
 				A10B7C7B2F50000100AA000E /* Debug */,
 				A10B7C7B2F50000100AA000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6B03CC52F90410100C53ECE /* Build configuration list for PBXNativeTarget "pushlog watch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6B03CBF2F90410100C53ECE /* Debug */,
+				D6B03CC02F90410100C53ECE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6B03CC62F90410100C53ECE /* Build configuration list for PBXNativeTarget "pushlog watch Watch AppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6B03CC12F90410100C53ECE /* Debug */,
+				D6B03CC22F90410100C53ECE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6B03CC72F90410100C53ECE /* Build configuration list for PBXNativeTarget "pushlog watch Watch AppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6B03CC32F90410100C53ECE /* Debug */,
+				D6B03CC42F90410100C53ECE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

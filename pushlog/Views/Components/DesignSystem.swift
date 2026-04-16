@@ -186,6 +186,7 @@ struct ActionStrip<Content: View>: View {
     }
 }
 
+#if !os(watchOS)
 struct DayStripView: View {
     let summary: [DaySummary]
     let theme: AppTheme
@@ -218,6 +219,7 @@ struct DayStripView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+#endif
 
 struct StatColumn: View {
     let value: String

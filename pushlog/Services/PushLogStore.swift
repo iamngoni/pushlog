@@ -33,9 +33,39 @@ struct ReminderSettings: Codable, Hashable {
     var useSmartCopy = true
 }
 
+enum LiveDevicePreference: String, Codable, Hashable {
+    case iphoneOnly
+    case iphoneAndWatch
+
+    var title: String {
+        switch self {
+        case .iphoneOnly:
+            return "IPHONE ONLY"
+        case .iphoneAndWatch:
+            return "IPHONE + WATCH"
+        }
+    }
+}
+
 struct PushlogPreferences: Codable, Hashable {
     var reminders = ReminderSettings()
     var healthSyncEnabled = false
+    var liveDevice = LiveDevicePreference.iphoneAndWatch
+
+    enum CodingKeys: String, CodingKey {
+        case reminders
+        case healthSyncEnabled
+        case liveDevice
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        reminders = try container.decodeIfPresent(ReminderSettings.self, forKey: .reminders) ?? ReminderSettings()
+        healthSyncEnabled = try container.decodeIfPresent(Bool.self, forKey: .healthSyncEnabled) ?? false
+        liveDevice = try container.decodeIfPresent(LiveDevicePreference.self, forKey: .liveDevice) ?? .iphoneAndWatch
+    }
 }
 
 private struct StoredPushlogData: Codable {
@@ -269,6 +299,11 @@ final class PushLogStore: ObservableObject {
 
     func setHealthSyncEnabled(_ isEnabled: Bool) {
         preferences.healthSyncEnabled = isEnabled
+        persist()
+    }
+
+    func setLiveDevicePreference(_ preference: LiveDevicePreference) {
+        preferences.liveDevice = preference
         persist()
     }
 
