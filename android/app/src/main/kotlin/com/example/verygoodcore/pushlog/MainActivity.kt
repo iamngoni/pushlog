@@ -1,4 +1,4 @@
-package com.example.verygoodcore.pushlog
+package za.co.codecraftsolutions.pushlog
 
 import io.flutter.embedding.android.FlutterActivity
 

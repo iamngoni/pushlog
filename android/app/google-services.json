@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "944029873089",
+    "project_id": "pushlog-app",
+    "storage_bucket": "pushlog-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:944029873089:android:b50842820648e62f053540",
+        "android_client_info": {
+          "package_name": "com.example.verygoodcore.pushlog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEer-7gQqxKSq8eq0gBNYrI3NS8r5Pn88"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:944029873089:android:e30eb914a538bd84053540",
+        "android_client_info": {
+          "package_name": "za.co.codecraftsolutions.pushlog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEer-7gQqxKSq8eq0gBNYrI3NS8r5Pn88"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
