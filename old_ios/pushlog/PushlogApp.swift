@@ -8,6 +8,7 @@ struct PushlogApp: App {
     @StateObject private var reminderManager = ReminderManager()
     @StateObject private var healthKitManager = HealthKitManager()
     @StateObject private var phoneSessionManager = PhoneSessionManager()
+    @StateObject private var friendsService = FriendsService()
 
     var body: some Scene {
         WindowGroup {
@@ -16,6 +17,7 @@ struct PushlogApp: App {
                 .environmentObject(reminderManager)
                 .environmentObject(healthKitManager)
                 .environmentObject(phoneSessionManager)
+                .environmentObject(friendsService)
                 .onAppear {
                     phoneSessionManager.activateWithStore(store)
                 }

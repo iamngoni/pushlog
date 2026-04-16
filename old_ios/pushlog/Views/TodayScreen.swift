@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayScreen: View {
     @EnvironmentObject private var store: PushLogStore
+    @EnvironmentObject private var friendsService: FriendsService
     @Environment(\.colorScheme) private var colorScheme
 
     @Binding var selectedTab: PushlogTab
@@ -24,6 +25,8 @@ struct TodayScreen: View {
                     .padding(.top, 18)
                 DayStripView(summary: store.weekSummary, theme: theme)
                     .padding(.top, 14)
+                leaderboardBlock
+                    .padding(.top, 20)
                 Spacer()
                 statsBlock
             }
@@ -76,6 +79,24 @@ struct TodayScreen: View {
         .padding(.bottom, 20)
     }
 
+    private var leaderboardBlock: some View {
+        let entries = friendsService.leaderboard(myName: "Me", myCount: store.todayCount)
+        return VStack(alignment: .leading, spacing: 0) {
+            SectionLabel(title: "FRIENDS TODAY", theme: theme)
+                .padding(.bottom, 10)
+            VStack(spacing: 0) {
+                ForEach(Array(entries.prefix(5).enumerated()), id: \.element.id) { index, entry in
+                    LeaderboardRow(rank: index + 1, entry: entry, theme: theme)
+                    if index < min(entries.count, 5) - 1 {
+                        Rectangle()
+                            .fill(theme.divider)
+                            .frame(height: 1)
+                    }
+                }
+            }
+        }
+    }
+
     private var actionStrip: some View {
         ActionStrip(theme: theme) {
             ActionCell(title: "+1", subtitle: "REP", emphasized: true, theme: theme) {
@@ -111,6 +132,43 @@ struct TodayScreen: View {
             return String(format: "%.1fk", Double(value) / 1000.0)
         }
         return "\(value)"
+    }
+}
+
+private struct LeaderboardRow: View {
+    let rank: Int
+    let entry: FriendEntry
+    let theme: AppTheme
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("\(rank)")
+                .font(.pressMono(10))
+                .foregroundStyle(theme.secondaryInk)
+                .frame(width: 12, alignment: .trailing)
+
+            ZStack {
+                Circle()
+                    .fill(entry.isMe ? theme.accent : theme.divider)
+                    .frame(width: 22, height: 22)
+                Text(entry.initials)
+                    .font(.pressMono(8, weight: .medium))
+                    .foregroundStyle(entry.isMe ? Color(hex: 0x0A0908) : theme.ink)
+            }
+
+            Text(entry.name.uppercased())
+                .font(.pressMono(11))
+                .tracking(0.4)
+                .foregroundStyle(entry.isMe ? theme.ink : theme.secondaryInk)
+                .lineLimit(1)
+
+            Spacer()
+
+            Text("\(entry.todayCount)")
+                .font(.pressMono(13, weight: .medium))
+                .foregroundStyle(entry.isMe ? theme.accentInk : theme.ink)
+        }
+        .padding(.vertical, 8)
     }
 }
 
