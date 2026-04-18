@@ -63,6 +63,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '944029873089',
     projectId: 'pushlog-app',
     storageBucket: 'pushlog-app.firebasestorage.app',
+    iosClientId: '944029873089-btaosjgusij6l4fpevi65kfsiml65743.apps.googleusercontent.com',
     iosBundleId: 'za.co.codecraftsolutions.pushlog',
   );
+
 }

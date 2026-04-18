@@ -1,15 +1,31 @@
-// Ignore for testing purposes
-// ignore_for_file: prefer_const_constructors
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pushlog/app/app.dart';
-import 'package:pushlog/counter/counter.dart';
+import 'package:pushlog/auth/services/profile_service.dart';
 
 void main() {
-  group('App', () {
-    testWidgets('renders CounterPage', (tester) async {
-      await tester.pumpWidget(App());
-      expect(find.byType(CounterPage), findsOneWidget);
+  group('ProfileService.normalizeUsername', () {
+    test('accepts lowercase usernames', () {
+      expect(
+        ProfileService.normalizeUsername('push_master'),
+        'push_master',
+      );
+    });
+
+    test('normalizes uppercase usernames', () {
+      expect(
+        ProfileService.normalizeUsername('PUSHLOG'),
+        'pushlog',
+      );
+    });
+
+    test('rejects invalid usernames', () {
+      expect(
+        ProfileService.normalizeUsername('no spaces'),
+        isNull,
+      );
+      expect(
+        ProfileService.normalizeUsername('ab'),
+        isNull,
+      );
     });
   });
 }
