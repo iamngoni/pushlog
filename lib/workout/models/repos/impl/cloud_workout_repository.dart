@@ -25,8 +25,7 @@ class CloudWorkoutRepository implements WorkoutRepository {
 
   WorkoutSnapshot? _memorySnapshot;
 
-  DocumentReference<Map<String, dynamic>>
-      _stateDocument(String uid) {
+  DocumentReference<Map<String, dynamic>> _stateDocument(String uid) {
     return firestore
         .collection('users')
         .doc(uid)
@@ -35,11 +34,9 @@ class CloudWorkoutRepository implements WorkoutRepository {
   }
 
   @override
-  Future<Either<ApplicationError, WorkoutSnapshot>>
-      loadSnapshot() async {
+  Future<Either<ApplicationError, WorkoutSnapshot>> loadSnapshot() async {
     try {
-      final localSnapshot =
-          await localRepository.loadSnapshot();
+      final localSnapshot = (await localRepository.loadSnapshot()).normalized();
       final user = auth.currentUser;
       if (user == null) {
         _memorySnapshot = localSnapshot;
@@ -48,13 +45,10 @@ class CloudWorkoutRepository implements WorkoutRepository {
 
       await profileService.ensureProfileShell(user);
 
-      final remoteDocument =
-          await _stateDocument(user.uid).get();
-      if (!remoteDocument.exists ||
-          remoteDocument.data() == null) {
+      final remoteDocument = await _stateDocument(user.uid).get();
+      if (!remoteDocument.exists || remoteDocument.data() == null) {
         if (!localSnapshot.isEmpty) {
-          final seeded =
-              await _pushRemote(user, localSnapshot);
+          final seeded = await _pushRemote(user, localSnapshot);
           _memorySnapshot = seeded;
           return Right(seeded);
         }
@@ -67,16 +61,13 @@ class CloudWorkoutRepository implements WorkoutRepository {
         remoteDocument.data()!,
       );
 
-      final useLocal = _isLocalPreferred(
-        localSnapshot,
-        remoteSnapshot,
-      );
-      final chosen = useLocal
-          ? await _pushRemote(user, localSnapshot)
-          : remoteSnapshot.copyWith(
-              lastSyncedAt:
-                  remoteSnapshot.lastSyncedAt ??
-                  DateTime.now(),
+      final chosen = localSnapshot.isEmpty
+          ? remoteSnapshot.copyWith(
+              lastSyncedAt: remoteSnapshot.lastSyncedAt ?? DateTime.now(),
+            )
+          : await _pushRemote(
+              user,
+              localSnapshot.mergeWith(remoteSnapshot),
             );
 
       await localRepository.saveSnapshot(chosen);
@@ -93,10 +84,11 @@ class CloudWorkoutRepository implements WorkoutRepository {
   }
 
   @override
-  Future<Either<ApplicationError, WorkoutSnapshot>>
-      saveSnapshot(WorkoutSnapshot snapshot) async {
+  Future<Either<ApplicationError, WorkoutSnapshot>> saveSnapshot(
+    WorkoutSnapshot snapshot,
+  ) async {
     try {
-      final normalized = snapshot.copyWith(
+      final normalized = snapshot.normalized().copyWith(
         updatedAt: DateTime.now(),
       );
       await localRepository.saveSnapshot(normalized);
@@ -121,8 +113,7 @@ class CloudWorkoutRepository implements WorkoutRepository {
   }
 
   @override
-  Future<Either<ApplicationError, WorkoutSnapshot>>
-      resetSnapshot() async {
+  Future<Either<ApplicationError, WorkoutSnapshot>> resetSnapshot() async {
     const empty = WorkoutSnapshot();
     await localRepository.resetScopedData();
     return saveSnapshot(empty);
@@ -131,7 +122,8 @@ class CloudWorkoutRepository implements WorkoutRepository {
   @override
   Future<Either<ApplicationError, String>> exportJson() async {
     try {
-      final snapshot = _memorySnapshot ??
+      final snapshot =
+          _memorySnapshot ??
           (await loadSnapshot()).getOrElse(
             () => const WorkoutSnapshot(),
           );
@@ -148,17 +140,6 @@ class CloudWorkoutRepository implements WorkoutRepository {
       );
       return Left(ApplicationError.storageError(error.toString()));
     }
-  }
-
-  bool _isLocalPreferred(
-    WorkoutSnapshot localSnapshot,
-    WorkoutSnapshot remoteSnapshot,
-  ) {
-    final localUpdatedAt =
-        localSnapshot.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-    final remoteUpdatedAt =
-        remoteSnapshot.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-    return localUpdatedAt.isAfter(remoteUpdatedAt);
   }
 
   Future<WorkoutSnapshot> _pushRemote(

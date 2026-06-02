@@ -7,6 +7,10 @@ class FriendsState extends Equatable {
     this.leaderboard = const [],
     this.searchResults = const [],
     this.friendIds = const {},
+    this.incomingRequests = const [],
+    this.outgoingRequests = const [],
+    this.incomingRequestIds = const {},
+    this.outgoingRequestIds = const {},
     this.searchQuery = '',
     this.error,
   });
@@ -16,6 +20,10 @@ class FriendsState extends Equatable {
   final List<FriendProfile> leaderboard;
   final List<UserProfile> searchResults;
   final Set<String> friendIds;
+  final List<FriendRequest> incomingRequests;
+  final List<FriendRequest> outgoingRequests;
+  final Set<String> incomingRequestIds;
+  final Set<String> outgoingRequestIds;
   final String searchQuery;
   final String? error;
 
@@ -25,6 +33,10 @@ class FriendsState extends Equatable {
     List<FriendProfile>? leaderboard,
     List<UserProfile>? searchResults,
     Set<String>? friendIds,
+    List<FriendRequest>? incomingRequests,
+    List<FriendRequest>? outgoingRequests,
+    Set<String>? incomingRequestIds,
+    Set<String>? outgoingRequestIds,
     String? searchQuery,
     String? error,
   }) {
@@ -34,6 +46,10 @@ class FriendsState extends Equatable {
       leaderboard: leaderboard ?? this.leaderboard,
       searchResults: searchResults ?? this.searchResults,
       friendIds: friendIds ?? this.friendIds,
+      incomingRequests: incomingRequests ?? this.incomingRequests,
+      outgoingRequests: outgoingRequests ?? this.outgoingRequests,
+      incomingRequestIds: incomingRequestIds ?? this.incomingRequestIds,
+      outgoingRequestIds: outgoingRequestIds ?? this.outgoingRequestIds,
       searchQuery: searchQuery ?? this.searchQuery,
       error: error,
     );
@@ -41,12 +57,16 @@ class FriendsState extends Equatable {
 
   @override
   List<Object?> get props => [
-        isLoading,
-        isSearching,
-        leaderboard,
-        searchResults,
-        friendIds,
-        searchQuery,
-        error,
-      ];
+    isLoading,
+    isSearching,
+    leaderboard,
+    searchResults,
+    friendIds,
+    incomingRequests,
+    outgoingRequests,
+    incomingRequestIds,
+    outgoingRequestIds,
+    searchQuery,
+    error,
+  ];
 }

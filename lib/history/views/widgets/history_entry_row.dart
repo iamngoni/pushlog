@@ -25,19 +25,32 @@ class HistoryEntryRow extends StatelessWidget {
 
   String rowTitle(DateTime date) {
     final now = DateTime.now();
-    final isToday = date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
+    final isToday =
+        date.year == now.year && date.month == now.month && date.day == now.day;
     if (isToday) return 'TODAY';
 
     const days = [
-      'MON', 'TUE', 'WED', 'THU',
-      'FRI', 'SAT', 'SUN',
+      'MON',
+      'TUE',
+      'WED',
+      'THU',
+      'FRI',
+      'SAT',
+      'SUN',
     ];
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR',
-      'MAY', 'JUN', 'JUL', 'AUG',
-      'SEP', 'OCT', 'NOV', 'DEC',
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
     final dow = days[date.weekday - 1];
     final mon = months[date.month - 1];
@@ -59,10 +72,7 @@ class HistoryEntryRow extends StatelessWidget {
             child: Text(
               rowTitle(entry.date),
               style: AppTypography.labelMono(
-                size: 11,
-                color: entry.isToday
-                    ? theme.accentInk
-                    : theme.secondaryInk,
+                color: entry.isToday ? theme.accentInk : theme.secondaryInk,
                 letterSpacing: 1.6,
               ),
             ),

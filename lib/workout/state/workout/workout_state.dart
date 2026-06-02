@@ -86,14 +86,12 @@ class WorkoutLoaded extends WorkoutState {
     );
   }
 
-  int get totalAllTime =>
-      dayTotals.values.fold(0, (sum, v) => sum + v);
+  int get totalAllTime => dayTotals.values.fold(0, (sum, v) => sum + v);
 
   List<DaySummary> get weekSummary {
     final today = startOfDay(DateTime.now());
     return List.generate(7, (i) {
-      final date =
-          today.subtract(Duration(days: 6 - i));
+      final date = today.subtract(Duration(days: 6 - i));
       final key = WorkoutBloc.dayKey(date);
       return DaySummary(
         date: date,
@@ -104,21 +102,21 @@ class WorkoutLoaded extends WorkoutState {
   }
 
   List<HistoryEntry> get historyEntries {
-    final todayKey =
-        WorkoutBloc.dayKey(DateTime.now());
-    final entries = dayTotals.entries
-        .map((e) {
-          final date = parseDate(e.key);
-          if (date == null) return null;
-          return HistoryEntry(
-            date: date,
-            count: e.value,
-            isToday: e.key == todayKey,
-          );
-        })
-        .whereType<HistoryEntry>()
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+    final todayKey = WorkoutBloc.dayKey(DateTime.now());
+    final entries =
+        dayTotals.entries
+            .map((e) {
+              final date = parseDate(e.key);
+              if (date == null) return null;
+              return HistoryEntry(
+                date: date,
+                count: e.value,
+                isToday: e.key == todayKey,
+              );
+            })
+            .whereType<HistoryEntry>()
+            .toList()
+          ..sort((a, b) => b.date.compareTo(a.date));
     return entries;
   }
 
@@ -130,18 +128,15 @@ class WorkoutLoaded extends WorkoutState {
     bool? isSyncing,
     String? Function()? syncError,
     PendingUndo? Function()? pendingUndo,
-  }) =>
-      WorkoutLoaded(
-        dayTotals: dayTotals ?? this.dayTotals,
-        sessions: sessions ?? this.sessions,
-        preferences: preferences ?? this.preferences,
-        lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
-        isSyncing: isSyncing ?? this.isSyncing,
-        syncError: syncError != null ? syncError() : this.syncError,
-        pendingUndo: pendingUndo != null
-            ? pendingUndo()
-            : this.pendingUndo,
-      );
+  }) => WorkoutLoaded(
+    dayTotals: dayTotals ?? this.dayTotals,
+    sessions: sessions ?? this.sessions,
+    preferences: preferences ?? this.preferences,
+    lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+    isSyncing: isSyncing ?? this.isSyncing,
+    syncError: syncError != null ? syncError() : this.syncError,
+    pendingUndo: pendingUndo != null ? pendingUndo() : this.pendingUndo,
+  );
 
   static DateTime startOfDay(DateTime date) =>
       DateTime(date.year, date.month, date.day);
@@ -156,14 +151,14 @@ class WorkoutLoaded extends WorkoutState {
 
   @override
   List<Object?> get props => [
-        dayTotals,
-        sessions,
-        preferences,
-        lastSyncedAt,
-        isSyncing,
-        syncError,
-        pendingUndo,
-      ];
+    dayTotals,
+    sessions,
+    preferences,
+    lastSyncedAt,
+    isSyncing,
+    syncError,
+    pendingUndo,
+  ];
 }
 
 class WorkoutError extends WorkoutState {

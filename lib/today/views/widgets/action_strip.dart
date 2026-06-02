@@ -112,20 +112,15 @@ class ActionCell extends StatelessWidget {
       child: GestureDetector(
         onTap: isEnabled ? onTap : null,
         child: ColoredBox(
-          color: emphasized
-              ? theme.accent
-              : Colors.transparent,
+          color: emphasized ? theme.accent : Colors.transparent,
           child: Center(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   title,
                   style: AppTypography.displayAction(
-                    color: emphasized
-                        ? AppColors.fixedDark
-                        : theme.ink,
+                    color: emphasized ? AppColors.fixedDark : theme.ink,
                   ),
                 ),
                 if (subtitle != null) ...[

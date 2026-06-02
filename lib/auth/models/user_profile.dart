@@ -25,8 +25,7 @@ class UserProfile extends Equatable {
       username: json['username'] as String?,
       usernameLower: json['usernameLower'] as String?,
       todayCount: (json['todayCount'] as num?)?.toInt() ?? 0,
-      totalAllTime:
-          (json['totalAllTime'] as num?)?.toInt() ?? 0,
+      totalAllTime: (json['totalAllTime'] as num?)?.toInt() ?? 0,
       bestDay: (json['bestDay'] as num?)?.toInt() ?? 0,
       streak: (json['streak'] as num?)?.toInt() ?? 0,
       createdAt: json['createdAt'] != null
@@ -51,11 +50,15 @@ class UserProfile extends Equatable {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  bool get needsUsername =>
-      username == null || username!.trim().isEmpty;
+  bool get needsUsername => username == null || username!.trim().isEmpty;
 
   String get label {
     final resolved = username ?? displayName ?? email ?? 'PUSHER';
+    return resolved.trim().isEmpty ? 'PUSHER' : resolved;
+  }
+
+  String get publicLabel {
+    final resolved = username ?? displayName ?? 'PUSHER';
     return resolved.trim().isEmpty ? 'PUSHER' : resolved;
   }
 
@@ -68,25 +71,34 @@ class UserProfile extends Equatable {
     if (parts.length == 1) {
       return parts.first.substring(0, 1).toUpperCase();
     }
-    return (parts.first.substring(0, 1) +
-            parts.last.substring(0, 1))
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
         .toUpperCase();
   }
 
   Map<String, dynamic> toJson() => {
-        'uid': uid,
-        'email': email,
-        'displayName': displayName,
-        'photoUrl': photoUrl,
-        'username': username,
-        'usernameLower': usernameLower,
-        'todayCount': todayCount,
-        'totalAllTime': totalAllTime,
-        'bestDay': bestDay,
-        'streak': streak,
-        'createdAt': createdAt?.toIso8601String(),
-        'updatedAt': updatedAt?.toIso8601String(),
-      };
+    'uid': uid,
+    'email': email,
+    'displayName': displayName,
+    'photoUrl': photoUrl,
+    'username': username,
+    'usernameLower': usernameLower,
+    'todayCount': todayCount,
+    'totalAllTime': totalAllTime,
+    'bestDay': bestDay,
+    'streak': streak,
+    'createdAt': createdAt?.toIso8601String(),
+    'updatedAt': updatedAt?.toIso8601String(),
+  };
+
+  Map<String, dynamic> toPublicJson() => {
+    'uid': uid,
+    'displayName': displayName,
+    'photoUrl': photoUrl,
+    'username': username,
+    'usernameLower': usernameLower,
+    'createdAt': createdAt?.toIso8601String(),
+    'updatedAt': updatedAt?.toIso8601String(),
+  };
 
   UserProfile copyWith({
     String? uid,
@@ -120,17 +132,17 @@ class UserProfile extends Equatable {
 
   @override
   List<Object?> get props => [
-        uid,
-        email,
-        displayName,
-        photoUrl,
-        username,
-        usernameLower,
-        todayCount,
-        totalAllTime,
-        bestDay,
-        streak,
-        createdAt,
-        updatedAt,
-      ];
+    uid,
+    email,
+    displayName,
+    photoUrl,
+    username,
+    usernameLower,
+    todayCount,
+    totalAllTime,
+    bestDay,
+    streak,
+    createdAt,
+    updatedAt,
+  ];
 }

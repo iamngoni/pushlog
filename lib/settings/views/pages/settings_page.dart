@@ -6,6 +6,9 @@
 //  Copyright (c) 2026 Codecraft Solutions. All rights reserved.
 //
 
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
@@ -14,6 +17,7 @@ import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/injection.dart';
+import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/models/repos/abs/workout_repository.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
@@ -30,11 +34,19 @@ class SettingsPage extends StatefulWidget {
   final void Function(PushlogTab) onTabChanged;
 
   @override
-  State<SettingsPage> createState() =>
-      _SettingsPageState();
+  State<SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  HealthAuthorizationStatus _healthStatus =
+      HealthAuthorizationStatus.unavailable;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshHealthStatus());
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
@@ -65,8 +77,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   horizontal: 28,
                 ),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
                     buildHeader(theme),
@@ -74,8 +85,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     Expanded(
                       child: SingleChildScrollView(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             buildAccountSection(
                               context,
@@ -163,9 +173,7 @@ class _SettingsPageState extends State<SettingsPage> {
     AppTheme theme,
   ) {
     final authState = context.watch<AuthCubit>().state;
-    final profile = authState is AuthAuthenticated
-        ? authState.profile
-        : null;
+    final profile = authState is AuthAuthenticated ? authState.profile : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,25 +184,35 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             buildInfoRow(
               title: 'USERNAME',
-              detail: profile?.username?.toUpperCase() ??
-                  'UNSET',
+              detail: profile?.username?.toUpperCase() ?? 'UNSET',
               theme: theme,
             ),
             buildDivider(theme),
             buildInfoRow(
               title: 'SIGNED IN',
-              detail:
-                  profile?.email?.toUpperCase() ?? 'UNKNOWN',
+              detail: profile?.email?.toUpperCase() ?? 'UNKNOWN',
               theme: theme,
             ),
             buildDivider(theme),
             buildActionRow(
               title: 'SIGN OUT',
               detail: 'DISCONNECT THIS DEVICE',
+              theme: theme,
+              onTap: () => context.read<AuthCubit>().signOut(),
+            ),
+            buildDivider(theme),
+            buildActionRow(
+              title: 'DELETE ACCOUNT',
+              detail: 'REMOVE PROFILE + SIGN-IN',
               accent: true,
               theme: theme,
-              onTap: () =>
-                  context.read<AuthCubit>().signOut(),
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (_) => buildDeleteAccountDialog(
+                  context,
+                  theme,
+                ),
+              ),
             ),
           ],
         ),
@@ -220,7 +238,7 @@ class _SettingsPageState extends State<SettingsPage> {
           theme,
           children: [
             buildInfoRow(
-              title: 'FIREBASE BACKUP',
+              title: 'CLOUD BACKUP',
               detail: 'AUTOMATIC',
               theme: theme,
             ),
@@ -230,8 +248,7 @@ class _SettingsPageState extends State<SettingsPage> {
               detail: syncLabel,
               theme: theme,
             ),
-            if (state.syncError != null &&
-                state.syncError!.isNotEmpty) ...[
+            if (state.syncError != null && state.syncError!.isNotEmpty) ...[
               buildDivider(theme),
               buildInfoRow(
                 title: 'SYNC ISSUE',
@@ -243,13 +260,13 @@ class _SettingsPageState extends State<SettingsPage> {
             buildDivider(theme),
             buildActionRow(
               title: state.isSyncing ? 'SYNCING...' : 'SYNC NOW',
-              detail: 'PUSH LATEST DATA TO FIRESTORE',
+              detail: 'SAVE LATEST CLOUD COPY',
               theme: theme,
               onTap: state.isSyncing
                   ? () {}
                   : () => context.read<WorkoutBloc>().add(
-                        const SyncWorkoutDataEvent(),
-                      ),
+                      const SyncWorkoutDataEvent(),
+                    ),
             ),
           ],
         ),
@@ -271,9 +288,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             buildToggleRow(
               title: 'DAILY REMINDER',
-              detail: prefs.remindersEnabled
-                  ? 'ENABLED'
-                  : 'DISABLED',
+              detail: prefs.remindersEnabled ? 'ENABLED' : 'DISABLED',
               isOn: prefs.remindersEnabled,
               theme: theme,
               onChanged: (value) async {
@@ -287,7 +302,6 @@ class _SettingsPageState extends State<SettingsPage> {
                         content: Text(
                           'ALLOW NOTIFICATIONS TO ENABLE DAILY REMINDERS.',
                           style: AppTypography.labelMono(
-                            size: 10,
                             color: theme.ink,
                             letterSpacing: 1.1,
                           ),
@@ -297,12 +311,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     return;
                   }
                 }
+                if (!context.mounted) return;
                 final updated = prefs.copyWith(
                   remindersEnabled: value,
                 );
                 context.read<WorkoutBloc>().add(
-                      UpdatePreferencesEvent(updated),
-                    );
+                  UpdatePreferencesEvent(updated),
+                );
               },
             ),
             if (prefs.remindersEnabled) ...[
@@ -325,8 +340,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     smartReminderCopyEnabled: value,
                   );
                   context.read<WorkoutBloc>().add(
-                        UpdatePreferencesEvent(updated),
-                      );
+                    UpdatePreferencesEvent(updated),
+                  );
                 },
               ),
             ],
@@ -350,18 +365,38 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             buildToggleRow(
               title: 'HEALTHKIT SYNC',
-              detail: prefs.healthSyncEnabled
-                  ? 'ENABLED'
-                  : 'DISABLED',
+              detail: healthDetail(prefs),
               isOn: prefs.healthSyncEnabled,
               theme: theme,
-              onChanged: (value) {
+              onChanged: (value) async {
+                if (value) {
+                  final granted = await getIt<HealthService>()
+                      .requestAuthorization();
+                  await _refreshHealthStatus();
+                  if (!granted) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: theme.surface,
+                        content: Text(
+                          'HEALTHKIT IS NOT AVAILABLE OR NOT AUTHORIZED.',
+                          style: AppTypography.labelMono(
+                            color: theme.ink,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                }
+                if (!context.mounted) return;
                 final updated = prefs.copyWith(
                   healthSyncEnabled: value,
                 );
                 context.read<WorkoutBloc>().add(
-                      UpdatePreferencesEvent(updated),
-                    );
+                  UpdatePreferencesEvent(updated),
+                );
               },
             ),
             buildDivider(theme),
@@ -374,6 +409,22 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _refreshHealthStatus() async {
+    final status = await getIt<HealthService>().authorizationStatus();
+    if (!mounted) return;
+    setState(() => _healthStatus = status);
+  }
+
+  String healthDetail(WorkoutPreferences prefs) {
+    return switch (_healthStatus) {
+      HealthAuthorizationStatus.authorized =>
+        prefs.healthSyncEnabled ? 'AUTHORIZED' : 'AVAILABLE',
+      HealthAuthorizationStatus.notDetermined => 'NOT ASKED',
+      HealthAuthorizationStatus.denied => 'DENIED',
+      HealthAuthorizationStatus.unavailable => 'UNAVAILABLE',
+    };
   }
 
   Widget buildDataSection(
@@ -389,14 +440,14 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             buildActionRow(
               title: 'EXPORT JSON',
-              detail: 'SHARE RAW PUSHLOG DATA',
+              detail: 'SHARE YOUR PUSHLOG DATA',
               theme: theme,
-              onTap: () => exportData(),
+              onTap: exportData,
             ),
             buildDivider(theme),
             buildActionRow(
               title: 'RESET APP DATA',
-              detail: 'CLEAR HISTORY + PREFERENCES',
+              detail: 'CLEAR LOCAL HISTORY + PREFS',
               accent: true,
               theme: theme,
               onTap: () => showDialog<void>(
@@ -413,6 +464,56 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget buildDeleteAccountDialog(
+    BuildContext context,
+    AppTheme theme,
+  ) {
+    return AlertDialog(
+      backgroundColor: theme.background,
+      title: Text(
+        'DELETE ACCOUNT?',
+        style: AppTypography.labelMono(
+          size: 13,
+          color: theme.ink,
+          weight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
+      ),
+      content: Text(
+        'THIS REMOVES YOUR PROFILE, USERNAME, FRIENDS, REQUESTS, '
+        'AND CLOUD BACKUP.',
+        style: AppTypography.labelMono(
+          color: theme.secondaryInk,
+          letterSpacing: 0.8,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            'CANCEL',
+            style: AppTypography.labelMono(
+              color: theme.secondaryInk,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            unawaited(deleteAccount(context, theme));
+          },
+          child: Text(
+            'DELETE',
+            style: AppTypography.labelMono(
+              color: theme.accentInk,
+              weight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget buildResetDialog(
     BuildContext context,
     AppTheme theme,
@@ -422,8 +523,9 @@ class _SettingsPageState extends State<SettingsPage> {
       title: Text(
         'RESET PUSHLOG?',
         style: AppTypography.labelMono(
-          size: 12,
+          size: 13,
           color: theme.ink,
+          weight: FontWeight.w700,
           letterSpacing: 1.5,
         ),
       ),
@@ -431,7 +533,7 @@ class _SettingsPageState extends State<SettingsPage> {
         'THIS CLEARS HISTORY, LIVE LOGS, AND PREFERENCES.',
         style: AppTypography.labelMono(
           color: theme.secondaryInk,
-          letterSpacing: 1,
+          letterSpacing: 0.8,
         ),
       ),
       actions: [
@@ -447,8 +549,8 @@ class _SettingsPageState extends State<SettingsPage> {
         TextButton(
           onPressed: () {
             context.read<WorkoutBloc>().add(
-                  const ResetWorkoutDataEvent(),
-                );
+              const ResetWorkoutDataEvent(),
+            );
             Navigator.of(context).pop();
           },
           child: Text(
@@ -485,8 +587,8 @@ class _SettingsPageState extends State<SettingsPage> {
             reminderMinute: picked.minute,
           );
           context.read<WorkoutBloc>().add(
-                UpdatePreferencesEvent(updated),
-              );
+            UpdatePreferencesEvent(updated),
+          );
         }
       },
       child: buildInfoRow(
@@ -535,9 +637,7 @@ class _SettingsPageState extends State<SettingsPage> {
           Text(
             detail,
             style: AppTypography.labelMono(
-              color: accent
-                  ? theme.accentInk
-                  : theme.secondaryInk,
+              color: accent ? theme.accentInk : theme.secondaryInk,
               letterSpacing: 1.2,
             ),
             textAlign: TextAlign.right,
@@ -582,8 +682,7 @@ class _SettingsPageState extends State<SettingsPage> {
         children: [
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
@@ -607,8 +706,7 @@ class _SettingsPageState extends State<SettingsPage> {
             value: isOn,
             onChanged: onChanged,
             activeThumbColor: theme.accent,
-            activeTrackColor:
-                theme.accent.withAlpha(80),
+            activeTrackColor: theme.accent.withAlpha(80),
           ),
         ],
       ),
@@ -668,10 +766,7 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Text(
               title,
               style: AppTypography.labelMono(
-                size: 11,
-                color: isSelected
-                    ? theme.ink
-                    : theme.secondaryInk,
+                color: isSelected ? theme.ink : theme.secondaryInk,
                 letterSpacing: 2,
               ),
             ),
@@ -706,15 +801,67 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> deleteAccount(
+    BuildContext context,
+    AppTheme theme,
+  ) async {
+    final authCubit = context.read<AuthCubit>();
+    final workoutBloc = context.read<WorkoutBloc>();
+    try {
+      await authCubit.deleteAccount();
+      if (!context.mounted) return;
+      workoutBloc.add(const ResetWorkoutDataEvent());
+    } on Object catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: theme.surface,
+          content: Text(
+            accountDeletionMessage(error).toUpperCase(),
+            style: AppTypography.labelMono(
+              color: theme.ink,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  String accountDeletionMessage(Object error) {
+    if (error is FirebaseAuthException &&
+        error.code == 'requires-recent-login') {
+      return 'Sign in again before deleting this account.';
+    }
+    if (error is FirebaseException && error.code == 'permission-denied') {
+      return 'Could not delete the account yet. Try again shortly.';
+    }
+    return 'Could not delete the account right now.';
+  }
+
   String formatSettingsDate(DateTime date) {
     const days = [
-      'MON', 'TUE', 'WED', 'THU',
-      'FRI', 'SAT', 'SUN',
+      'MON',
+      'TUE',
+      'WED',
+      'THU',
+      'FRI',
+      'SAT',
+      'SUN',
     ];
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR',
-      'MAY', 'JUN', 'JUL', 'AUG',
-      'SEP', 'OCT', 'NOV', 'DEC',
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
     final day = days[date.weekday - 1];
     final month = months[date.month - 1];

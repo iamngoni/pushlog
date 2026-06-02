@@ -24,8 +24,8 @@ class AppColors {
   static const Color inkLight = Color(0xFF0A0908);
 
   // Secondary Ink
-  static const Color secondaryInkDark = Color(0xFF706D68);
-  static const Color secondaryInkLight = Color(0xFF9A9590);
+  static const Color secondaryInkDark = Color(0xFFB7B1A9);
+  static const Color secondaryInkLight = Color(0xFF625D58);
 
   // Divider
   static const Color dividerDark = Color(0xFF282522);
@@ -59,26 +59,26 @@ class AppTheme {
   });
 
   factory AppTheme.dark() => const AppTheme(
-        background: AppColors.backgroundDark,
-        surface: AppColors.surfaceDark,
-        ink: AppColors.inkDark,
-        secondaryInk: AppColors.secondaryInkDark,
-        divider: AppColors.dividerDark,
-        accent: AppColors.accent,
-        accentInk: AppColors.accentInkDark,
-        accentStroke: AppColors.accentStrokeDark,
-      );
+    background: AppColors.backgroundDark,
+    surface: AppColors.surfaceDark,
+    ink: AppColors.inkDark,
+    secondaryInk: AppColors.secondaryInkDark,
+    divider: AppColors.dividerDark,
+    accent: AppColors.accent,
+    accentInk: AppColors.accentInkDark,
+    accentStroke: AppColors.accentStrokeDark,
+  );
 
   factory AppTheme.light() => const AppTheme(
-        background: AppColors.backgroundLight,
-        surface: AppColors.surfaceLight,
-        ink: AppColors.inkLight,
-        secondaryInk: AppColors.secondaryInkLight,
-        divider: AppColors.dividerLight,
-        accent: AppColors.accent,
-        accentInk: AppColors.accentInkLight,
-        accentStroke: AppColors.accentStrokeLight,
-      );
+    background: AppColors.backgroundLight,
+    surface: AppColors.surfaceLight,
+    ink: AppColors.inkLight,
+    secondaryInk: AppColors.secondaryInkLight,
+    divider: AppColors.dividerLight,
+    accent: AppColors.accent,
+    accentInk: AppColors.accentInkLight,
+    accentStroke: AppColors.accentStrokeLight,
+  );
 
   final Color background;
   final Color surface;
@@ -92,9 +92,7 @@ class AppTheme {
   // ignore: prefer_constructors_over_static_methods - mirrors Theme.of convention
   static AppTheme of(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    return brightness == Brightness.dark
-        ? AppTheme.dark()
-        : AppTheme.light();
+    return brightness == Brightness.dark ? AppTheme.dark() : AppTheme.light();
   }
 
   ThemeData toMaterialTheme(Brightness brightness) {

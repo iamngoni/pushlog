@@ -24,8 +24,7 @@ class StatsBlock extends StatelessWidget {
   final int totalAllTime;
   final AppTheme theme;
 
-  String twoDigit(int value) =>
-      value.toString().padLeft(2, '0');
+  String twoDigit(int value) => value.toString().padLeft(2, '0');
 
   String abbreviated(int value) {
     if (value >= 1000) {

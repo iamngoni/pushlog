@@ -37,20 +37,15 @@ class WorkoutSession extends Equatable {
       ),
       duration: json['duration'] != null
           ? Duration(
-              microseconds:
-                  (json['duration'] as num).toInt(),
+              microseconds: (json['duration'] as num).toInt(),
             )
           : null,
-      averageRepDuration:
-          json['averageRepDuration'] != null
-              ? Duration(
-                  microseconds:
-                      (json['averageRepDuration'] as num)
-                          .toInt(),
-                )
-              : null,
-      manualAdjustments:
-          (json['manualAdjustments'] as int?) ?? 0,
+      averageRepDuration: json['averageRepDuration'] != null
+          ? Duration(
+              microseconds: (json['averageRepDuration'] as num).toInt(),
+            )
+          : null,
+      manualAdjustments: (json['manualAdjustments'] as int?) ?? 0,
     );
   }
 
@@ -63,15 +58,14 @@ class WorkoutSession extends Equatable {
   final int manualAdjustments;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'date': date.toIso8601String(),
-        'reps': reps,
-        'source': source.name,
-        'duration': duration?.inMicroseconds,
-        'averageRepDuration':
-            averageRepDuration?.inMicroseconds,
-        'manualAdjustments': manualAdjustments,
-      };
+    'id': id,
+    'date': date.toIso8601String(),
+    'reps': reps,
+    'source': source.name,
+    'duration': duration?.inMicroseconds,
+    'averageRepDuration': averageRepDuration?.inMicroseconds,
+    'manualAdjustments': manualAdjustments,
+  };
 
   WorkoutSession copyWith({
     String? id,
@@ -81,27 +75,24 @@ class WorkoutSession extends Equatable {
     Duration? duration,
     Duration? averageRepDuration,
     int? manualAdjustments,
-  }) =>
-      WorkoutSession(
-        id: id ?? this.id,
-        date: date ?? this.date,
-        reps: reps ?? this.reps,
-        source: source ?? this.source,
-        duration: duration ?? this.duration,
-        averageRepDuration:
-            averageRepDuration ?? this.averageRepDuration,
-        manualAdjustments:
-            manualAdjustments ?? this.manualAdjustments,
-      );
+  }) => WorkoutSession(
+    id: id ?? this.id,
+    date: date ?? this.date,
+    reps: reps ?? this.reps,
+    source: source ?? this.source,
+    duration: duration ?? this.duration,
+    averageRepDuration: averageRepDuration ?? this.averageRepDuration,
+    manualAdjustments: manualAdjustments ?? this.manualAdjustments,
+  );
 
   @override
   List<Object?> get props => [
-        id,
-        date,
-        reps,
-        source,
-        duration,
-        averageRepDuration,
-        manualAdjustments,
-      ];
+    id,
+    date,
+    reps,
+    source,
+    duration,
+    averageRepDuration,
+    manualAdjustments,
+  ];
 }

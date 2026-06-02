@@ -53,13 +53,22 @@ class AuthNeedsUsername extends AuthState {
 
   @override
   List<Object?> get props => [
-        uid,
-        email,
-        displayName,
-        photoUrl,
-        message,
-        isSubmitting,
-      ];
+    uid,
+    email,
+    displayName,
+    photoUrl,
+    message,
+    isSubmitting,
+  ];
+}
+
+class AuthBlocked extends AuthState {
+  const AuthBlocked({required this.message});
+
+  final String message;
+
+  @override
+  List<Object?> get props => [message];
 }
 
 class AuthAuthenticated extends AuthState {

@@ -16,6 +16,9 @@ import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/services/storage_service.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
+import 'package:pushlog/platform/health/health_service.dart';
+import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
+import 'package:pushlog/platform/watch/watch_service.dart';
 import 'package:pushlog/workout/models/repos/abs/workout_repository.dart';
 import 'package:pushlog/workout/models/repos/impl/cloud_workout_repository.dart';
 import 'package:pushlog/workout/models/repos/impl/local_workout_repository.dart';
@@ -38,10 +41,12 @@ Future<void> configureInjection() async {
   final storageService = StorageService(prefs);
   final localRepository = LocalWorkoutRepository(
     storage: storageService,
-    scopeResolver: () =>
-        firebaseAuth.currentUser?.uid ?? 'guest',
+    scopeResolver: () => firebaseAuth.currentUser?.uid ?? 'guest',
   );
   final profileService = ProfileService(firestore);
+  const healthService = HealthService();
+  const liveTrackingService = LiveTrackingService();
+  const watchService = WatchService();
   final authService = AuthService(
     firebaseAuth,
     googleSignIn,
@@ -62,6 +67,9 @@ Future<void> configureInjection() async {
     ..registerSingleton<StorageService>(storageService)
     ..registerSingleton<AuthService>(authService)
     ..registerSingleton<ProfileService>(profileService)
+    ..registerSingleton<HealthService>(healthService)
+    ..registerSingleton<LiveTrackingService>(liveTrackingService)
+    ..registerSingleton<WatchService>(watchService)
     ..registerSingleton<LocalWorkoutRepository>(
       localRepository,
     )

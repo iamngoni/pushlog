@@ -39,22 +39,25 @@ class SaveLiveSessionEvent extends WorkoutEvent {
   const SaveLiveSessionEvent({
     required this.reps,
     required this.duration,
+    this.sessionId,
     this.avgRepDuration,
     this.manualAdjustments = 0,
   });
 
   final int reps;
   final Duration duration;
+  final String? sessionId;
   final Duration? avgRepDuration;
   final int manualAdjustments;
 
   @override
   List<Object?> get props => [
-        reps,
-        duration,
-        avgRepDuration,
-        manualAdjustments,
-      ];
+    reps,
+    duration,
+    sessionId,
+    avgRepDuration,
+    manualAdjustments,
+  ];
 }
 
 class DeleteSessionEvent extends WorkoutEvent {

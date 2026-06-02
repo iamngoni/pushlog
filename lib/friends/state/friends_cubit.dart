@@ -3,12 +3,12 @@ import 'package:equatable/equatable.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/auth/services/profile_service.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
+import 'package:pushlog/friends/models/friend_request.dart';
 
 part 'friends_state.dart';
 
 class FriendsCubit extends Cubit<FriendsState> {
-  FriendsCubit(this._profileService)
-      : super(const FriendsState());
+  FriendsCubit(this._profileService) : super(const FriendsState());
 
   final ProfileService _profileService;
 
@@ -16,12 +16,17 @@ class FriendsCubit extends Cubit<FriendsState> {
     required UserProfile me,
     required int todayCount,
   }) async {
-    emit(state.copyWith(isLoading: true, error: null));
+    emit(state.copyWith(isLoading: true));
     try {
-      final leaderboard =
-          await _profileService.loadFriends(
+      final leaderboard = await _profileService.loadFriends(
         me: me,
         todayCount: todayCount,
+      );
+      final incomingRequests = await _profileService.loadIncomingFriendRequests(
+        ownerUid: me.uid,
+      );
+      final outgoingRequests = await _profileService.loadOutgoingFriendRequests(
+        ownerUid: me.uid,
       );
       emit(
         state.copyWith(
@@ -31,9 +36,17 @@ class FriendsCubit extends Cubit<FriendsState> {
               .where((entry) => !entry.isMe)
               .map((entry) => entry.uid)
               .toSet(),
+          incomingRequests: incomingRequests,
+          outgoingRequests: outgoingRequests,
+          incomingRequestIds: incomingRequests
+              .map((request) => request.uid)
+              .toSet(),
+          outgoingRequestIds: outgoingRequests
+              .map((request) => request.uid)
+              .toSet(),
         ),
       );
-    } catch (error) {
+    } on Exception catch (error) {
       emit(
         state.copyWith(
           isLoading: false,
@@ -51,7 +64,6 @@ class FriendsCubit extends Cubit<FriendsState> {
       state.copyWith(
         searchQuery: query,
         isSearching: query.trim().length >= 2,
-        error: null,
       ),
     );
     if (query.trim().length < 2) {
@@ -65,8 +77,7 @@ class FriendsCubit extends Cubit<FriendsState> {
     }
 
     try {
-      final results =
-          await _profileService.searchUsersByUsername(
+      final results = await _profileService.searchUsersByUsername(
         query,
         excludeUid: me.uid,
       );
@@ -76,7 +87,7 @@ class FriendsCubit extends Cubit<FriendsState> {
           searchResults: results,
         ),
       );
-    } catch (error) {
+    } on Exception catch (error) {
       emit(
         state.copyWith(
           isSearching: false,
@@ -86,16 +97,65 @@ class FriendsCubit extends Cubit<FriendsState> {
     }
   }
 
-  Future<void> addFriend({
+  Future<void> sendFriendRequest({
     required UserProfile me,
     required int todayCount,
-    required UserProfile friend,
+    required UserProfile receiver,
   }) async {
-    await _profileService.addFriend(
-      ownerUid: me.uid,
-      friend: friend,
+    await _profileService.sendFriendRequest(
+      requester: me,
+      receiver: receiver,
     );
     await search(me: me, query: state.searchQuery);
+    await load(me: me, todayCount: todayCount);
+  }
+
+  Future<void> acceptFriendRequest({
+    required UserProfile me,
+    required int todayCount,
+    required FriendRequest requester,
+  }) async {
+    await _profileService.acceptFriendRequest(
+      receiver: me,
+      requester: requester,
+    );
+    await load(me: me, todayCount: todayCount);
+  }
+
+  Future<void> declineFriendRequest({
+    required UserProfile me,
+    required int todayCount,
+    required String requesterUid,
+  }) async {
+    await _profileService.declineFriendRequest(
+      ownerUid: me.uid,
+      requesterUid: requesterUid,
+    );
+    await load(me: me, todayCount: todayCount);
+  }
+
+  Future<void> cancelFriendRequest({
+    required UserProfile me,
+    required int todayCount,
+    required String receiverUid,
+  }) async {
+    await _profileService.cancelFriendRequest(
+      ownerUid: me.uid,
+      receiverUid: receiverUid,
+    );
+    await search(me: me, query: state.searchQuery);
+    await load(me: me, todayCount: todayCount);
+  }
+
+  Future<void> revokeFriendship({
+    required UserProfile me,
+    required int todayCount,
+    required String friendUid,
+  }) async {
+    await _profileService.revokeFriendship(
+      ownerUid: me.uid,
+      friendUid: friendUid,
+    );
     await load(me: me, todayCount: todayCount);
   }
 
@@ -104,10 +164,10 @@ class FriendsCubit extends Cubit<FriendsState> {
     required int todayCount,
     required String friendUid,
   }) async {
-    await _profileService.removeFriend(
-      ownerUid: me.uid,
+    await revokeFriendship(
+      me: me,
+      todayCount: todayCount,
       friendUid: friendUid,
     );
-    await load(me: me, todayCount: todayCount);
   }
 }

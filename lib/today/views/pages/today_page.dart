@@ -6,6 +6,8 @@
 //  Copyright (c) 2026 Codecraft Solutions. All rights reserved.
 //
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
@@ -52,9 +54,7 @@ class TodayPage extends StatelessWidget {
     WorkoutLoaded state,
   ) {
     final authState = context.watch<AuthCubit>().state;
-    final profile = authState is AuthAuthenticated
-        ? authState.profile
-        : null;
+    final profile = authState is AuthAuthenticated ? authState.profile : null;
     return ColoredBox(
       color: theme.background,
       child: Column(
@@ -67,8 +67,7 @@ class TodayPage extends StatelessWidget {
                   horizontal: 28,
                 ),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
                     buildHeader(theme),
@@ -116,13 +115,27 @@ class TodayPage extends StatelessWidget {
   Widget buildHeader(AppTheme theme) {
     final now = DateTime.now();
     const days = [
-      'MON', 'TUE', 'WED', 'THU',
-      'FRI', 'SAT', 'SUN',
+      'MON',
+      'TUE',
+      'WED',
+      'THU',
+      'FRI',
+      'SAT',
+      'SUN',
     ];
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR',
-      'MAY', 'JUN', 'JUL', 'AUG',
-      'SEP', 'OCT', 'NOV', 'DEC',
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
     final dow = days[now.weekday - 1];
     final mon = months[now.month - 1];
@@ -159,18 +172,18 @@ class TodayPage extends StatelessWidget {
       top: false,
       child: Column(
         children: [
-          if (state.pendingUndo != null)
-            buildUndoStrip(context, theme, state),
+          if (state.pendingUndo != null) buildUndoStrip(context, theme, state),
           ActionStrip(
             theme: theme,
-            onAddReps: (reps) => context
-                .read<WorkoutBloc>()
-                .add(AddManualRepsEvent(reps)),
+            onAddReps: (reps) =>
+                context.read<WorkoutBloc>().add(AddManualRepsEvent(reps)),
             onLive: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const LiveSessionPage(),
-                  fullscreenDialog: true,
+              unawaited(
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const LiveSessionPage(),
+                    fullscreenDialog: true,
+                  ),
                 ),
               );
             },
@@ -204,10 +217,8 @@ class TodayPage extends StatelessWidget {
                 vertical: 12,
               ),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     'LAST LOG',
@@ -234,9 +245,8 @@ class TodayPage extends StatelessWidget {
           ),
           Expanded(
             child: GestureDetector(
-              onTap: () => context
-                  .read<WorkoutBloc>()
-                  .add(const UndoLastEntryEvent()),
+              onTap: () =>
+                  context.read<WorkoutBloc>().add(const UndoLastEntryEvent()),
               child: ColoredBox(
                 color: theme.accent,
                 child: Center(
@@ -297,10 +307,7 @@ class TodayPage extends StatelessWidget {
             child: Text(
               title,
               style: AppTypography.labelMono(
-                size: 11,
-                color: isSelected
-                    ? theme.ink
-                    : theme.secondaryInk,
+                color: isSelected ? theme.ink : theme.secondaryInk,
                 letterSpacing: 2,
               ),
             ),

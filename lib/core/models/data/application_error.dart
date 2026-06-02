@@ -15,19 +15,19 @@ class ApplicationError extends Equatable {
   });
 
   factory ApplicationError.unknownError() => const ApplicationError(
-        message: 'An unexpected error occurred.',
-        code: 'unknown',
-      );
+    message: 'An unexpected error occurred.',
+    code: 'unknown',
+  );
 
   factory ApplicationError.storageError(String detail) => ApplicationError(
-        message: 'Storage error: $detail',
-        code: 'storage_error',
-      );
+    message: 'Storage error: $detail',
+    code: 'storage_error',
+  );
 
   factory ApplicationError.serializationError() => const ApplicationError(
-        message: 'Failed to read stored data.',
-        code: 'serialization_error',
-      );
+    message: 'Failed to read stored data.',
+    code: 'serialization_error',
+  );
 
   final String message;
   final String? code;

@@ -18,8 +18,7 @@ class LocalWorkoutRepository {
   static const String snapshotKey = 'pushlog.snapshot';
   static const String dayTotalsKey = 'pushlog.day_totals';
   static const String sessionsKey = 'pushlog.sessions';
-  static const String preferencesKey =
-      'pushlog.preferences';
+  static const String preferencesKey = 'pushlog.preferences';
 
   Future<WorkoutSnapshot> loadSnapshot() async {
     try {
@@ -65,8 +64,7 @@ class LocalWorkoutRepository {
   }
 
   WorkoutSnapshot _loadLegacySnapshot() {
-    final legacySnapshot =
-        storage.getString(_scoped(snapshotKey));
+    final legacySnapshot = storage.getString(_scoped(snapshotKey));
     if (legacySnapshot != null) {
       return WorkoutSnapshot.fromJson(
         Map<String, dynamic>.from(
@@ -75,34 +73,30 @@ class LocalWorkoutRepository {
       );
     }
 
-    final rawDayTotals =
-        storage.getString(_legacy(dayTotalsKey));
-    final rawSessions =
-        storage.getString(_legacy(sessionsKey));
-    final rawPreferences =
-        storage.getString(_legacy(preferencesKey));
+    final rawDayTotals = storage.getString(_legacy(dayTotalsKey));
+    final rawSessions = storage.getString(_legacy(sessionsKey));
+    final rawPreferences = storage.getString(_legacy(preferencesKey));
 
     final dayTotals = rawDayTotals == null
         ? <String, int>{}
-        : (jsonDecode(rawDayTotals) as Map<String, dynamic>)
-            .map(
-              (key, value) => MapEntry(
-                key,
-                (value as num).toInt(),
-              ),
-            );
+        : (jsonDecode(rawDayTotals) as Map<String, dynamic>).map(
+            (key, value) => MapEntry(
+              key,
+              (value as num).toInt(),
+            ),
+          );
 
     final sessions = rawSessions == null
         ? <WorkoutSession>[]
         : (jsonDecode(rawSessions) as List<dynamic>)
-            .map(
-              (item) => WorkoutSession.fromJson(
-                Map<String, dynamic>.from(
-                  item as Map,
+              .map(
+                (item) => WorkoutSession.fromJson(
+                  Map<String, dynamic>.from(
+                    item as Map,
+                  ),
                 ),
-              ),
-            )
-            .toList();
+              )
+              .toList();
 
     final preferences = rawPreferences == null
         ? const WorkoutPreferences()
@@ -119,8 +113,7 @@ class LocalWorkoutRepository {
     );
   }
 
-  String _scoped(String baseKey) =>
-      '$baseKey.${scopeResolver()}';
+  String _scoped(String baseKey) => '$baseKey.${scopeResolver()}';
 
   String _legacy(String baseKey) => baseKey;
 }

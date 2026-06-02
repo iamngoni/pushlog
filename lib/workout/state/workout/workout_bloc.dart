@@ -17,8 +17,8 @@ import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/workout/models/data/day_summary.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
-import 'package:pushlog/workout/models/data/workout_snapshot.dart';
 import 'package:pushlog/workout/models/data/workout_session.dart';
+import 'package:pushlog/workout/models/data/workout_snapshot.dart';
 import 'package:pushlog/workout/models/repos/abs/workout_repository.dart';
 
 part 'workout_event.dart';
@@ -27,32 +27,30 @@ part 'workout_state.dart';
 @injectable
 class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
   WorkoutBloc({
-    required this.repository,
-    required this.reminderService,
-  })
-      : super(const WorkoutInitial()) {
-    on<LoadWorkoutDataEvent>(onLoadWorkoutData);
-    on<AddManualRepsEvent>(onAddManualReps);
-    on<UndoLastEntryEvent>(onUndoLastEntry);
-    on<SaveLiveSessionEvent>(onSaveLiveSession);
-    on<DeleteSessionEvent>(onDeleteSession);
-    on<UpdateSessionRepsEvent>(onUpdateSessionReps);
-    on<UpdatePreferencesEvent>(onUpdatePreferences);
-    on<SyncWorkoutDataEvent>(onSyncWorkoutData);
-    on<ResetWorkoutDataEvent>(onResetWorkoutData);
+    required WorkoutRepository repository,
+    required ReminderService reminderService,
+  }) : _repository = repository,
+       _reminderService = reminderService,
+       super(const WorkoutInitial()) {
+    on<LoadWorkoutDataEvent>(_onLoadWorkoutData);
+    on<AddManualRepsEvent>(_onAddManualReps);
+    on<UndoLastEntryEvent>(_onUndoLastEntry);
+    on<SaveLiveSessionEvent>(_onSaveLiveSession);
+    on<DeleteSessionEvent>(_onDeleteSession);
+    on<UpdateSessionRepsEvent>(_onUpdateSessionReps);
+    on<UpdatePreferencesEvent>(_onUpdatePreferences);
+    on<SyncWorkoutDataEvent>(_onSyncWorkoutData);
+    on<ResetWorkoutDataEvent>(_onResetWorkoutData);
   }
 
-  final WorkoutRepository repository;
-  final ReminderService reminderService;
+  final WorkoutRepository _repository;
+  final ReminderService _reminderService;
 
   static final _random = Random.secure();
 
   static String generateId() {
-    final bytes =
-        List<int>.generate(16, (_) => _random.nextInt(256));
-    return bytes
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
+    final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
   static String dayKey(DateTime date) {
@@ -62,13 +60,13 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     return '$y-$m-$d';
   }
 
-  Future<void> onLoadWorkoutData(
+  Future<void> _onLoadWorkoutData(
     LoadWorkoutDataEvent event,
     Emitter<WorkoutState> emit,
   ) async {
     emit(const WorkoutLoading());
     try {
-      final result = await repository.loadSnapshot();
+      final result = await _repository.loadSnapshot();
       final loadedState = result.fold<WorkoutLoaded?>(
         (error) {
           emit(WorkoutError(error));
@@ -90,7 +88,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     }
   }
 
-  Future<void> onAddManualReps(
+  Future<void> _onAddManualReps(
     AddManualRepsEvent event,
     Emitter<WorkoutState> emit,
   ) async {
@@ -109,10 +107,8 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
       source: WorkoutSource.manual,
     );
 
-    final updatedTotals =
-        Map<String, int>.from(current.dayTotals);
-    updatedTotals[key] =
-        (updatedTotals[key] ?? 0) + event.reps;
+    final updatedTotals = Map<String, int>.from(current.dayTotals);
+    updatedTotals[key] = (updatedTotals[key] ?? 0) + event.reps;
 
     final updatedSessions = [
       session,
@@ -133,7 +129,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     await _persistState(updatedState, emit);
   }
 
-  Future<void> onUndoLastEntry(
+  Future<void> _onUndoLastEntry(
     UndoLastEntryEvent event,
     Emitter<WorkoutState> emit,
   ) async {
@@ -144,20 +140,16 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     if (undo == null) return;
 
     final sessionIndex = current.sessions.indexWhere(
-      (s) =>
-          s.id == undo.sessionId &&
-          s.source == WorkoutSource.manual,
+      (s) => s.id == undo.sessionId && s.source == WorkoutSource.manual,
     );
 
-    final updatedSessions =
-        List<WorkoutSession>.from(current.sessions);
+    final updatedSessions = List<WorkoutSession>.from(current.sessions);
     if (sessionIndex >= 0) {
       updatedSessions.removeAt(sessionIndex);
     }
 
     final key = dayKey(undo.date);
-    final updatedTotals =
-        Map<String, int>.from(current.dayTotals);
+    final updatedTotals = Map<String, int>.from(current.dayTotals);
     final updated = (updatedTotals[key] ?? 0) - undo.reps;
     if (updated <= 0) {
       updatedTotals.remove(key);
@@ -175,7 +167,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     await _persistState(updatedState, emit);
   }
 
-  Future<void> onSaveLiveSession(
+  Future<void> _onSaveLiveSession(
     SaveLiveSessionEvent event,
     Emitter<WorkoutState> emit,
   ) async {
@@ -187,7 +179,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     final key = dayKey(now);
 
     final session = WorkoutSession(
-      id: generateId(),
+      id: event.sessionId ?? generateId(),
       date: now,
       reps: event.reps,
       source: WorkoutSource.live,
@@ -196,10 +188,8 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
       manualAdjustments: event.manualAdjustments,
     );
 
-    final updatedTotals =
-        Map<String, int>.from(current.dayTotals);
-    updatedTotals[key] =
-        (updatedTotals[key] ?? 0) + event.reps;
+    final updatedTotals = Map<String, int>.from(current.dayTotals);
+    updatedTotals[key] = (updatedTotals[key] ?? 0) + event.reps;
 
     final updatedSessions = [
       session,
@@ -216,7 +206,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     await _persistState(updatedState, emit);
   }
 
-  Future<void> onDeleteSession(
+  Future<void> _onDeleteSession(
     DeleteSessionEvent event,
     Emitter<WorkoutState> emit,
   ) async {
@@ -231,14 +221,11 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     final session = current.sessions[sessionIndex];
     final key = dayKey(session.date);
 
-    final updatedSessions =
-        List<WorkoutSession>.from(current.sessions)
-          ..removeAt(sessionIndex);
+    final updatedSessions = List<WorkoutSession>.from(current.sessions)
+      ..removeAt(sessionIndex);
 
-    final updatedTotals =
-        Map<String, int>.from(current.dayTotals);
-    final updated =
-        (updatedTotals[key] ?? 0) - session.reps;
+    final updatedTotals = Map<String, int>.from(current.dayTotals);
+    final updated = (updatedTotals[key] ?? 0) - session.reps;
     if (updated <= 0) {
       updatedTotals.remove(key);
     } else {
@@ -260,7 +247,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     await _persistState(updatedState, emit);
   }
 
-  Future<void> onUpdateSessionReps(
+  Future<void> _onUpdateSessionReps(
     UpdateSessionRepsEvent event,
     Emitter<WorkoutState> emit,
   ) async {
@@ -282,13 +269,10 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     final key = dayKey(existing.date);
     final delta = event.reps - existing.reps;
 
-    final updatedSessions =
-        List<WorkoutSession>.from(current.sessions);
-    updatedSessions[sessionIndex] =
-        existing.copyWith(reps: event.reps);
+    final updatedSessions = List<WorkoutSession>.from(current.sessions);
+    updatedSessions[sessionIndex] = existing.copyWith(reps: event.reps);
 
-    final updatedTotals =
-        Map<String, int>.from(current.dayTotals);
+    final updatedTotals = Map<String, int>.from(current.dayTotals);
     final updated = (updatedTotals[key] ?? 0) + delta;
     if (updated <= 0) {
       updatedTotals.remove(key);
@@ -311,7 +295,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     await _persistState(updatedState, emit);
   }
 
-  Future<void> onUpdatePreferences(
+  Future<void> _onUpdatePreferences(
     UpdatePreferencesEvent event,
     Emitter<WorkoutState> emit,
   ) async {
@@ -326,7 +310,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     await _persistState(updatedState, emit);
   }
 
-  Future<void> onSyncWorkoutData(
+  Future<void> _onSyncWorkoutData(
     SyncWorkoutDataEvent event,
     Emitter<WorkoutState> emit,
   ) async {
@@ -341,12 +325,12 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     await _persistState(syncingState, emit);
   }
 
-  Future<void> onResetWorkoutData(
+  Future<void> _onResetWorkoutData(
     ResetWorkoutDataEvent event,
     Emitter<WorkoutState> emit,
   ) async {
     emit(const WorkoutLoading());
-    final result = await repository.resetSnapshot();
+    final result = await _repository.resetSnapshot();
     final loadedState = result.fold<WorkoutLoaded?>(
       (error) {
         emit(WorkoutError(error));
@@ -363,16 +347,16 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
   WorkoutLoaded _stateFromSnapshot(
     WorkoutSnapshot snapshot,
   ) {
+    final normalized = snapshot.normalized();
     final sessions = List<WorkoutSession>.from(
-      snapshot.sessions,
+      normalized.sessions,
     )..sort((a, b) => b.date.compareTo(a.date));
 
     return WorkoutLoaded(
-      dayTotals: Map<String, int>.from(snapshot.dayTotals),
+      dayTotals: Map<String, int>.from(normalized.dayTotals),
       sessions: sessions,
-      preferences: snapshot.preferences,
-      lastSyncedAt: snapshot.lastSyncedAt,
-      syncError: null,
+      preferences: normalized.preferences,
+      lastSyncedAt: normalized.lastSyncedAt,
     );
   }
 
@@ -385,7 +369,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
       preferences: state.preferences,
       lastSyncedAt: state.lastSyncedAt,
       updatedAt: DateTime.now(),
-    );
+    ).normalized();
   }
 
   Future<void> _persistState(
@@ -393,7 +377,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     Emitter<WorkoutState> emit,
   ) async {
     await _syncReminders(state.preferences);
-    final result = await repository.saveSnapshot(
+    final result = await _repository.saveSnapshot(
       _snapshotFromState(state),
     );
     result.fold(
@@ -417,7 +401,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     WorkoutPreferences preferences,
   ) async {
     try {
-      await reminderService.syncPreferences(preferences);
+      await _reminderService.syncPreferences(preferences);
     } on Exception catch (error, stackTrace) {
       dev.log(
         'Reminder sync error',

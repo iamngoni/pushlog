@@ -4,6 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/injection.dart';
+import 'package:pushlog/platform/health/health_service.dart';
+import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
+import 'package:pushlog/platform/live_tracking/live_tracking_state.dart';
+import 'package:pushlog/platform/watch/watch_service.dart';
+import 'package:pushlog/platform/watch/watch_state.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 
@@ -11,19 +17,27 @@ class LiveSessionPage extends StatefulWidget {
   const LiveSessionPage({super.key});
 
   @override
-  State<LiveSessionPage> createState() =>
-      _LiveSessionPageState();
+  State<LiveSessionPage> createState() => _LiveSessionPageState();
 }
 
 class _LiveSessionPageState extends State<LiveSessionPage> {
   _LiveStep _step = _LiveStep.setup;
   late WorkoutPreferences _preferences;
   Timer? _ticker;
+  StreamSubscription<LiveTrackingSnapshot>? _trackingSubscription;
+  StreamSubscription<WatchStatus>? _watchSubscription;
+  LiveTrackingSnapshot _trackingSnapshot =
+      const LiveTrackingSnapshot.unsupported();
+  WatchStatus _watchStatus = const WatchStatus.unsupported();
+  HealthKitWriteOwner _healthKitWriteOwner = HealthKitWriteOwner.phone;
   Duration _elapsed = Duration.zero;
   DateTime? _startedAt;
+  String? _sessionId;
   int _reps = 0;
   int _manualAdjustments = 0;
   bool _isPaused = false;
+  bool _usesAutoTracking = false;
+  bool _didLoadTrackingStatus = false;
 
   @override
   void didChangeDependencies() {
@@ -33,12 +47,25 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       if (workoutState is WorkoutLoaded) {
         _preferences = workoutState.preferences;
       }
+      if (!_didLoadTrackingStatus) {
+        _didLoadTrackingStatus = true;
+        unawaited(_refreshTrackingStatus());
+        unawaited(_refreshWatchStatus());
+      }
     }
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    unawaited(_trackingSubscription?.cancel());
+    unawaited(_watchSubscription?.cancel());
+    unawaited(getIt<LiveTrackingService>().cancel());
+    if (_sessionId != null && _step != _LiveStep.summary) {
+      unawaited(
+        getIt<WatchService>().cancelLiveWorkout(sessionId: _sessionId!),
+      );
+    }
     super.dispose();
   }
 
@@ -50,8 +77,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       body: SafeArea(
         child: switch (_step) {
           _LiveStep.setup => _buildSetup(context, theme),
-          _LiveStep.tracking =>
-            _buildTracking(context, theme),
+          _LiveStep.preflight => _buildPreflight(context, theme),
+          _LiveStep.tracking => _buildTracking(context, theme),
           _LiveStep.summary => _buildSummary(context, theme),
         },
       ),
@@ -77,7 +104,6 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           Text(
             'TIMED SESSION MODE. START HERE, COUNT CLEAN, SAVE ONCE.',
             style: AppTypography.labelMono(
-              size: 11,
               color: theme.secondaryInk,
               letterSpacing: 1.2,
             ),
@@ -89,37 +115,35 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             title: 'DEVICE',
             detail:
                 _preferences.liveDevicePreference ==
-                        LiveDevicePreference.iphoneOnly
-                    ? 'IPHONE ONLY'
-                    : 'IPHONE + APPLE WATCH',
+                    LiveDevicePreference.iphoneOnly
+                ? 'IPHONE ONLY'
+                : _watchStatus.statusLabel,
             theme: theme,
             children: [
               _DeviceOption(
                 title: 'IPHONE ONLY',
                 isSelected:
                     _preferences.liveDevicePreference ==
-                        LiveDevicePreference.iphoneOnly,
+                    LiveDevicePreference.iphoneOnly,
                 theme: theme,
                 onTap: () => setState(() {
                   _preferences = _preferences.copyWith(
-                    liveDevicePreference:
-                        LiveDevicePreference.iphoneOnly,
+                    liveDevicePreference: LiveDevicePreference.iphoneOnly,
                   );
                 }),
               ),
               const SizedBox(height: 8),
               _DeviceOption(
-                title: 'IPHONE + APPLE WATCH',
+                title: _watchStatus.canUseForWorkout
+                    ? 'IPHONE + APPLE WATCH'
+                    : 'IPHONE + WATCH FALLBACK',
                 isSelected:
                     _preferences.liveDevicePreference ==
-                        LiveDevicePreference
-                            .iphoneAndWatch,
+                    LiveDevicePreference.iphoneAndWatch,
                 theme: theme,
                 onTap: () => setState(() {
                   _preferences = _preferences.copyWith(
-                    liveDevicePreference:
-                        LiveDevicePreference
-                            .iphoneAndWatch,
+                    liveDevicePreference: LiveDevicePreference.iphoneAndWatch,
                   );
                 }),
               ),
@@ -128,13 +152,17 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           const SizedBox(height: 18),
           _SelectorCard(
             title: 'FLOW',
-            detail: 'SAVE SESSION TO HISTORY',
+            detail: _trackingSnapshot.canUseAutoTracking
+                ? _trackingSnapshot.statusLabel
+                : 'MANUAL FALLBACK',
             theme: theme,
             children: [
               Text(
-                'THIS FLUTTER BUILD RESTORES THE SESSION TIMER AND SAVE PATH FIRST. CAMERA-GUIDED REP TRACKING WILL SIT ON TOP OF THIS FLOW.',
+                _trackingSnapshot.canUseAutoTracking
+                    ? _trackingSnapshot.metricsLine
+                    : 'ANDROID AND NON-TRUEDEPTH DEVICES USE MANUAL LIVE '
+                          'COUNTING. TRUEDEPTH IPHONES OPEN CAMERA PRE-FLIGHT.',
                 style: AppTypography.labelMono(
-                  size: 10,
                   color: theme.secondaryInk,
                   letterSpacing: 1.1,
                 ),
@@ -147,7 +175,66 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             leading: 'EXIT',
             onLeadingTap: () => Navigator.of(context).pop(),
             trailing: 'START',
-            onTrailingTap: _startSession,
+            onTrailingTap: () {
+              unawaited(_startPreflightOrManual());
+            },
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreflight(BuildContext context, AppTheme theme) {
+    final countdown = _trackingSnapshot.countdownValue;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          _TopBar(theme: theme, trailing: 'PRE-FLIGHT'),
+          const SizedBox(height: 28),
+          Text(
+            countdown?.toString() ?? _trackingSnapshot.statusLabel,
+            style: AppTypography.displayMedium(
+              color: theme.ink,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _trackingSnapshot.movementLabel,
+            style: AppTypography.labelMono(
+              color: theme.secondaryInk,
+              letterSpacing: 1.6,
+            ),
+          ),
+          const SizedBox(height: 26),
+          _SelectorCard(
+            title: 'CAMERA LOCK',
+            detail: _trackingSnapshot.phase.name.toUpperCase(),
+            theme: theme,
+            children: [
+              Text(
+                _trackingSnapshot.metricsLine,
+                style: AppTypography.labelMono(
+                  color: theme.secondaryInk,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          _BottomPair(
+            theme: theme,
+            leading: 'MANUAL',
+            onLeadingTap: () => _startSession(usesAutoTracking: false),
+            trailing: _trackingSnapshot.canBeginCountdown ? 'BEGIN' : 'HOLD',
+            onTrailingTap: _trackingSnapshot.canBeginCountdown
+                ? () {
+                    unawaited(_beginCountdown());
+                  }
+                : () {},
           ),
           const SizedBox(height: 24),
         ],
@@ -175,12 +262,13 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            _isPaused ? 'PAUSED' : 'RUNNING',
+            _usesAutoTracking
+                ? _trackingSnapshot.movementLabel
+                : _isPaused
+                ? 'PAUSED'
+                : 'RUNNING',
             style: AppTypography.labelMono(
-              size: 11,
-              color: _isPaused
-                  ? theme.accentInk
-                  : theme.secondaryInk,
+              color: _isPaused ? theme.accentInk : theme.secondaryInk,
               letterSpacing: 1.6,
             ),
           ),
@@ -193,8 +281,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               color: theme.surface,
             ),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'TOTAL REPS',
@@ -212,9 +299,10 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'MANUAL ADJUSTMENTS $_manualAdjustments',
+                  _usesAutoTracking
+                      ? _trackingSnapshot.metricsLine
+                      : 'MANUAL ADJUSTMENTS $_manualAdjustments',
                   style: AppTypography.labelMono(
-                    size: 10,
                     color: theme.secondaryInk,
                     letterSpacing: 1.1,
                   ),
@@ -255,7 +343,6 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           Text(
             'LIVE SESSION SAVES ONCE, AT THE END.',
             style: AppTypography.labelMono(
-              size: 11,
               color: theme.secondaryInk,
               letterSpacing: 1.2,
             ),
@@ -271,8 +358,9 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                 _preferences.liveDevicePreference ==
                         LiveDevicePreference.iphoneOnly
                     ? 'IPHONE'
-                    : 'IPHONE + WATCH',
+                    : _watchStatus.statusLabel,
               ),
+              ('HEALTH OWNER', _healthKitWriteOwner.name.toUpperCase()),
               (
                 'ADJUSTMENTS',
                 '$_manualAdjustments',
@@ -283,18 +371,12 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           _BottomPair(
             theme: theme,
             leading: 'DISCARD',
-            onLeadingTap: () => Navigator.of(context).pop(),
+            onLeadingTap: () {
+              unawaited(_discardSession(context));
+            },
             trailing: 'SAVE',
             onTrailingTap: () {
-              context.read<WorkoutBloc>().add(
-                    SaveLiveSessionEvent(
-                      reps: _reps,
-                      duration: _elapsed,
-                      manualAdjustments:
-                          _manualAdjustments,
-                    ),
-                  );
-              Navigator.of(context).pop();
+              unawaited(_saveSession(context));
             },
           ),
           const SizedBox(height: 24),
@@ -303,18 +385,97 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     );
   }
 
-  void _startSession() {
+  Future<void> _refreshTrackingStatus() async {
+    final status = await getIt<LiveTrackingService>().status();
+    if (!mounted) return;
+    setState(() {
+      _trackingSnapshot = status;
+    });
+  }
+
+  Future<void> _refreshWatchStatus() async {
+    final service = getIt<WatchService>();
+    final status = await service.status();
+    if (!mounted) return;
+    setState(() {
+      _watchStatus = status;
+    });
+
+    await _watchSubscription?.cancel();
+    if (!status.isSupported) return;
+    _watchSubscription = service.statuses().listen(
+      (status) {
+        if (!mounted) return;
+        setState(() {
+          _watchStatus = status;
+        });
+      },
+      onError: (_) {},
+    );
+  }
+
+  Future<void> _startPreflightOrManual() async {
+    final service = getIt<LiveTrackingService>();
+    final status = await service.status();
+    if (!mounted) return;
+
+    if (!status.canUseAutoTracking) {
+      setState(() {
+        _trackingSnapshot = status;
+      });
+      _startSession(usesAutoTracking: false);
+      return;
+    }
+
+    await _trackingSubscription?.cancel();
+    _trackingSubscription = service.snapshots().listen(_handleTrackingSnapshot);
+    final preflight = await service.startPreflight();
+    if (!mounted) return;
+    setState(() {
+      _trackingSnapshot = preflight;
+      _step = _LiveStep.preflight;
+      _usesAutoTracking = true;
+    });
+  }
+
+  Future<void> _beginCountdown() async {
+    final snapshot = await getIt<LiveTrackingService>().beginCountdown();
+    if (!mounted) return;
+    setState(() {
+      _trackingSnapshot = snapshot;
+    });
+  }
+
+  void _handleTrackingSnapshot(LiveTrackingSnapshot snapshot) {
+    if (!mounted) return;
+    setState(() {
+      _trackingSnapshot = snapshot;
+      _reps = snapshot.repCount;
+      _manualAdjustments = snapshot.manualAdjustments;
+      _isPaused = snapshot.isPaused;
+    });
+
+    if (snapshot.isActive && _step == _LiveStep.preflight) {
+      _startSession(usesAutoTracking: true);
+    }
+  }
+
+  void _startSession({required bool usesAutoTracking}) {
     context.read<WorkoutBloc>().add(
-          UpdatePreferencesEvent(_preferences),
-        );
+      UpdatePreferencesEvent(_preferences),
+    );
     setState(() {
       _step = _LiveStep.tracking;
       _elapsed = Duration.zero;
       _reps = 0;
       _manualAdjustments = 0;
       _isPaused = false;
+      _usesAutoTracking = usesAutoTracking;
       _startedAt = DateTime.now();
+      _sessionId = WorkoutBloc.generateId();
+      _healthKitWriteOwner = HealthKitWriteOwner.phone;
     });
+    _beginWatchWorkoutIfNeeded();
     _ticker?.cancel();
     _ticker = Timer.periodic(
       const Duration(seconds: 1),
@@ -327,11 +488,58 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             _startedAt!,
           );
         });
+        _sendWatchLiveUpdate();
       },
     );
   }
 
+  void _beginWatchWorkoutIfNeeded() {
+    final sessionId = _sessionId;
+    final startedAt = _startedAt;
+    if (sessionId == null || startedAt == null) return;
+
+    unawaited(
+      getIt<WatchService>()
+          .beginLiveWorkout(
+            sessionId: sessionId,
+            startedAt: startedAt,
+            preferWatch:
+                _preferences.liveDevicePreference ==
+                LiveDevicePreference.iphoneAndWatch,
+          )
+          .then((status) {
+            if (!mounted) return;
+            setState(() {
+              _watchStatus = status;
+            });
+          }),
+    );
+  }
+
+  void _sendWatchLiveUpdate() {
+    final sessionId = _sessionId;
+    if (sessionId == null) return;
+
+    unawaited(
+      getIt<WatchService>().sendLiveUpdate(
+        sessionId: sessionId,
+        reps: _reps,
+        elapsed: _elapsed,
+        phase: _step.name.toUpperCase(),
+        trackingState: _usesAutoTracking
+            ? _trackingSnapshot.phase.name.toUpperCase()
+            : 'MANUAL',
+        isPaused: _isPaused,
+      ),
+    );
+  }
+
   void _addReps(int value) {
+    if (_usesAutoTracking) {
+      unawaited(getIt<LiveTrackingService>().addManualRep());
+      return;
+    }
+
     setState(() {
       _reps += value;
       _manualAdjustments += 1;
@@ -339,6 +547,11 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   }
 
   void _togglePause() {
+    if (_usesAutoTracking) {
+      unawaited(getIt<LiveTrackingService>().togglePause());
+      return;
+    }
+
     setState(() {
       _isPaused = !_isPaused;
     });
@@ -346,28 +559,102 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
 
   void _finishSession() {
     _ticker?.cancel();
+    unawaited(_finishSessionAsync());
+  }
+
+  Future<void> _finishSessionAsync() async {
+    final sessionId = _sessionId;
+    final endedAt = DateTime.now();
+
+    if (_usesAutoTracking) {
+      final finished = await getIt<LiveTrackingService>().finish();
+      if (!mounted) return;
+      setState(() {
+        _trackingSnapshot = finished;
+        _reps = finished.repCount;
+        _manualAdjustments = finished.manualAdjustments;
+        _isPaused = false;
+      });
+    }
+
+    if (sessionId != null) {
+      _healthKitWriteOwner = await getIt<WatchService>().stopLiveWorkout(
+        sessionId: sessionId,
+        reps: _reps,
+        duration: _elapsed,
+        endedAt: endedAt,
+      );
+      if (!mounted) return;
+    }
+
     setState(() {
       _step = _LiveStep.summary;
+      _isPaused = false;
     });
   }
 
+  Future<void> _saveSession(BuildContext context) async {
+    final sessionId = _sessionId ?? WorkoutBloc.generateId();
+    final avgRepDuration =
+        _trackingSnapshot.averageRepDuration ??
+        (_reps <= 0
+            ? null
+            : Duration(
+                microseconds: _elapsed.inMicroseconds ~/ _reps,
+              ));
+
+    context.read<WorkoutBloc>().add(
+      SaveLiveSessionEvent(
+        sessionId: sessionId,
+        reps: _reps,
+        duration: _elapsed,
+        avgRepDuration: avgRepDuration,
+        manualAdjustments: _manualAdjustments,
+      ),
+    );
+
+    if (_healthKitWriteOwner == HealthKitWriteOwner.watch) {
+      _healthKitWriteOwner = await getIt<WatchService>().commitStoppedWorkout(
+        sessionId: sessionId,
+      );
+    }
+
+    if (_preferences.healthSyncEnabled &&
+        _healthKitWriteOwner == HealthKitWriteOwner.phone &&
+        _reps > 0) {
+      await getIt<HealthService>().saveLiveSession(
+        reps: _reps,
+        duration: _elapsed,
+        manualAdjustments: _manualAdjustments,
+        endedAt: DateTime.now(),
+        externalId: sessionId,
+      );
+    }
+
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _discardSession(BuildContext context) async {
+    final sessionId = _sessionId;
+    if (sessionId != null) {
+      await getIt<WatchService>().discardStoppedWorkout(sessionId: sessionId);
+    }
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes
-        .remainder(60)
-        .toString()
-        .padLeft(2, '0');
-    final seconds = duration.inSeconds
-        .remainder(60)
-        .toString()
-        .padLeft(2, '0');
-    final hours = duration.inHours
-        .toString()
-        .padLeft(2, '0');
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final hours = duration.inHours.toString().padLeft(2, '0');
     return '$hours:$minutes:$seconds';
   }
 }
 
-enum _LiveStep { setup, tracking, summary }
+enum _LiveStep { setup, preflight, tracking, summary }
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
@@ -438,7 +725,6 @@ class _SelectorCard extends StatelessWidget {
           Text(
             detail,
             style: AppTypography.labelMono(
-              size: 10,
               color: theme.ink,
               letterSpacing: 1.1,
               weight: FontWeight.w700,
@@ -479,18 +765,13 @@ class _DeviceOption extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             border: Border.all(
-              color: isSelected
-                  ? theme.accent
-                  : theme.divider,
+              color: isSelected ? theme.accent : theme.divider,
             ),
           ),
           child: Text(
             title,
             style: AppTypography.labelMono(
-              size: 11,
-              color: isSelected
-                  ? AppColors.fixedDark
-                  : theme.ink,
+              color: isSelected ? AppColors.fixedDark : theme.ink,
               weight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
@@ -571,9 +852,7 @@ class _LiveFooterButton extends StatelessWidget {
             child: Text(
               title,
               style: AppTypography.displayAction(
-                color: emphasized
-                    ? AppColors.fixedDark
-                    : theme.ink,
+                color: emphasized ? AppColors.fixedDark : theme.ink,
               ),
             ),
           ),
@@ -690,7 +969,6 @@ class _SummaryCard extends StatelessWidget {
                   Text(
                     indexedRow.$2.$2,
                     style: AppTypography.labelMono(
-                      size: 10,
                       color: theme.secondaryInk,
                       letterSpacing: 1.1,
                     ),

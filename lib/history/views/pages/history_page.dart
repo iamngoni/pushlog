@@ -62,8 +62,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   horizontal: 28,
                 ),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
                     buildHeader(theme),
@@ -95,10 +94,18 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Widget buildHeader(AppTheme theme) {
     const months = [
-      'JANUARY', 'FEBRUARY', 'MARCH',
-      'APRIL', 'MAY', 'JUNE',
-      'JULY', 'AUGUST', 'SEPTEMBER',
-      'OCTOBER', 'NOVEMBER', 'DECEMBER',
+      'JANUARY',
+      'FEBRUARY',
+      'MARCH',
+      'APRIL',
+      'MAY',
+      'JUNE',
+      'JULY',
+      'AUGUST',
+      'SEPTEMBER',
+      'OCTOBER',
+      'NOVEMBER',
+      'DECEMBER',
     ];
     final now = DateTime.now();
     final label = '${months[now.month - 1]} ${now.year}';
@@ -181,9 +188,7 @@ class _HistoryPageState extends State<HistoryPage> {
     return state.dayTotals.entries
         .where((e) {
           final d = parseDate(e.key);
-          return d != null &&
-              d.year == now.year &&
-              d.month == now.month;
+          return d != null && d.year == now.year && d.month == now.month;
         })
         .fold(0, (sum, e) => sum + e.value);
   }
@@ -193,9 +198,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final values = state.dayTotals.entries
         .where((e) {
           final d = parseDate(e.key);
-          return d != null &&
-              d.year == now.year &&
-              d.month == now.month;
+          return d != null && d.year == now.year && d.month == now.month;
         })
         .map((e) => e.value)
         .toList();
@@ -208,9 +211,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final values = state.dayTotals.entries
         .where((e) {
           final d = parseDate(e.key);
-          return d != null &&
-              d.year == now.year &&
-              d.month == now.month;
+          return d != null && d.year == now.year && d.month == now.month;
         })
         .map((e) => e.value)
         .toList();
@@ -267,8 +268,7 @@ class _HistoryPageState extends State<HistoryPage> {
       backgroundColor: theme.background,
       shape: const RoundedRectangleBorder(),
       isScrollControlled: true,
-      builder: (_) =>
-          DayDetailSheet(entry: entry, theme: theme),
+      builder: (_) => DayDetailSheet(entry: entry, theme: theme),
     );
   }
 
@@ -343,10 +343,7 @@ class _HistoryPageState extends State<HistoryPage> {
             child: Text(
               title,
               style: AppTypography.labelMono(
-                size: 11,
-                color: isSelected
-                    ? theme.ink
-                    : theme.secondaryInk,
+                color: isSelected ? theme.ink : theme.secondaryInk,
                 letterSpacing: 2,
               ),
             ),
@@ -388,19 +385,32 @@ class DayDetailSheet extends StatelessWidget {
 
   String rowTitle(DateTime date) {
     final now = DateTime.now();
-    final isToday = date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
+    final isToday =
+        date.year == now.year && date.month == now.month && date.day == now.day;
     if (isToday) return 'TODAY';
 
     const days = [
-      'MON', 'TUE', 'WED', 'THU',
-      'FRI', 'SAT', 'SUN',
+      'MON',
+      'TUE',
+      'WED',
+      'THU',
+      'FRI',
+      'SAT',
+      'SUN',
     ];
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR',
-      'MAY', 'JUN', 'JUL', 'AUG',
-      'SEP', 'OCT', 'NOV', 'DEC',
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
     final dow = days[date.weekday - 1];
     final mon = months[date.month - 1];
@@ -436,7 +446,6 @@ class DayDetailSheet extends StatelessWidget {
               Text(
                 rowTitle(entry.date),
                 style: AppTypography.labelMono(
-                  size: 11,
                   color: theme.secondaryInk,
                   letterSpacing: 1.6,
                 ),

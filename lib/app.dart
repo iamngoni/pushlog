@@ -6,6 +6,8 @@
 //  Copyright (c) 2026 Codecraft Solutions. All rights reserved.
 //
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -36,7 +38,6 @@ class App extends StatelessWidget {
         darkTheme: AppTheme.dark().toMaterialTheme(
           Brightness.dark,
         ),
-        themeMode: ThemeMode.system,
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
@@ -59,13 +60,14 @@ class _RootView extends StatelessWidget {
         return switch (state) {
           AuthLoading() => const _LoadingScreen(),
           AuthSignedOut() => const SignInPage(),
+          AuthBlocked() => AuthBlockedPage(message: state.message),
           AuthNeedsUsername() => UsernameClaimPage(
-              state: state,
-            ),
+            state: state,
+          ),
           AuthAuthenticated() => _AuthenticatedRoot(
-              key: ValueKey(state.profile.uid),
-              profile: state.profile,
-            ),
+            key: ValueKey(state.profile.uid),
+            profile: state.profile,
+          ),
         };
       },
     );
@@ -86,13 +88,19 @@ class _AuthenticatedRoot extends StatelessWidget {
       providers: [
         BlocProvider<WorkoutBloc>(
           create: (_) =>
-              getIt<WorkoutBloc>()
-                ..add(const LoadWorkoutDataEvent()),
+              getIt<WorkoutBloc>()..add(const LoadWorkoutDataEvent()),
         ),
         BlocProvider<FriendsCubit>(
-          create: (_) =>
-              getIt<FriendsCubit>()
-                ..load(me: profile, todayCount: profile.todayCount),
+          create: (_) {
+            final cubit = getIt<FriendsCubit>();
+            unawaited(
+              cubit.load(
+                me: profile,
+                todayCount: profile.todayCount,
+              ),
+            );
+            return cubit;
+          },
         ),
       ],
       child: const AppScaffold(),
@@ -116,8 +124,7 @@ class _LoadingScreen extends StatelessWidget {
             children: [
               const SizedBox(height: 24),
               Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'PUSHLOG',

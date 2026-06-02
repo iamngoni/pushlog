@@ -10,6 +10,70 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function publicProfileKeys() {
+      return [
+        'uid',
+        'displayName',
+        'photoUrl',
+        'username',
+        'usernameLower',
+        'createdAt',
+        'updatedAt',
+      ];
+    }
+
+    function friendStatsKeys() {
+      return [
+        'uid',
+        'todayCount',
+        'bestDay',
+        'totalAllTime',
+        'streak',
+        'updatedAt',
+      ];
+    }
+
+    function requestKeys() {
+      return [
+        'uid',
+        'username',
+        'usernameLower',
+        'displayName',
+        'photoUrl',
+        'createdAt',
+      ];
+    }
+
+    function friendDocKeys() {
+      return ['uid', 'addedAt'];
+    }
+
+    function hasAcceptedFriendship(ownerUid, viewerUid) {
+      return exists(
+        /databases/$(database)/documents/users/$(ownerUid)/friends/$(viewerUid)
+      );
+    }
+
+    function safePublicProfile(uid) {
+      return request.resource.data.uid == uid &&
+        request.resource.data.keys().hasOnly(publicProfileKeys());
+    }
+
+    function safeFriendStats(uid) {
+      return request.resource.data.uid == uid &&
+        request.resource.data.keys().hasOnly(friendStatsKeys());
+    }
+
+    function safeFriendRequest(uid) {
+      return request.resource.data.uid == uid &&
+        request.resource.data.keys().hasOnly(requestKeys());
+    }
+
+    function safeFriendDoc(friendUid) {
+      return request.resource.data.uid == friendUid &&
+        request.resource.data.keys().hasOnly(friendDocKeys());
+    }
+
     match /usernames/{usernameLower} {
       allow read: if signedIn();
       allow create: if signedIn() &&
@@ -19,16 +83,70 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn();
+      allow read: if isOwner(uid);
       allow create, update: if isOwner(uid);
+      allow delete: if isOwner(uid);
 
       match /friends/{friendUid} {
-        allow read, write: if isOwner(uid);
+        allow read: if isOwner(uid);
+        allow create: if safeFriendDoc(friendUid) && (
+          (
+            isOwner(uid) &&
+            exists(
+              /databases/$(database)/documents/users/$(uid)/incomingFriendRequests/$(friendUid)
+            )
+          ) ||
+          (
+            signedIn() &&
+            request.auth.uid == friendUid &&
+            exists(
+              /databases/$(database)/documents/users/$(friendUid)/incomingFriendRequests/$(uid)
+            )
+          )
+        );
+        allow update: if false;
+        allow delete: if isOwner(uid) || (
+          signedIn() && request.auth.uid == friendUid
+        );
+      }
+
+      match /incomingFriendRequests/{requesterUid} {
+        allow read: if isOwner(uid);
+        allow create: if signedIn() &&
+          request.auth.uid == requesterUid &&
+          safeFriendRequest(requesterUid);
+        allow update: if false;
+        allow delete: if isOwner(uid) || (
+          signedIn() && request.auth.uid == requesterUid
+        );
+      }
+
+      match /outgoingFriendRequests/{receiverUid} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && safeFriendRequest(receiverUid);
+        allow update: if false;
+        allow delete: if isOwner(uid) || (
+          signedIn() && request.auth.uid == receiverUid
+        );
       }
 
       match /privateState/{documentId} {
         allow read, write: if isOwner(uid);
       }
+    }
+
+    match /publicProfiles/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isOwner(uid) && safePublicProfile(uid);
+      allow delete: if isOwner(uid);
+    }
+
+    match /friendStats/{uid} {
+      allow read: if isOwner(uid) || (
+        signedIn() && hasAcceptedFriendship(uid, request.auth.uid)
+      );
+      allow create, update: if isOwner(uid) && safeFriendStats(uid);
+      allow delete: if isOwner(uid);
     }
   }
 }

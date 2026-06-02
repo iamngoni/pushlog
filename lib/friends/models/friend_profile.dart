@@ -18,10 +18,8 @@ class FriendProfile extends Equatable {
   }) {
     return FriendProfile(
       uid: profile.uid,
-      label: profile.label,
-      username:
-          (profile.username ?? profile.displayName ?? profile.email ?? 'pusher')
-              .trim(),
+      label: profile.publicLabel,
+      username: (profile.username ?? profile.displayName ?? 'pusher').trim(),
       todayCount: todayCount ?? profile.todayCount,
       photoUrl: profile.photoUrl,
       isMe: isMe,
@@ -44,8 +42,7 @@ class FriendProfile extends Equatable {
     if (parts.length == 1) {
       return parts.first.substring(0, 1).toUpperCase();
     }
-    return (parts.first.substring(0, 1) +
-            parts.last.substring(0, 1))
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
         .toUpperCase();
   }
 
@@ -69,11 +66,11 @@ class FriendProfile extends Equatable {
 
   @override
   List<Object?> get props => [
-        uid,
-        label,
-        username,
-        todayCount,
-        photoUrl,
-        isMe,
-      ];
+    uid,
+    label,
+    username,
+    todayCount,
+    photoUrl,
+    isMe,
+  ];
 }

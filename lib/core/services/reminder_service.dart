@@ -112,9 +112,7 @@ class ReminderService {
 
     if (android != null) {
       granted =
-          (await android.requestNotificationsPermission() ??
-              true) &&
-          granted;
+          (await android.requestNotificationsPermission() ?? true) && granted;
     }
     if (ios != null) {
       granted =
@@ -180,8 +178,7 @@ class ReminderService {
           iOS: const DarwinNotificationDetails(),
           macOS: const DarwinNotificationDetails(),
         ),
-        androidScheduleMode:
-            AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
     }
   }
@@ -237,15 +234,12 @@ class ReminderService {
     tz.initializeTimeZones();
 
     if (kIsWeb ||
-        (!Platform.isAndroid &&
-            !Platform.isIOS &&
-            !Platform.isMacOS)) {
+        (!Platform.isAndroid && !Platform.isIOS && !Platform.isMacOS)) {
       return;
     }
 
     try {
-      final timeZoneName =
-          await FlutterTimezone.getLocalTimezone();
+      final timeZoneName = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     } on Exception catch (error, stackTrace) {
       log(

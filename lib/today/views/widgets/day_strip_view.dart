@@ -22,7 +22,9 @@ class DayStripView extends StatelessWidget {
 
   int get maxCount {
     if (summary.isEmpty) return 1;
-    final max = summary.map((s) => s.count).reduce(
+    final max = summary
+        .map((s) => s.count)
+        .reduce(
           (a, b) => a > b ? a : b,
         );
     return max == 0 ? 1 : max;
@@ -32,10 +34,7 @@ class DayStripView extends StatelessWidget {
     const minH = 3.0;
     const maxH = 28.0;
     if (count <= 0) return minH;
-    return minH +
-        (maxH - minH) *
-            count.toDouble() /
-            maxCount.toDouble();
+    return minH + (maxH - minH) * count.toDouble() / maxCount.toDouble();
   }
 
   @override

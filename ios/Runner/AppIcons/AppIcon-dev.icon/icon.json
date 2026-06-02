@@ -1,11 +1,15 @@
 {
   "fill-specializations" : [
     {
-      "value" : "automatic"
+      "value" : {
+        "solid" : "srgb:0.00000,0.00000,0.00000,1.00000"
+      }
     },
     {
       "appearance" : "dark",
-      "value" : "automatic"
+      "value" : {
+        "solid" : "srgb:0.00000,0.00000,0.00000,1.00000"
+      }
     }
   ],
   "groups" : [
@@ -73,15 +77,15 @@
       },
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 0.5
+        "opacity" : 0
       },
       "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
+        "enabled" : false,
+        "value" : 0
       }
     },
     {
-      "blur-material" : 0.5,
+      "blur-material" : 0,
       "layers" : [
         {
           "fill-specializations" : [
@@ -102,7 +106,7 @@
           "image-name" : "Logo.svg",
           "name" : "Logo",
           "position" : {
-            "scale" : 1.8,
+            "scale" : 1,
             "translation-in-points" : [
               0,
               0
@@ -114,12 +118,12 @@
       "name" : "Logo",
       "shadow" : {
         "kind" : "neutral",
-        "opacity" : 0.5
+        "opacity" : 0
       },
-      "specular" : true,
+      "specular" : false,
       "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
+        "enabled" : false,
+        "value" : 0
       }
     }
   ],

@@ -11,68 +11,61 @@ import 'package:flutter/material.dart';
 class AppTypography {
   const AppTypography._();
 
-  // Display: HelveticaNeue-CondensedBlack
   static TextStyle displayLarge({Color? color}) => TextStyle(
-        fontFamily: 'HelveticaNeue-CondensedBlack',
-        fontSize: 150,
-        fontWeight: FontWeight.w900,
-        height: 1,
-        color: color,
-      );
+    fontSize: 104,
+    fontWeight: FontWeight.w900,
+    height: 1,
+    color: color,
+  );
 
   static TextStyle displayMedium({Color? color}) => TextStyle(
-        fontFamily: 'HelveticaNeue-CondensedBlack',
-        fontSize: 120,
-        fontWeight: FontWeight.w900,
-        height: 1,
-        color: color,
-      );
+    fontSize: 64,
+    fontWeight: FontWeight.w900,
+    height: 1,
+    color: color,
+  );
 
   static TextStyle displaySmall({Color? color}) => TextStyle(
-        fontFamily: 'HelveticaNeue-CondensedBlack',
-        fontSize: 64,
-        fontWeight: FontWeight.w900,
-        height: 1,
-        color: color,
-      );
+    fontSize: 48,
+    fontWeight: FontWeight.w900,
+    height: 1,
+    color: color,
+  );
 
   static TextStyle displayAction({Color? color}) => TextStyle(
-        fontFamily: 'HelveticaNeue-CondensedBlack',
-        fontSize: 30,
-        fontWeight: FontWeight.w900,
-        height: 1,
-        color: color,
-      );
+    fontSize: 22,
+    fontWeight: FontWeight.w900,
+    height: 1,
+    color: color,
+  );
 
   static TextStyle displayCompact({Color? color}) => TextStyle(
-        fontFamily: 'HelveticaNeue-CondensedBlack',
-        fontSize: 42,
-        fontWeight: FontWeight.w900,
-        height: 1,
-        color: color,
-      );
+    fontSize: 32,
+    fontWeight: FontWeight.w900,
+    height: 1,
+    color: color,
+  );
 
   static TextStyle displayUndo({Color? color}) => TextStyle(
-        fontFamily: 'HelveticaNeue-CondensedBlack',
-        fontSize: 34,
-        fontWeight: FontWeight.w900,
-        height: 1,
-        color: color,
-      );
+    fontSize: 24,
+    fontWeight: FontWeight.w900,
+    height: 1,
+    color: color,
+  );
 
   // Monospaced labels
   static TextStyle labelMono({
-    double size = 10,
+    double size = 12,
     FontWeight weight = FontWeight.w400,
     Color? color,
     double? letterSpacing,
-  }) =>
-      TextStyle(
-        fontFamily: 'Courier',
-        fontSize: size,
-        fontWeight: weight,
-        fontFamilyFallback: const ['Courier New', 'monospace'],
-        letterSpacing: letterSpacing,
-        color: color,
-      );
+  }) => TextStyle(
+    fontFamily: 'SF Mono',
+    fontSize: size,
+    fontWeight: weight,
+    fontFamilyFallback: const ['Menlo', 'Monaco', 'monospace'],
+    height: 1.45,
+    letterSpacing: letterSpacing,
+    color: color,
+  );
 }

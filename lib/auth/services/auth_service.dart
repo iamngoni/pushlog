@@ -1,12 +1,8 @@
-import 'dart:convert';
-import 'dart:math';
-
-import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:pushlog/firebase_options.dart';
 
 class AuthService {
   AuthService(this._firebaseAuth, this._googleSignIn);
@@ -18,29 +14,35 @@ class AuthService {
 
   User? get currentUser => _firebaseAuth.currentUser;
 
-  Stream<User?> authStateChanges() =>
-      _firebaseAuth.authStateChanges();
+  Stream<User?> authStateChanges() => _firebaseAuth.authStateChanges();
 
   Future<void> initialize() async {
     if (_initialized) return;
 
-    await _googleSignIn.initialize();
+    final clientId = switch (defaultTargetPlatform) {
+      TargetPlatform.iOS => DefaultFirebaseOptions.ios.iosClientId,
+      TargetPlatform.macOS => DefaultFirebaseOptions.ios.iosClientId,
+      _ => null,
+    };
+
+    await _googleSignIn.initialize(
+      clientId: clientId,
+    );
     _initialized = true;
   }
 
   Future<UserCredential?> signInWithGoogle() async {
     try {
       await initialize();
-      final lightweightAttempt =
-          _googleSignIn.attemptLightweightAuthentication();
-      final account = await lightweightAttempt ??
-          await _googleSignIn.authenticate();
+      final lightweightAttempt = _googleSignIn
+          .attemptLightweightAuthentication();
+      final account =
+          await lightweightAttempt ?? await _googleSignIn.authenticate();
       final idToken = account.authentication.idToken;
       if (idToken == null) {
         throw FirebaseAuthException(
           code: 'google_sign_in_failed',
-          message:
-              'Google sign-in did not return an ID token.',
+          message: 'Google sign-in did not return an ID token.',
         );
       }
 
@@ -52,8 +54,7 @@ class AuthService {
       if (error.message?.contains('GIDCLIENTID') ?? false) {
         throw FirebaseAuthException(
           code: 'google_sign_in_not_configured',
-          message:
-              'Google sign-in is not configured for iOS yet.',
+          message: 'Google sign-in is not configured for iOS yet.',
         );
       }
       rethrow;
@@ -61,26 +62,7 @@ class AuthService {
   }
 
   Future<UserCredential> signInWithApple() async {
-    final rawNonce = _nonce();
-    final nonce = _sha256(rawNonce);
-    final credential =
-        await SignInWithApple.getAppleIDCredential(
-      scopes: [
-        AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
-      ],
-      nonce: nonce,
-    );
-
-    final oauthCredential =
-        OAuthProvider('apple.com').credential(
-      idToken: credential.identityToken,
-      rawNonce: rawNonce,
-    );
-
-    return _firebaseAuth.signInWithCredential(
-      oauthCredential,
-    );
+    return _firebaseAuth.signInWithProvider(AppleAuthProvider());
   }
 
   Future<void> signOut() async {
@@ -90,19 +72,18 @@ class AuthService {
     }
   }
 
-  static String _nonce([int length = 32]) {
-    const charset =
-        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-    final random = Random.secure();
-    return List.generate(
-      length,
-      (_) => charset[random.nextInt(charset.length)],
-    ).join();
-  }
+  Future<void> deleteCurrentUser() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'No signed-in account to delete.',
+      );
+    }
 
-  static String _sha256(String input) {
-    return sha256
-        .convert(utf8.encode(input))
-        .toString();
+    await user.delete();
+    if (!kIsWeb) {
+      await _googleSignIn.signOut();
+    }
   }
 }

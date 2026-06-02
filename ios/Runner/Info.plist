@@ -27,6 +27,27 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.944029873089-btaosjgusij6l4fpevi65kfsiml65743</string>
+			</array>
+		</dict>
+	</array>
+	<key>GIDClientID</key>
+	<string>944029873089-btaosjgusij6l4fpevi65kfsiml65743.apps.googleusercontent.com</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Pushlog uses the front camera to track push-ups during live sessions.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Pushlog reads workout authorization status to confirm live-session sync.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Pushlog writes live push-up sessions to Health as functional strength workouts.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -20,26 +20,19 @@ class WorkoutPreferences extends Equatable {
     this.reminderMinute = 0,
     this.smartReminderCopyEnabled = true,
     this.healthSyncEnabled = false,
-    this.liveDevicePreference =
-        LiveDevicePreference.iphoneOnly,
+    this.liveDevicePreference = LiveDevicePreference.iphoneOnly,
   });
 
   factory WorkoutPreferences.fromJson(Map<String, dynamic> json) =>
       WorkoutPreferences(
-        remindersEnabled:
-            (json['remindersEnabled'] as bool?) ?? false,
+        remindersEnabled: (json['remindersEnabled'] as bool?) ?? false,
         reminderHour: (json['reminderHour'] as int?) ?? 19,
-        reminderMinute:
-            (json['reminderMinute'] as int?) ?? 0,
+        reminderMinute: (json['reminderMinute'] as int?) ?? 0,
         smartReminderCopyEnabled:
-            (json['smartReminderCopyEnabled'] as bool?) ??
-                true,
-        healthSyncEnabled:
-            (json['healthSyncEnabled'] as bool?) ?? false,
-        liveDevicePreference:
-            LiveDevicePreference.values.firstWhere(
-          (value) =>
-              value.name == json['liveDevicePreference'],
+            (json['smartReminderCopyEnabled'] as bool?) ?? true,
+        healthSyncEnabled: (json['healthSyncEnabled'] as bool?) ?? false,
+        liveDevicePreference: LiveDevicePreference.values.firstWhere(
+          (value) => value.name == json['liveDevicePreference'],
           orElse: () => LiveDevicePreference.iphoneOnly,
         ),
       );
@@ -52,15 +45,13 @@ class WorkoutPreferences extends Equatable {
   final LiveDevicePreference liveDevicePreference;
 
   Map<String, dynamic> toJson() => {
-        'remindersEnabled': remindersEnabled,
-        'reminderHour': reminderHour,
-        'reminderMinute': reminderMinute,
-        'smartReminderCopyEnabled':
-            smartReminderCopyEnabled,
-        'healthSyncEnabled': healthSyncEnabled,
-        'liveDevicePreference':
-            liveDevicePreference.name,
-      };
+    'remindersEnabled': remindersEnabled,
+    'reminderHour': reminderHour,
+    'reminderMinute': reminderMinute,
+    'smartReminderCopyEnabled': smartReminderCopyEnabled,
+    'healthSyncEnabled': healthSyncEnabled,
+    'liveDevicePreference': liveDevicePreference.name,
+  };
 
   WorkoutPreferences copyWith({
     bool? remindersEnabled,
@@ -69,30 +60,23 @@ class WorkoutPreferences extends Equatable {
     bool? smartReminderCopyEnabled,
     bool? healthSyncEnabled,
     LiveDevicePreference? liveDevicePreference,
-  }) =>
-      WorkoutPreferences(
-        remindersEnabled:
-            remindersEnabled ?? this.remindersEnabled,
-        reminderHour: reminderHour ?? this.reminderHour,
-        reminderMinute:
-            reminderMinute ?? this.reminderMinute,
-        smartReminderCopyEnabled:
-            smartReminderCopyEnabled ??
-                this.smartReminderCopyEnabled,
-        healthSyncEnabled:
-            healthSyncEnabled ?? this.healthSyncEnabled,
-        liveDevicePreference:
-            liveDevicePreference ??
-                this.liveDevicePreference,
-      );
+  }) => WorkoutPreferences(
+    remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+    reminderHour: reminderHour ?? this.reminderHour,
+    reminderMinute: reminderMinute ?? this.reminderMinute,
+    smartReminderCopyEnabled:
+        smartReminderCopyEnabled ?? this.smartReminderCopyEnabled,
+    healthSyncEnabled: healthSyncEnabled ?? this.healthSyncEnabled,
+    liveDevicePreference: liveDevicePreference ?? this.liveDevicePreference,
+  );
 
   @override
   List<Object?> get props => [
-        remindersEnabled,
-        reminderHour,
-        reminderMinute,
-        smartReminderCopyEnabled,
-        healthSyncEnabled,
-        liveDevicePreference,
-      ];
+    remindersEnabled,
+    reminderHour,
+    reminderMinute,
+    smartReminderCopyEnabled,
+    healthSyncEnabled,
+    liveDevicePreference,
+  ];
 }
