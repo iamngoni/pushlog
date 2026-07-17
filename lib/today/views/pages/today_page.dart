@@ -14,6 +14,7 @@ import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
+import 'package:pushlog/core/views/widgets/tap_surface.dart';
 import 'package:pushlog/live/views/live_session_page.dart';
 import 'package:pushlog/today/views/widgets/action_strip.dart';
 import 'package:pushlog/today/views/widgets/count_block.dart';
@@ -244,17 +245,16 @@ class TodayPage extends StatelessWidget {
             color: theme.divider,
           ),
           Expanded(
-            child: GestureDetector(
+            child: TapSurface(
               onTap: () =>
                   context.read<WorkoutBloc>().add(const UndoLastEntryEvent()),
-              child: ColoredBox(
-                color: theme.accent,
-                child: Center(
-                  child: Text(
-                    'UNDO',
-                    style: AppTypography.displayUndo(
-                      color: AppColors.fixedDark,
-                    ),
+              semanticLabel: 'Undo last log',
+              color: theme.accent,
+              child: Center(
+                child: Text(
+                  'UNDO',
+                  style: AppTypography.displayUndo(
+                    color: AppColors.fixedDark,
                   ),
                 ),
               ),
@@ -299,17 +299,15 @@ class TodayPage extends StatelessWidget {
   ) {
     final isSelected = selectedTab == tab;
     return Expanded(
-      child: GestureDetector(
+      child: TapSurface(
         onTap: () => onTabChanged(tab),
-        child: ColoredBox(
-          color: Colors.transparent,
-          child: Center(
-            child: Text(
-              title,
-              style: AppTypography.labelMono(
-                color: isSelected ? theme.ink : theme.secondaryInk,
-                letterSpacing: 2,
-              ),
+        selected: isSelected,
+        child: Center(
+          child: Text(
+            title,
+            style: AppTypography.labelMono(
+              color: isSelected ? theme.ink : theme.secondaryInk,
+              letterSpacing: 2,
             ),
           ),
         ),

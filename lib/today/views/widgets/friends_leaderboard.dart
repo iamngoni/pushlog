@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/views/widgets/tap_surface.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/models/friend_request.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
@@ -69,10 +70,11 @@ class FriendsLeaderboard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                GestureDetector(
+                TapSurface(
                   onTap: () => unawaited(
                     _showFriendSheet(context, state),
                   ),
+                  semanticLabel: 'Manage friends and invites',
                   child: Text(
                     'INVITE',
                     style: AppTypography.labelMono(
@@ -234,8 +236,10 @@ class _LeaderboardRow extends StatelessWidget {
           ),
           if (onRemove != null) ...[
             const SizedBox(width: 10),
-            GestureDetector(
+            TapSurface(
               onTap: onRemove,
+              semanticLabel: 'Remove ${entry.username} from friends',
+              padding: const EdgeInsets.all(8),
               child: Text(
                 'X',
                 style: AppTypography.labelMono(
@@ -550,7 +554,7 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
             ),
           ),
           if (secondaryAction != null) ...[
-            GestureDetector(
+            TapSurface(
               onTap: onSecondaryAction,
               child: Text(
                 secondaryAction,
@@ -563,7 +567,7 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
             ),
             const SizedBox(width: 14),
           ],
-          GestureDetector(
+          TapSurface(
             onTap: onAction,
             child: Text(
               action,

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/views/widgets/tap_surface.dart';
 
 class SignInPage extends StatelessWidget {
   const SignInPage({super.key});
@@ -345,7 +346,7 @@ class _BottomPair extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: GestureDetector(
+            child: TapSurface(
               onTap: onLeadingTap,
               child: Container(
                 decoration: BoxDecoration(
@@ -362,16 +363,14 @@ class _BottomPair extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: GestureDetector(
+            child: TapSurface(
               onTap: onTrailingTap,
-              child: ColoredBox(
-                color: theme.accent,
-                child: Center(
-                  child: Text(
-                    trailing,
-                    style: AppTypography.displayUndo(
-                      color: AppColors.fixedDark,
-                    ),
+              color: theme.accent,
+              child: Center(
+                child: Text(
+                  trailing,
+                  style: AppTypography.displayUndo(
+                    color: AppColors.fixedDark,
                   ),
                 ),
               ),

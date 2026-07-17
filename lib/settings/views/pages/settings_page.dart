@@ -16,6 +16,7 @@ import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
+import 'package:pushlog/core/views/widgets/tap_surface.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
@@ -575,7 +576,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     final h = time.hour.toString().padLeft(2, '0');
     final m = time.minute.toString().padLeft(2, '0');
-    return GestureDetector(
+    return TapSurface(
       onTap: () async {
         final picked = await showTimePicker(
           context: context,
@@ -654,7 +655,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required VoidCallback onTap,
     bool accent = false,
   }) {
-    return GestureDetector(
+    return TapSurface(
       onTap: onTap,
       child: buildInfoRow(
         title: title,
@@ -758,17 +759,15 @@ class _SettingsPageState extends State<SettingsPage> {
   ) {
     final isSelected = widget.selectedTab == tab;
     return Expanded(
-      child: GestureDetector(
+      child: TapSurface(
         onTap: () => widget.onTabChanged(tab),
-        child: ColoredBox(
-          color: Colors.transparent,
-          child: Center(
-            child: Text(
-              title,
-              style: AppTypography.labelMono(
-                color: isSelected ? theme.ink : theme.secondaryInk,
-                letterSpacing: 2,
-              ),
+        selected: isSelected,
+        child: Center(
+          child: Text(
+            title,
+            style: AppTypography.labelMono(
+              color: isSelected ? theme.ink : theme.secondaryInk,
+              letterSpacing: 2,
             ),
           ),
         ),

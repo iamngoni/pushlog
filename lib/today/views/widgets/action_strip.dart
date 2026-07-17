@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/views/widgets/tap_surface.dart';
 
 class ActionStrip extends StatelessWidget {
   const ActionStrip({
@@ -37,6 +38,7 @@ class ActionStrip extends StatelessWidget {
             child: ActionCell(
               title: '+1',
               subtitle: 'REP',
+              semanticLabel: 'Add 1 rep',
               emphasized: true,
               theme: theme,
               onTap: () => onAddReps(1),
@@ -50,6 +52,7 @@ class ActionStrip extends StatelessWidget {
             child: ActionCell(
               title: '+10',
               subtitle: 'SET',
+              semanticLabel: 'Add 10 reps',
               emphasized: false,
               theme: theme,
               onTap: () => onAddReps(10),
@@ -63,6 +66,7 @@ class ActionStrip extends StatelessWidget {
             child: ActionCell(
               title: '+25',
               subtitle: 'BIG',
+              semanticLabel: 'Add 25 reps',
               emphasized: false,
               theme: theme,
               onTap: () => onAddReps(25),
@@ -76,6 +80,7 @@ class ActionStrip extends StatelessWidget {
             child: ActionCell(
               title: 'LIVE',
               subtitle: 'AUTO',
+              semanticLabel: 'Start live session',
               emphasized: false,
               theme: theme,
               onTap: onLive,
@@ -94,12 +99,14 @@ class ActionCell extends StatelessWidget {
     required this.theme,
     required this.onTap,
     this.subtitle,
+    this.semanticLabel,
     this.isEnabled = true,
     super.key,
   });
 
   final String title;
   final String? subtitle;
+  final String? semanticLabel;
   final bool emphasized;
   final bool isEnabled;
   final AppTheme theme;
@@ -109,35 +116,34 @@ class ActionCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Opacity(
       opacity: isEnabled ? 1.0 : 0.36,
-      child: GestureDetector(
+      child: TapSurface(
         onTap: isEnabled ? onTap : null,
-        child: ColoredBox(
-          color: emphasized ? theme.accent : Colors.transparent,
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+        semanticLabel: semanticLabel,
+        color: emphasized ? theme.accent : Colors.transparent,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                title,
+                style: AppTypography.displayAction(
+                  color: emphasized ? AppColors.fixedDark : theme.ink,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
                 Text(
-                  title,
-                  style: AppTypography.displayAction(
-                    color: emphasized ? AppColors.fixedDark : theme.ink,
+                  subtitle!,
+                  style: AppTypography.labelMono(
+                    size: 8,
+                    color: emphasized
+                        ? AppColors.fixedDark
+                        : theme.secondaryInk,
+                    letterSpacing: 1.5,
                   ),
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    style: AppTypography.labelMono(
-                      size: 8,
-                      color: emphasized
-                          ? AppColors.fixedDark
-                          : theme.secondaryInk,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
       ),

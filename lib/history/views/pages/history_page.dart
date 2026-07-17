@@ -11,6 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
+import 'package:pushlog/core/views/widgets/tap_surface.dart';
 import 'package:pushlog/history/views/widgets/history_entry_row.dart';
 import 'package:pushlog/today/views/widgets/stats_block.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
@@ -335,17 +336,15 @@ class _HistoryPageState extends State<HistoryPage> {
   ) {
     final isSelected = widget.selectedTab == tab;
     return Expanded(
-      child: GestureDetector(
+      child: TapSurface(
         onTap: () => widget.onTabChanged(tab),
-        child: ColoredBox(
-          color: Colors.transparent,
-          child: Center(
-            child: Text(
-              title,
-              style: AppTypography.labelMono(
-                color: isSelected ? theme.ink : theme.secondaryInk,
-                letterSpacing: 2,
-              ),
+        selected: isSelected,
+        child: Center(
+          child: Text(
+            title,
+            style: AppTypography.labelMono(
+              color: isSelected ? theme.ink : theme.secondaryInk,
+              letterSpacing: 2,
             ),
           ),
         ),

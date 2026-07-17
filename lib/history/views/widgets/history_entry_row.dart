@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/views/widgets/tap_surface.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
 
 class HistoryEntryRow extends StatelessWidget {
@@ -60,7 +61,7 @@ class HistoryEntryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return TapSurface(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
