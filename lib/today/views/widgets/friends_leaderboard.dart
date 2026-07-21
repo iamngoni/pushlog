@@ -71,7 +71,7 @@ class FriendsLeaderboard extends StatelessWidget {
                 const Spacer(),
                 GestureDetector(
                   onTap: () => unawaited(
-                    _showFriendSheet(context, state),
+                    _showFriendSheet(context),
                   ),
                   child: Text(
                     'INVITE',
@@ -129,16 +129,19 @@ class FriendsLeaderboard extends StatelessWidget {
 
   Future<void> _showFriendSheet(
     BuildContext context,
-    FriendsState state,
   ) {
+    final cubit = context.read<FriendsCubit>();
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.background,
-      builder: (_) => _FriendSearchSheet(
-        theme: theme,
-        me: me,
-        todayCount: todayCount,
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: _FriendSearchSheet(
+          theme: theme,
+          me: me,
+          todayCount: todayCount,
+        ),
       ),
     );
   }

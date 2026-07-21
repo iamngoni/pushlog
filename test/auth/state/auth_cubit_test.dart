@@ -1,6 +1,7 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/auth/services/auth_service.dart';
@@ -124,6 +125,36 @@ void main() {
       AuthBlocked(
         message:
             'Could not reach the cloud. Check your connection and try again.',
+      ),
+    ],
+  );
+
+  blocTest<AuthCubit, AuthState>(
+    'does not expose raw Google sign-in exceptions',
+    build: () {
+      when(() => authService.currentUser).thenReturn(null);
+      when(authService.signInWithGoogle).thenThrow(
+        const GoogleSignInException(
+          code: GoogleSignInExceptionCode.canceled,
+          description: '[16] Account reauth failed.',
+        ),
+      );
+      return AuthCubit(
+        authService: authService,
+        profileService: profileService,
+        reminderService: reminderService,
+      );
+    },
+    wait: const Duration(milliseconds: 10),
+    act: (cubit) async {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await cubit.signInWithGoogle();
+    },
+    expect: () => const [
+      AuthSignedOut(),
+      AuthLoading(),
+      AuthSignedOut(
+        message: 'Google sign-in could not finish. Try again.',
       ),
     ],
   );

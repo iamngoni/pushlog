@@ -178,10 +178,14 @@ class TodayPage extends StatelessWidget {
             onAddReps: (reps) =>
                 context.read<WorkoutBloc>().add(AddManualRepsEvent(reps)),
             onLive: () {
+              final workoutBloc = context.read<WorkoutBloc>();
               unawaited(
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => const LiveSessionPage(),
+                    builder: (_) => BlocProvider.value(
+                      value: workoutBloc,
+                      child: const LiveSessionPage(),
+                    ),
                     fullscreenDialog: true,
                   ),
                 ),

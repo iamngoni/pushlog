@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/auth/services/auth_service.dart';
 import 'package:pushlog/auth/services/profile_service.dart';
@@ -194,6 +195,24 @@ class AuthCubit extends Cubit<AuthState> {
               'Check your connection and try again.';
         default:
           return error.message ?? 'Could not finish account setup right now.';
+      }
+    }
+
+    if (error is GoogleSignInException) {
+      switch (error.code) {
+        case GoogleSignInExceptionCode.canceled:
+          return 'Google sign-in could not finish. Try again.';
+        case GoogleSignInExceptionCode.interrupted:
+          return 'Google sign-in was interrupted. Try again.';
+        case GoogleSignInExceptionCode.clientConfigurationError:
+        case GoogleSignInExceptionCode.providerConfigurationError:
+          return 'Google sign-in is not configured correctly for this build.';
+        case GoogleSignInExceptionCode.uiUnavailable:
+          return 'Google sign-in is unavailable on this device.';
+        case GoogleSignInExceptionCode.userMismatch:
+          return 'Sign out of Google on this device, then try again.';
+        case GoogleSignInExceptionCode.unknownError:
+          return 'Google sign-in failed. Try again.';
       }
     }
 

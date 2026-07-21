@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pushlog/firebase_options.dart';
 
+const _googleServerClientId =
+    '944029873089-nv4hobvbq0g1l5toi3damisvq6pqqeo1.apps.googleusercontent.com';
+
 class AuthService {
   AuthService(this._firebaseAuth, this._googleSignIn);
 
@@ -19,14 +22,22 @@ class AuthService {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    final clientId = switch (defaultTargetPlatform) {
-      TargetPlatform.iOS => DefaultFirebaseOptions.ios.iosClientId,
-      TargetPlatform.macOS => DefaultFirebaseOptions.ios.iosClientId,
-      _ => null,
+    final (clientId, serverClientId) = switch (defaultTargetPlatform) {
+      TargetPlatform.android => (null, _googleServerClientId),
+      TargetPlatform.iOS => (
+        DefaultFirebaseOptions.ios.iosClientId,
+        _googleServerClientId,
+      ),
+      TargetPlatform.macOS => (
+        DefaultFirebaseOptions.ios.iosClientId,
+        _googleServerClientId,
+      ),
+      _ => (null, null),
     };
 
     await _googleSignIn.initialize(
       clientId: clientId,
+      serverClientId: serverClientId,
     );
     _initialized = true;
   }

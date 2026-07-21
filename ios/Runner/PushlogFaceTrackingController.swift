@@ -3,6 +3,30 @@ import AVFoundation
 import Flutter
 import Foundation
 
+struct PushlogTrackingLossPolicy {
+  let warningInterval: TimeInterval
+  let activeAutoPauseInterval: TimeInterval
+  let setupAutoPauseInterval: TimeInterval
+
+  init(
+    warningInterval: TimeInterval = 1.4,
+    activeAutoPauseInterval: TimeInterval = 4.0,
+    setupAutoPauseInterval: TimeInterval = 2.4
+  ) {
+    self.warningInterval = warningInterval
+    self.activeAutoPauseInterval = activeAutoPauseInterval
+    self.setupAutoPauseInterval = setupAutoPauseInterval
+  }
+
+  func shouldWarn(anchorAge: TimeInterval) -> Bool {
+    anchorAge > warningInterval
+  }
+
+  func shouldAutoPause(anchorAge: TimeInterval, sessionStarted: Bool) -> Bool {
+    anchorAge > (sessionStarted ? activeAutoPauseInterval : setupAutoPauseInterval)
+  }
+}
+
 final class PushlogFaceTrackingController: NSObject {
   private enum Phase: String {
     case unavailable
@@ -32,6 +56,7 @@ final class PushlogFaceTrackingController: NSObject {
   }
 
   private let session = ARSession()
+  private let trackingLossPolicy = PushlogTrackingLossPolicy()
   private var eventSink: FlutterEventSink?
   private var phase: Phase = ARFaceTrackingConfiguration.isSupported ? .setup : .unavailable
   private var cameraAccess = PushlogFaceTrackingController.resolveCameraAccess()
@@ -413,19 +438,25 @@ extension PushlogFaceTrackingController: ARSessionDelegate {
     guard phase != .unavailable else { return }
 
     let now = Date()
-    if let lastAnchorAt, now.timeIntervalSince(lastAnchorAt) > 0.7, phase != .calibrating, countdownValue == nil {
+    if let lastAnchorAt,
+       trackingLossPolicy.shouldWarn(anchorAge: now.timeIntervalSince(lastAnchorAt)),
+       phase != .calibrating,
+       countdownValue == nil
+    {
       phase = .lost
       statusLabel = "LOST"
-      movementLabel = "HOLD"
-      metricsLine = "BRING FACE BACK INTO FRAME"
+      movementLabel = "LOCKING"
+      metricsLine = "RECOVERING LOCK   KEEP MOVING"
       lossBeganAt = lossBeganAt ?? now
       emit()
     }
 
     if phase == .lost,
        let lossBeganAt,
-       now.timeIntervalSince(lossBeganAt) > 1.6,
-       sessionStartedAt != nil
+       trackingLossPolicy.shouldAutoPause(
+        anchorAge: now.timeIntervalSince(lossBeganAt),
+        sessionStarted: sessionStartedAt != nil
+       )
     {
       phase = .paused
       pauseReason = .trackingLoss
@@ -436,13 +467,19 @@ extension PushlogFaceTrackingController: ARSessionDelegate {
     }
 
     switch frame.camera.trackingState {
-    case .notAvailable, .limited:
+    case .notAvailable:
       if phase == .locked || phase == .active {
         phase = .lost
         statusLabel = "LOST"
-        movementLabel = "HOLD"
-        metricsLine = "MOVE PHONE INTO BETTER LIGHT"
+        movementLabel = "LOCKING"
+        metricsLine = "RECOVERING LOCK   CHECK PHONE ANGLE"
         lossBeganAt = lossBeganAt ?? now
+        emit()
+      }
+    case .limited:
+      if phase == .locked || phase == .active {
+        statusLabel = "LOCKED"
+        metricsLine = "TRACK RECOVERING   KEEP MOVING"
         emit()
       }
     case .normal:
