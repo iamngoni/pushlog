@@ -456,17 +456,13 @@ class ProfileService {
       ),
       ...incomingSnapshot.docs.map((doc) => doc.reference),
       ...incomingSnapshot.docs.map(
-        (doc) => _users
-            .doc(doc.id)
-            .collection('outgoingFriendRequests')
-            .doc(uid),
+        (doc) =>
+            _users.doc(doc.id).collection('outgoingFriendRequests').doc(uid),
       ),
       ...outgoingSnapshot.docs.map((doc) => doc.reference),
       ...outgoingSnapshot.docs.map(
-        (doc) => _users
-            .doc(doc.id)
-            .collection('incomingFriendRequests')
-            .doc(uid),
+        (doc) =>
+            _users.doc(doc.id).collection('incomingFriendRequests').doc(uid),
       ),
       ...privateStateSnapshot.docs.map((doc) => doc.reference),
       _publicProfiles.doc(uid),
