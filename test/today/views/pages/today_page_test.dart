@@ -82,7 +82,7 @@ void main() {
     );
 
     await tester.pump();
-    await tester.tap(find.text('LIVE'));
+    await tester.tap(find.text('Live'));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
@@ -148,8 +148,11 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text("TODAY'S SESSION"), findsOneWidget);
-    expect(find.text('Session complete.'), findsOneWidget);
+    expect(find.text('PLAN COMPLETE'), findsOneWidget);
+    expect(
+      find.text('Done for today. Extra reps still count.'),
+      findsOneWidget,
+    );
     expect(find.text('12 / 8'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

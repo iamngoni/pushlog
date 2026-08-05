@@ -15,12 +15,16 @@ class FriendsCubit extends Cubit<FriendsState> {
   Future<void> load({
     required UserProfile me,
     required int todayCount,
+    int? weekCount,
+    int? totalAllTime,
   }) async {
     emit(state.copyWith(isLoading: true));
     try {
       final leaderboard = await _profileService.loadFriends(
         me: me,
         todayCount: todayCount,
+        weekCount: weekCount ?? me.weekCount,
+        totalAllTime: totalAllTime ?? me.totalAllTime,
       );
       final incomingRequests = await _profileService.loadIncomingFriendRequests(
         ownerUid: me.uid,

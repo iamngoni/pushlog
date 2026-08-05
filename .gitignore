@@ -37,6 +37,9 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 build/
+functions/lib/
+functions/node_modules/
+firebase-debug.log
 flutter_*.png
 linked_*.ds
 unlinked.ds

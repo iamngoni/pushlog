@@ -1,12 +1,18 @@
 import 'package:equatable/equatable.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 
+enum LeaderboardPeriod { today, week, allTime }
+
 class FriendProfile extends Equatable {
   const FriendProfile({
     required this.uid,
     required this.label,
     required this.username,
     required this.todayCount,
+    this.weekCount = 0,
+    this.totalAllTime = 0,
+    this.bestDay = 0,
+    this.streak = 0,
     this.photoUrl,
     this.isMe = false,
   });
@@ -15,12 +21,18 @@ class FriendProfile extends Equatable {
     UserProfile profile, {
     bool isMe = false,
     int? todayCount,
+    int? weekCount,
+    int? totalAllTime,
   }) {
     return FriendProfile(
       uid: profile.uid,
       label: profile.publicLabel,
       username: (profile.username ?? profile.displayName ?? 'pusher').trim(),
       todayCount: todayCount ?? profile.todayCount,
+      weekCount: weekCount ?? profile.weekCount,
+      totalAllTime: totalAllTime ?? profile.totalAllTime,
+      bestDay: profile.bestDay,
+      streak: profile.streak,
       photoUrl: profile.photoUrl,
       isMe: isMe,
     );
@@ -30,6 +42,10 @@ class FriendProfile extends Equatable {
   final String label;
   final String username;
   final int todayCount;
+  final int weekCount;
+  final int totalAllTime;
+  final int bestDay;
+  final int streak;
   final String? photoUrl;
   final bool isMe;
 
@@ -46,11 +62,21 @@ class FriendProfile extends Equatable {
         .toUpperCase();
   }
 
+  int scoreFor(LeaderboardPeriod period) => switch (period) {
+    LeaderboardPeriod.today => todayCount,
+    LeaderboardPeriod.week => weekCount,
+    LeaderboardPeriod.allTime => totalAllTime,
+  };
+
   FriendProfile copyWith({
     String? uid,
     String? label,
     String? username,
     int? todayCount,
+    int? weekCount,
+    int? totalAllTime,
+    int? bestDay,
+    int? streak,
     String? photoUrl,
     bool? isMe,
   }) {
@@ -59,6 +85,10 @@ class FriendProfile extends Equatable {
       label: label ?? this.label,
       username: username ?? this.username,
       todayCount: todayCount ?? this.todayCount,
+      weekCount: weekCount ?? this.weekCount,
+      totalAllTime: totalAllTime ?? this.totalAllTime,
+      bestDay: bestDay ?? this.bestDay,
+      streak: streak ?? this.streak,
       photoUrl: photoUrl ?? this.photoUrl,
       isMe: isMe ?? this.isMe,
     );
@@ -70,6 +100,10 @@ class FriendProfile extends Equatable {
     label,
     username,
     todayCount,
+    weekCount,
+    totalAllTime,
+    bestDay,
+    streak,
     photoUrl,
     isMe,
   ];

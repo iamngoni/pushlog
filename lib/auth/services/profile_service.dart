@@ -204,6 +204,8 @@ class ProfileService {
   Future<List<FriendProfile>> loadFriends({
     required UserProfile me,
     required int todayCount,
+    required int weekCount,
+    required int totalAllTime,
   }) async {
     final friendDocs = await _users.doc(me.uid).collection('friends').get();
     final ids = friendDocs.docs
@@ -216,6 +218,8 @@ class ProfileService {
         me,
         isMe: true,
         todayCount: todayCount,
+        weekCount: weekCount,
+        totalAllTime: totalAllTime,
       ),
     ];
 
@@ -234,6 +238,8 @@ class ProfileService {
 
     final friendProfiles = <String, UserProfile>{};
     final friendStats = <String, Map<String, dynamic>>{};
+    final todayKey = _dayKey(DateTime.now());
+    final weekKey = _weekKey(DateTime.now());
     for (final chunk in chunks) {
       final profileSnapshot = await _publicProfiles
           .where(FieldPath.documentId, whereIn: chunk)
@@ -260,9 +266,16 @@ class ProfileService {
           final profile = friendProfiles[id];
           if (profile == null) return null;
           final stats = friendStats[id];
+          final friendTodayCount = stats?['todayKey'] == todayKey
+              ? (stats?['todayCount'] as num?)?.toInt() ?? 0
+              : 0;
+          final friendWeekCount = stats?['weekKey'] == weekKey
+              ? (stats?['weekCount'] as num?)?.toInt() ?? 0
+              : 0;
           return FriendProfile.fromUserProfile(
             profile.copyWith(
-              todayCount: (stats?['todayCount'] as num?)?.toInt(),
+              todayCount: friendTodayCount,
+              weekCount: friendWeekCount,
               totalAllTime: (stats?['totalAllTime'] as num?)?.toInt(),
               bestDay: (stats?['bestDay'] as num?)?.toInt(),
               streak: (stats?['streak'] as num?)?.toInt(),
@@ -448,6 +461,10 @@ class ProfileService {
         .collection('outgoingFriendRequests')
         .get();
     final privateStateSnapshot = await userRef.collection('privateState').get();
+    final tokenSnapshot = await userRef.collection('pushTokens').get();
+    final notificationSnapshot = await userRef
+        .collection('notifications')
+        .get();
 
     final refs = <DocumentReference<Map<String, dynamic>>>[
       ...friendsSnapshot.docs.map((doc) => doc.reference),
@@ -465,6 +482,8 @@ class ProfileService {
             _users.doc(doc.id).collection('incomingFriendRequests').doc(uid),
       ),
       ...privateStateSnapshot.docs.map((doc) => doc.reference),
+      ...tokenSnapshot.docs.map((doc) => doc.reference),
+      ...notificationSnapshot.docs.map((doc) => doc.reference),
       _publicProfiles.doc(uid),
       _friendStats.doc(uid),
       userRef,
@@ -500,6 +519,9 @@ class ProfileService {
         publicProfile?['createdAt'] as String? ??
         now;
     final todayCount = snapshot.dayTotals[_dayKey(DateTime.now())] ?? 0;
+    final weekCount = _weekCount(snapshot.dayTotals, DateTime.now());
+    final todayKey = _dayKey(DateTime.now());
+    final weekKey = _weekKey(DateTime.now());
     final bestDay = snapshot.dayTotals.values.isEmpty
         ? 0
         : snapshot.dayTotals.values.reduce(
@@ -516,6 +538,7 @@ class ProfileService {
       'displayName': _bestDisplayName(user, null),
       'photoUrl': user.photoURL,
       'todayCount': todayCount,
+      'weekCount': weekCount,
       'bestDay': bestDay,
       'totalAllTime': totalAllTime,
       'streak': _streak(snapshot.dayTotals),
@@ -530,6 +553,9 @@ class ProfileService {
     final statsData = {
       'uid': user.uid,
       'todayCount': todayCount,
+      'todayKey': todayKey,
+      'weekCount': weekCount,
+      'weekKey': weekKey,
       'bestDay': bestDay,
       'totalAllTime': totalAllTime,
       'streak': _streak(snapshot.dayTotals),
@@ -631,6 +657,21 @@ class ProfileService {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
+  }
+
+  static String _weekKey(DateTime date) {
+    final start = DateTime(date.year, date.month, date.day).subtract(
+      Duration(days: date.weekday - 1),
+    );
+    return _dayKey(start);
+  }
+
+  static int _weekCount(Map<String, int> dayTotals, DateTime date) {
+    final today = DateTime(date.year, date.month, date.day);
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    return List.generate(today.weekday, (index) {
+      return dayTotals[_dayKey(monday.add(Duration(days: index)))] ?? 0;
+    }).fold(0, (total, reps) => total + reps);
   }
 
   Future<void> _commitDeletes(

@@ -28,59 +28,65 @@ class SignInPage extends StatelessWidget {
             children: [
               const SizedBox(height: 24),
               _Header(theme: theme, trailing: 'ACCOUNT'),
-              const SizedBox(height: 28),
+              const SizedBox(height: 64),
               Text(
-                'PUSH',
+                'Sign in',
                 style: AppTypography.displayMedium(
                   color: theme.ink,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 14),
               SizedBox(
-                width: 240,
+                width: 320,
                 child: Text(
-                  'SIGN IN TO SYNC SESSIONS, '
-                  'CLAIM A USERNAME, AND BUILD YOUR FRIENDS BOARD.',
-                  style: AppTypography.labelMono(
+                  'Sync your sessions, choose a username, '
+                  'and compete with friends.',
+                  style: AppTypography.bodyLarge(
                     color: theme.secondaryInk,
-                    letterSpacing: 1.3,
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Divider(height: 1, color: theme.divider),
-              const SizedBox(height: 24),
+              const SizedBox(height: 36),
               _AuthButton(
-                title: 'CONTINUE WITH APPLE',
-                subtitle: 'APPLE ID',
+                title: 'Continue with Apple',
+                subtitle: 'Apple ID',
                 theme: theme,
                 emphasized: true,
                 onTap: () => context.read<AuthCubit>().signInWithApple(),
               ),
               const SizedBox(height: 12),
               _AuthButton(
-                title: 'CONTINUE WITH GOOGLE',
-                subtitle: 'GOOGLE',
+                title: 'Continue with Google',
+                subtitle: 'Google',
                 theme: theme,
                 onTap: () => context.read<AuthCubit>().signInWithGoogle(),
               ),
               if (message != null && message.isNotEmpty) ...[
                 const SizedBox(height: 18),
                 Text(
-                  message.toUpperCase(),
-                  style: AppTypography.labelMono(
+                  message,
+                  style: AppTypography.body(
                     color: theme.accentInk,
-                    letterSpacing: 1.2,
                   ),
                 ),
               ],
               const Spacer(),
-              Text(
-                'ONLY APPLE + GOOGLE. USERNAMES ARE HOW FRIENDS FIND YOU.',
-                style: AppTypography.labelMono(
-                  color: theme.secondaryInk,
-                  letterSpacing: 1.1,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 18,
+                    color: theme.secondaryInk,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Your email stays private. Friends find you by username.',
+                      style: AppTypography.body(color: theme.secondaryInk),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
             ],
@@ -141,19 +147,18 @@ class _UsernameClaimPageState extends State<UsernameClaimPage> {
             children: [
               const SizedBox(height: 24),
               _Header(theme: theme, trailing: 'USERNAME'),
-              const SizedBox(height: 28),
+              const SizedBox(height: 48),
               Text(
-                'CLAIM',
+                'Choose your name',
                 style: AppTypography.displayMedium(
                   color: theme.ink,
                 ),
               ),
               const SizedBox(height: 10),
               Text(
-                'PICK THE HANDLE FRIENDS WILL SEARCH FOR.',
-                style: AppTypography.labelMono(
+                'This is how friends find you and how you appear on the board.',
+                style: AppTypography.bodyLarge(
                   color: theme.secondaryInk,
-                  letterSpacing: 1.3,
                 ),
               ),
               const SizedBox(height: 28),
@@ -201,8 +206,8 @@ class _UsernameClaimPageState extends State<UsernameClaimPage> {
               SizedBox(
                 width: double.infinity,
                 child: _AuthButton(
-                  title: state.isSubmitting ? 'CLAIMING...' : 'CLAIM USERNAME',
-                  subtitle: 'CONTINUE',
+                  title: state.isSubmitting ? 'Saving...' : 'Use this username',
+                  subtitle: 'Continue',
                   theme: theme,
                   emphasized: true,
                   onTap: state.isSubmitting ? null : () => _submit(context),
@@ -404,8 +409,10 @@ class _AuthButton extends StatelessWidget {
       opacity: onTap == null ? 0.5 : 1,
       child: Material(
         color: emphasized ? theme.accent : theme.surface,
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -414,26 +421,24 @@ class _AuthButton extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               border: Border.all(color: theme.divider),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     title,
-                    style: AppTypography.labelMono(
+                    style: AppTypography.title(
                       color: emphasized ? AppColors.fixedDark : theme.ink,
-                      weight: FontWeight.w700,
-                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: AppTypography.labelMono(
+                  style: AppTypography.body(
                     color: emphasized
                         ? AppColors.fixedDark
                         : theme.secondaryInk,
-                    letterSpacing: 1.5,
                   ),
                 ),
               ],

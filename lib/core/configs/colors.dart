@@ -6,44 +6,45 @@
 //  Copyright (c) 2026 Codecraft Solutions. All rights reserved.
 //
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class AppColors {
   const AppColors._();
 
   // Background
-  static const Color backgroundDark = Color(0xFF0A0908);
-  static const Color backgroundLight = Color(0xFFFAFAF8);
+  static const Color backgroundDark = Color(0xFF151611);
+  static const Color backgroundLight = Color(0xFFF7F7F2);
 
   // Surface
-  static const Color surfaceDark = Color(0xFF141210);
-  static const Color surfaceLight = Color(0x99FFFFFF);
+  static const Color surfaceDark = Color(0xFF1F211A);
+  static const Color surfaceLight = Color(0xFFFFFFFF);
 
   // Ink
-  static const Color inkDark = Color(0xFFF8F5F0);
-  static const Color inkLight = Color(0xFF0A0908);
+  static const Color inkDark = Color(0xFFF3F5EA);
+  static const Color inkLight = Color(0xFF171811);
 
   // Secondary Ink
-  static const Color secondaryInkDark = Color(0xFFB7B1A9);
-  static const Color secondaryInkLight = Color(0xFF625D58);
+  static const Color secondaryInkDark = Color(0xFFA9AD9D);
+  static const Color secondaryInkLight = Color(0xFF686B60);
 
   // Divider
-  static const Color dividerDark = Color(0xFF282522);
-  static const Color dividerLight = Color(0xFFD5D2CE);
+  static const Color dividerDark = Color(0xFF33362C);
+  static const Color dividerLight = Color(0xFFDFE1D7);
 
   // Accent — same in both modes
-  static const Color accent = Color(0xFFD7FF1F);
+  static const Color accent = Color(0xFFC8F135);
 
   // Accent Ink
-  static const Color accentInkDark = Color(0xFFD7FF1F);
-  static const Color accentInkLight = Color(0xFF718500);
+  static const Color accentInkDark = Color(0xFFC8F135);
+  static const Color accentInkLight = Color(0xFF506900);
 
   // Accent Stroke
   static const Color accentStrokeDark = Color(0x29F8F5F0);
   static const Color accentStrokeLight = Color(0x240A0908);
 
   // Fixed dark ink (for accent backgrounds)
-  static const Color fixedDark = Color(0xFF0A0908);
+  static const Color fixedDark = Color(0xFF171811);
 }
 
 class AppTheme {
@@ -97,6 +98,7 @@ class AppTheme {
 
   ThemeData toMaterialTheme(Brightness brightness) {
     return ThemeData(
+      useMaterial3: true,
       brightness: brightness,
       scaffoldBackgroundColor: background,
       colorScheme: ColorScheme(
@@ -111,6 +113,14 @@ class AppTheme {
         onSurface: ink,
       ),
       dividerColor: divider,
+      splashFactory: InkSparkle.splashFactory,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        },
+      ),
     );
   }
 }

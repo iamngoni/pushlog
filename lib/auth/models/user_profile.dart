@@ -9,6 +9,7 @@ class UserProfile extends Equatable {
     this.username,
     this.usernameLower,
     this.todayCount = 0,
+    this.weekCount = 0,
     this.totalAllTime = 0,
     this.bestDay = 0,
     this.streak = 0,
@@ -25,6 +26,7 @@ class UserProfile extends Equatable {
       username: json['username'] as String?,
       usernameLower: json['usernameLower'] as String?,
       todayCount: (json['todayCount'] as num?)?.toInt() ?? 0,
+      weekCount: (json['weekCount'] as num?)?.toInt() ?? 0,
       totalAllTime: (json['totalAllTime'] as num?)?.toInt() ?? 0,
       bestDay: (json['bestDay'] as num?)?.toInt() ?? 0,
       streak: (json['streak'] as num?)?.toInt() ?? 0,
@@ -44,6 +46,7 @@ class UserProfile extends Equatable {
   final String? username;
   final String? usernameLower;
   final int todayCount;
+  final int weekCount;
   final int totalAllTime;
   final int bestDay;
   final int streak;
@@ -83,6 +86,7 @@ class UserProfile extends Equatable {
     'username': username,
     'usernameLower': usernameLower,
     'todayCount': todayCount,
+    'weekCount': weekCount,
     'totalAllTime': totalAllTime,
     'bestDay': bestDay,
     'streak': streak,
@@ -108,6 +112,7 @@ class UserProfile extends Equatable {
     String? username,
     String? usernameLower,
     int? todayCount,
+    int? weekCount,
     int? totalAllTime,
     int? bestDay,
     int? streak,
@@ -122,6 +127,7 @@ class UserProfile extends Equatable {
       username: username ?? this.username,
       usernameLower: usernameLower ?? this.usernameLower,
       todayCount: todayCount ?? this.todayCount,
+      weekCount: weekCount ?? this.weekCount,
       totalAllTime: totalAllTime ?? this.totalAllTime,
       bestDay: bestDay ?? this.bestDay,
       streak: streak ?? this.streak,
@@ -139,6 +145,7 @@ class UserProfile extends Equatable {
     username,
     usernameLower,
     todayCount,
+    weekCount,
     totalAllTime,
     bestDay,
     streak,

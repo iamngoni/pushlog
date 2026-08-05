@@ -14,6 +14,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/services/competition_notification_service.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/injection.dart';
@@ -76,12 +77,12 @@ class _SettingsPageState extends State<SettingsPage> {
               bottom: false,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
+                  horizontal: 24,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 22),
                     buildHeader(theme),
                     const SizedBox(height: 18),
                     Expanded(
@@ -132,29 +133,33 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
-          buildBottomTabBar(theme),
         ],
       ),
     );
   }
 
   Widget buildHeader(AppTheme theme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'PUSHLOG',
           style: AppTypography.labelMono(
+            size: 11,
             color: theme.secondaryInk,
-            letterSpacing: 3,
+            weight: FontWeight.w700,
+            letterSpacing: 2.4,
           ),
         ),
+        const SizedBox(height: 10),
         Text(
-          'SETTINGS',
-          style: AppTypography.labelMono(
-            color: theme.secondaryInk,
-            letterSpacing: 1.5,
-          ),
+          'You',
+          style: AppTypography.headingLarge(color: theme.ink),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          'Your plan, account, devices, and alerts.',
+          style: AppTypography.bodyLarge(color: theme.secondaryInk),
         ),
       ],
     );
@@ -165,13 +170,10 @@ class _SettingsPageState extends State<SettingsPage> {
     AppTheme theme,
   ) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Text(
-        title,
-        style: AppTypography.labelMono(
-          color: theme.secondaryInk,
-          letterSpacing: 2,
-        ),
+        _sentenceCase(title),
+        style: AppTypography.title(color: theme.ink),
       ),
     );
   }
@@ -206,7 +208,7 @@ class _SettingsPageState extends State<SettingsPage> {
               title: 'SIGN OUT',
               detail: 'DISCONNECT THIS DEVICE',
               theme: theme,
-              onTap: () => context.read<AuthCubit>().signOut(),
+              onTap: () => unawaited(_signOut(context)),
             ),
             buildDivider(theme),
             buildActionRow(
@@ -357,6 +359,44 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ],
+            buildDivider(theme),
+            buildToggleRow(
+              title: 'FRIEND LEAD CHANGES',
+              detail: prefs.competitionNotificationsEnabled
+                  ? 'ALERT BOTH FRIENDS WHEN THE LEAD CHANGES'
+                  : 'COMPETITION ALERTS ARE OFF',
+              isOn: prefs.competitionNotificationsEnabled,
+              theme: theme,
+              onChanged: (value) async {
+                final uid = getIt<FirebaseAuth>().currentUser?.uid;
+                if (uid == null) return;
+                final granted = await getIt<CompetitionNotificationService>()
+                    .syncForUser(
+                      uid: uid,
+                      enabled: value,
+                      requestPermission: value,
+                    );
+                if (value && !granted) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: theme.surface,
+                      content: Text(
+                        'Allow notifications to hear when a friend passes you.',
+                        style: AppTypography.body(color: theme.ink),
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                if (!context.mounted) return;
+                context.read<WorkoutBloc>().add(
+                  UpdatePreferencesEvent(
+                    prefs.copyWith(competitionNotificationsEnabled: value),
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ],
@@ -690,7 +730,9 @@ class _SettingsPageState extends State<SettingsPage> {
       decoration: BoxDecoration(
         color: theme.surface,
         border: Border.all(color: theme.divider),
+        borderRadius: BorderRadius.circular(20),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(children: children),
     );
   }
@@ -710,10 +752,9 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
-            style: AppTypography.labelMono(
+            _sentenceCase(title),
+            style: AppTypography.body(
               color: accent ? theme.accentInk : theme.ink,
-              letterSpacing: 1.8,
             ),
           ),
           const Spacer(),
@@ -800,63 +841,11 @@ class _SettingsPageState extends State<SettingsPage> {
     return Divider(height: 1, color: theme.divider);
   }
 
-  Widget buildBottomTabBar(AppTheme theme) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          color: theme.background,
-          border: Border(
-            top: BorderSide(color: theme.divider),
-          ),
-        ),
-        child: Row(
-          children: [
-            buildTabButton(
-              'TODAY',
-              PushlogTab.today,
-              theme,
-            ),
-            buildTabButton(
-              'HISTORY',
-              PushlogTab.history,
-              theme,
-            ),
-            buildTabButton(
-              'SETTINGS',
-              PushlogTab.settings,
-              theme,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget buildTabButton(
-    String title,
-    PushlogTab tab,
-    AppTheme theme,
-  ) {
-    final isSelected = widget.selectedTab == tab;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => widget.onTabChanged(tab),
-        child: ColoredBox(
-          color: Colors.transparent,
-          child: Center(
-            child: Text(
-              title,
-              style: AppTypography.labelMono(
-                color: isSelected ? theme.ink : theme.secondaryInk,
-                letterSpacing: 2,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  String _sentenceCase(String value) {
+    final lower = value.toLowerCase();
+    return lower.isEmpty
+        ? lower
+        : '${lower[0].toUpperCase()}${lower.substring(1)}';
   }
 
   Widget buildLoading(AppTheme theme) {
@@ -882,6 +871,18 @@ class _SettingsPageState extends State<SettingsPage> {
         subject: 'pushlog-export.json',
       ),
     );
+  }
+
+  Future<void> _signOut(BuildContext context) async {
+    final authCubit = context.read<AuthCubit>();
+    final uid = getIt<FirebaseAuth>().currentUser?.uid;
+    if (uid != null) {
+      await getIt<CompetitionNotificationService>().syncForUser(
+        uid: uid,
+        enabled: false,
+      );
+    }
+    await authCubit.signOut();
   }
 
   Future<void> deleteAccount(

@@ -17,6 +17,7 @@ class WorkoutPreferences extends Equatable {
     this.reminderHour = 19,
     this.reminderMinute = 0,
     this.smartReminderCopyEnabled = true,
+    this.competitionNotificationsEnabled = true,
     this.healthSyncEnabled = false,
     this.liveDevicePreference = LiveDevicePreference.iphoneOnly,
     this.trainingPlan,
@@ -29,6 +30,8 @@ class WorkoutPreferences extends Equatable {
         reminderMinute: (json['reminderMinute'] as int?) ?? 0,
         smartReminderCopyEnabled:
             (json['smartReminderCopyEnabled'] as bool?) ?? true,
+        competitionNotificationsEnabled:
+            (json['competitionNotificationsEnabled'] as bool?) ?? true,
         healthSyncEnabled: (json['healthSyncEnabled'] as bool?) ?? false,
         liveDevicePreference: LiveDevicePreference.values.firstWhere(
           (value) => value.name == json['liveDevicePreference'],
@@ -45,6 +48,7 @@ class WorkoutPreferences extends Equatable {
   final int reminderHour;
   final int reminderMinute;
   final bool smartReminderCopyEnabled;
+  final bool competitionNotificationsEnabled;
   final bool healthSyncEnabled;
   final LiveDevicePreference liveDevicePreference;
   final TrainingPlan? trainingPlan;
@@ -56,6 +60,7 @@ class WorkoutPreferences extends Equatable {
     'reminderHour': reminderHour,
     'reminderMinute': reminderMinute,
     'smartReminderCopyEnabled': smartReminderCopyEnabled,
+    'competitionNotificationsEnabled': competitionNotificationsEnabled,
     'healthSyncEnabled': healthSyncEnabled,
     'liveDevicePreference': liveDevicePreference.name,
     'trainingPlan': trainingPlan?.toJson(),
@@ -66,6 +71,7 @@ class WorkoutPreferences extends Equatable {
     int? reminderHour,
     int? reminderMinute,
     bool? smartReminderCopyEnabled,
+    bool? competitionNotificationsEnabled,
     bool? healthSyncEnabled,
     LiveDevicePreference? liveDevicePreference,
     TrainingPlan? Function()? trainingPlan,
@@ -75,6 +81,8 @@ class WorkoutPreferences extends Equatable {
     reminderMinute: reminderMinute ?? this.reminderMinute,
     smartReminderCopyEnabled:
         smartReminderCopyEnabled ?? this.smartReminderCopyEnabled,
+    competitionNotificationsEnabled:
+        competitionNotificationsEnabled ?? this.competitionNotificationsEnabled,
     healthSyncEnabled: healthSyncEnabled ?? this.healthSyncEnabled,
     liveDevicePreference: liveDevicePreference ?? this.liveDevicePreference,
     trainingPlan: trainingPlan == null ? this.trainingPlan : trainingPlan(),
@@ -86,6 +94,7 @@ class WorkoutPreferences extends Equatable {
     reminderHour,
     reminderMinute,
     smartReminderCopyEnabled,
+    competitionNotificationsEnabled,
     healthSyncEnabled,
     liveDevicePreference,
     trainingPlan,

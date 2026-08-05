@@ -48,7 +48,12 @@ void main() {
     'loads leaderboard, friend ids, and request ids',
     build: () {
       when(
-        () => profileService.loadFriends(me: me, todayCount: 12),
+        () => profileService.loadFriends(
+          me: me,
+          todayCount: 12,
+          weekCount: 0,
+          totalAllTime: 0,
+        ),
       ).thenAnswer(
         (_) async => const [
           FriendProfile(
@@ -123,7 +128,12 @@ void main() {
         ),
       ).thenAnswer((_) async => const [friend]);
       when(
-        () => profileService.loadFriends(me: me, todayCount: 12),
+        () => profileService.loadFriends(
+          me: me,
+          todayCount: 12,
+          weekCount: 0,
+          totalAllTime: 0,
+        ),
       ).thenAnswer((_) async => const [friendEntry]);
       when(
         () => profileService.loadIncomingFriendRequests(ownerUid: 'me'),
@@ -144,7 +154,12 @@ void main() {
         () => profileService.sendFriendRequest(requester: me, receiver: friend),
       ).called(1);
       verify(
-        () => profileService.loadFriends(me: me, todayCount: 12),
+        () => profileService.loadFriends(
+          me: me,
+          todayCount: 12,
+          weekCount: 0,
+          totalAllTime: 0,
+        ),
       ).called(1);
     },
   );
@@ -159,7 +174,12 @@ void main() {
         ),
       ).thenAnswer((_) async {});
       when(
-        () => profileService.loadFriends(me: me, todayCount: 12),
+        () => profileService.loadFriends(
+          me: me,
+          todayCount: 12,
+          weekCount: 0,
+          totalAllTime: 0,
+        ),
       ).thenAnswer((_) async => const [friendEntry]);
       when(
         () => profileService.loadIncomingFriendRequests(ownerUid: 'me'),
@@ -194,7 +214,12 @@ void main() {
         ),
       ).thenAnswer((_) async {});
       when(
-        () => profileService.loadFriends(me: me, todayCount: 12),
+        () => profileService.loadFriends(
+          me: me,
+          todayCount: 12,
+          weekCount: 0,
+          totalAllTime: 0,
+        ),
       ).thenAnswer((_) async => const []);
       when(
         () => profileService.loadIncomingFriendRequests(ownerUid: 'me'),

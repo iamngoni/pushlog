@@ -23,7 +23,12 @@ void main() {
   setUp(() {
     profileService = _MockProfileService();
     when(
-      () => profileService.loadFriends(me: me, todayCount: 7),
+      () => profileService.loadFriends(
+        me: me,
+        todayCount: 7,
+        weekCount: 0,
+        totalAllTime: 0,
+      ),
     ).thenAnswer(
       (_) async => const [
         FriendProfile(
@@ -69,7 +74,7 @@ void main() {
     );
 
     await tester.pump();
-    await tester.tap(find.text('INVITE'));
+    await tester.tap(find.text('Invite'));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);

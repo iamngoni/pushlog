@@ -59,12 +59,12 @@ class _HistoryPageState extends State<HistoryPage> {
               bottom: false,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
+                  horizontal: 24,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 22),
                     buildHeader(theme),
                     const SizedBox(height: 18),
                     buildMonthBlock(theme, state),
@@ -86,7 +86,6 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
             ),
           ),
-          buildBottomTabBar(theme),
         ],
       ),
     );
@@ -110,22 +109,27 @@ class _HistoryPageState extends State<HistoryPage> {
     final now = DateTime.now();
     final label = '${months[now.month - 1]} ${now.year}';
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'PUSHLOG',
           style: AppTypography.labelMono(
+            size: 11,
             color: theme.secondaryInk,
-            letterSpacing: 3,
+            weight: FontWeight.w700,
+            letterSpacing: 2.4,
           ),
         ),
+        const SizedBox(height: 10),
         Text(
-          label,
-          style: AppTypography.labelMono(
-            color: theme.secondaryInk,
-            letterSpacing: 1.5,
-          ),
+          'History',
+          style: AppTypography.headingLarge(color: theme.ink),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          label.toLowerCase(),
+          style: AppTypography.bodyLarge(color: theme.secondaryInk),
         ),
       ],
     );
@@ -152,6 +156,10 @@ class _HistoryPageState extends State<HistoryPage> {
               color: theme.ink,
             ),
           ),
+        ),
+        Text(
+          'reps logged this month',
+          style: AppTypography.body(color: theme.secondaryInk),
         ),
         const SizedBox(height: 10),
         Row(
@@ -291,65 +299,6 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget buildBottomTabBar(AppTheme theme) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          color: theme.background,
-          border: Border(
-            top: BorderSide(color: theme.divider),
-          ),
-        ),
-        child: Row(
-          children: [
-            buildTabButton(
-              'TODAY',
-              PushlogTab.today,
-              theme,
-            ),
-            buildTabButton(
-              'HISTORY',
-              PushlogTab.history,
-              theme,
-            ),
-            buildTabButton(
-              'SETTINGS',
-              PushlogTab.settings,
-              theme,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget buildTabButton(
-    String title,
-    PushlogTab tab,
-    AppTheme theme,
-  ) {
-    final isSelected = widget.selectedTab == tab;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => widget.onTabChanged(tab),
-        child: ColoredBox(
-          color: Colors.transparent,
-          child: Center(
-            child: Text(
-              title,
-              style: AppTypography.labelMono(
-                color: isSelected ? theme.ink : theme.secondaryInk,
-                letterSpacing: 2,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 

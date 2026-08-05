@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/services/competition_notification_service.dart';
+import 'package:pushlog/injection.dart';
 import 'package:pushlog/training/models/training_plan.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
@@ -34,6 +37,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
   late ConsistencyPreference _consistencyPreference;
   late CoachingStyle _coachingStyle;
   late bool _remindersEnabled;
+  late bool _competitionNotificationsEnabled;
   late TimeOfDay _reminderTime;
   late TextEditingController _baselineController;
   late TextEditingController _targetController;
@@ -57,6 +61,8 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
         profile?.consistencyPreference ?? ConsistencyPreference.weeklyPlan;
     _coachingStyle = profile?.coachingStyle ?? CoachingStyle.calm;
     _remindersEnabled = widget.preferences.remindersEnabled;
+    _competitionNotificationsEnabled =
+        widget.preferences.competitionNotificationsEnabled;
     _reminderTime = TimeOfDay(
       hour: widget.preferences.reminderHour,
       minute: widget.preferences.reminderMinute,
@@ -518,6 +524,37 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
             ),
           ),
         ],
+        const SizedBox(height: 24),
+        _sectionLabel(theme, 'FRIEND RACE ALERTS'),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _CompactChoice(
+                label: 'ON',
+                selected: _competitionNotificationsEnabled,
+                theme: theme,
+                onTap: () =>
+                    setState(() => _competitionNotificationsEnabled = true),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CompactChoice(
+                label: 'OFF',
+                selected: !_competitionNotificationsEnabled,
+                theme: theme,
+                onTap: () =>
+                    setState(() => _competitionNotificationsEnabled = false),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Both friends get an alert when one passes the other.',
+          style: AppTypography.body(color: theme.secondaryInk),
+        ),
       ],
     );
   }
@@ -792,16 +829,26 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
     );
   }
 
-  void _finish() {
+  Future<void> _finish() async {
     if (!_isCurrentStepValid) return;
     final plan = _buildPlan();
     final updatedPreferences = widget.preferences.copyWith(
       remindersEnabled: _remindersEnabled,
+      competitionNotificationsEnabled: _competitionNotificationsEnabled,
       reminderHour: _reminderTime.hour,
       reminderMinute: _reminderTime.minute,
       trainingPlan: () => plan,
     );
     context.read<WorkoutBloc>().add(UpdatePreferencesEvent(updatedPreferences));
+    final authState = context.read<AuthCubit?>()?.state;
+    if (_competitionNotificationsEnabled && authState is AuthAuthenticated) {
+      await getIt<CompetitionNotificationService>().syncForUser(
+        uid: authState.profile.uid,
+        enabled: true,
+        requestPermission: true,
+      );
+    }
+    if (!mounted) return;
     if (widget.isEditing) {
       Navigator.of(context).pop();
     }
@@ -896,9 +943,11 @@ class _ChoiceTile extends StatelessWidget {
       button: true,
       selected: selected,
       child: Material(
-        color: selected ? theme.surface : theme.background,
+        color: selected ? theme.accent.withAlpha(24) : theme.surface,
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
           child: Container(
             width: double.infinity,
             constraints: const BoxConstraints(minHeight: 76),
@@ -908,6 +957,7 @@ class _ChoiceTile extends StatelessWidget {
                 color: selected ? theme.accent : theme.divider,
                 width: selected ? 2 : 1,
               ),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
               children: [
@@ -926,14 +976,21 @@ class _ChoiceTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Text(
-                  selected ? 'SELECTED' : 'SELECT',
-                  style: AppTypography.labelMono(
-                    size: 9,
-                    color: selected ? theme.accentInk : theme.secondaryInk,
-                    letterSpacing: 1,
-                    weight: selected ? FontWeight.w700 : FontWeight.w400,
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: selected ? theme.accent : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: selected ? null : Border.all(color: theme.divider),
                   ),
+                  child: selected
+                      ? const Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: AppColors.fixedDark,
+                        )
+                      : null,
                 ),
               ],
             ),
@@ -964,14 +1021,17 @@ class _CompactChoice extends StatelessWidget {
       selected: selected,
       child: Material(
         color: selected ? theme.accent : theme.surface,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
           child: Container(
             constraints: const BoxConstraints(minHeight: 48),
             decoration: BoxDecoration(
               border: Border.all(
                 color: selected ? theme.accent : theme.divider,
               ),
+              borderRadius: BorderRadius.circular(14),
             ),
             alignment: Alignment.center,
             child: Text(

@@ -13,6 +13,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pushlog/auth/services/auth_service.dart';
 import 'package:pushlog/auth/services/profile_service.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
+import 'package:pushlog/core/services/competition_notification_service.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/services/storage_service.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
@@ -38,6 +39,10 @@ Future<void> configureInjection() async {
   final googleSignIn = GoogleSignIn.instance;
   final reminderService = ReminderService();
   await reminderService.initialize();
+  final competitionNotificationService = CompetitionNotificationService(
+    firestore: firestore,
+  );
+  await competitionNotificationService.initialize();
   final storageService = StorageService(prefs);
   final localRepository = LocalWorkoutRepository(
     storage: storageService,
@@ -64,6 +69,9 @@ Future<void> configureInjection() async {
     ..registerSingleton<FirebaseFirestore>(firestore)
     ..registerSingleton<GoogleSignIn>(googleSignIn)
     ..registerSingleton<ReminderService>(reminderService)
+    ..registerSingleton<CompetitionNotificationService>(
+      competitionNotificationService,
+    )
     ..registerSingleton<StorageService>(storageService)
     ..registerSingleton<AuthService>(authService)
     ..registerSingleton<ProfileService>(profileService)

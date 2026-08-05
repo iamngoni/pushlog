@@ -135,6 +135,15 @@ class WorkoutLoaded extends WorkoutState {
     }).where((count) => count > 0).length;
   }
 
+  int get weekCount {
+    final now = startOfDay(DateTime.now());
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    return List.generate(now.weekday, (index) {
+      final date = monday.add(Duration(days: index));
+      return dayTotals[WorkoutBloc.dayKey(date)] ?? 0;
+    }).fold(0, (total, count) => total + count);
+  }
+
   int get bestDay {
     if (dayTotals.values.isEmpty) return 0;
     return dayTotals.values.reduce(

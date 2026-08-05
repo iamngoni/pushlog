@@ -27,8 +27,10 @@ class ActionStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 88,
+      height: 76,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
+        color: theme.background,
         border: Border(
           top: BorderSide(color: theme.divider),
         ),
@@ -38,46 +40,34 @@ class ActionStrip extends StatelessWidget {
           Expanded(
             child: ActionCell(
               title: '+1',
-              subtitle: 'REP',
-              emphasized: true,
+              emphasized: false,
               theme: theme,
               onTap: () => onAddReps(1),
             ),
           ),
-          VerticalDivider(
-            width: 1,
-            color: theme.divider,
-          ),
+          const SizedBox(width: 8),
           Expanded(
             child: ActionCell(
               title: '+${suggestedSet ?? 10}',
-              subtitle: suggestedSet == null ? 'SET' : 'PLAN',
-              emphasized: false,
+              subtitle: suggestedSet == null ? null : 'plan',
+              emphasized: true,
               theme: theme,
               onTap: () => onAddReps(suggestedSet ?? 10),
             ),
           ),
-          VerticalDivider(
-            width: 1,
-            color: theme.divider,
-          ),
+          const SizedBox(width: 8),
           Expanded(
             child: ActionCell(
               title: '+25',
-              subtitle: 'BIG',
               emphasized: false,
               theme: theme,
               onTap: () => onAddReps(25),
             ),
           ),
-          VerticalDivider(
-            width: 1,
-            color: theme.divider,
-          ),
+          const SizedBox(width: 8),
           Expanded(
             child: ActionCell(
-              title: 'LIVE',
-              subtitle: 'AUTO',
+              title: 'Live',
               emphasized: false,
               theme: theme,
               onTap: onLive,
@@ -113,16 +103,22 @@ class ActionCell extends StatelessWidget {
       opacity: isEnabled ? 1.0 : 0.36,
       child: GestureDetector(
         onTap: isEnabled ? onTap : null,
-        child: ColoredBox(
-          color: emphasized ? theme.accent : Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: emphasized ? theme.accent : theme.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: emphasized ? null : Border.all(color: theme.divider),
+          ),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   title,
-                  style: AppTypography.displayAction(
+                  style: TextStyle(
                     color: emphasized ? AppColors.fixedDark : theme.ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 if (subtitle != null) ...[
@@ -130,11 +126,11 @@ class ActionCell extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: AppTypography.labelMono(
-                      size: 8,
+                      size: 9,
                       color: emphasized
                           ? AppColors.fixedDark
                           : theme.secondaryInk,
-                      letterSpacing: 1.5,
+                      letterSpacing: 0.4,
                     ),
                   ),
                 ],
