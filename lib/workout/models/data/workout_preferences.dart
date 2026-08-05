@@ -7,11 +7,9 @@
 //
 
 import 'package:equatable/equatable.dart';
+import 'package:pushlog/training/models/training_plan.dart';
 
-enum LiveDevicePreference {
-  iphoneOnly,
-  iphoneAndWatch,
-}
+enum LiveDevicePreference { iphoneOnly, iphoneAndWatch }
 
 class WorkoutPreferences extends Equatable {
   const WorkoutPreferences({
@@ -21,6 +19,7 @@ class WorkoutPreferences extends Equatable {
     this.smartReminderCopyEnabled = true,
     this.healthSyncEnabled = false,
     this.liveDevicePreference = LiveDevicePreference.iphoneOnly,
+    this.trainingPlan,
   });
 
   factory WorkoutPreferences.fromJson(Map<String, dynamic> json) =>
@@ -35,6 +34,11 @@ class WorkoutPreferences extends Equatable {
           (value) => value.name == json['liveDevicePreference'],
           orElse: () => LiveDevicePreference.iphoneOnly,
         ),
+        trainingPlan: json['trainingPlan'] == null
+            ? null
+            : TrainingPlan.fromJson(
+                Map<String, dynamic>.from(json['trainingPlan'] as Map),
+              ),
       );
 
   final bool remindersEnabled;
@@ -43,6 +47,9 @@ class WorkoutPreferences extends Equatable {
   final bool smartReminderCopyEnabled;
   final bool healthSyncEnabled;
   final LiveDevicePreference liveDevicePreference;
+  final TrainingPlan? trainingPlan;
+
+  bool get hasCompletedOnboarding => trainingPlan != null;
 
   Map<String, dynamic> toJson() => {
     'remindersEnabled': remindersEnabled,
@@ -51,6 +58,7 @@ class WorkoutPreferences extends Equatable {
     'smartReminderCopyEnabled': smartReminderCopyEnabled,
     'healthSyncEnabled': healthSyncEnabled,
     'liveDevicePreference': liveDevicePreference.name,
+    'trainingPlan': trainingPlan?.toJson(),
   };
 
   WorkoutPreferences copyWith({
@@ -60,6 +68,7 @@ class WorkoutPreferences extends Equatable {
     bool? smartReminderCopyEnabled,
     bool? healthSyncEnabled,
     LiveDevicePreference? liveDevicePreference,
+    TrainingPlan? Function()? trainingPlan,
   }) => WorkoutPreferences(
     remindersEnabled: remindersEnabled ?? this.remindersEnabled,
     reminderHour: reminderHour ?? this.reminderHour,
@@ -68,6 +77,7 @@ class WorkoutPreferences extends Equatable {
         smartReminderCopyEnabled ?? this.smartReminderCopyEnabled,
     healthSyncEnabled: healthSyncEnabled ?? this.healthSyncEnabled,
     liveDevicePreference: liveDevicePreference ?? this.liveDevicePreference,
+    trainingPlan: trainingPlan == null ? this.trainingPlan : trainingPlan(),
   );
 
   @override
@@ -78,5 +88,6 @@ class WorkoutPreferences extends Equatable {
     smartReminderCopyEnabled,
     healthSyncEnabled,
     liveDevicePreference,
+    trainingPlan,
   ];
 }

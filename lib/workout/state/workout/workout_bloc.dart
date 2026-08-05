@@ -14,6 +14,7 @@ import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
 import 'package:pushlog/core/models/data/application_error.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
+import 'package:pushlog/training/models/training_plan.dart';
 import 'package:pushlog/workout/models/data/day_summary.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';

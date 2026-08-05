@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:pushlog/training/models/training_plan.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -17,46 +18,26 @@ class ReminderService {
 
   static const _channel = AndroidNotificationChannel(
     'pushlog_daily_reminders',
-    'Pushlog Daily Reminders',
-    description: 'Daily reminders to log your pushups.',
+    'Pushlog Training Reminders',
+    description: 'Reminders for planned Pushlog training days.',
     importance: Importance.high,
   );
 
   static const _notificationBaseId = 7100;
   static const _notificationWindowDays = 21;
 
-  static const List<({String title, String body})> _smartCopies = [
+  static const List<({String title, String body})> _fallbackCopies = [
     (
-      title: 'Pushlog wants a set.',
-      body: 'Do not let today finish at zero.',
+      title: 'Training when you are ready.',
+      body: 'Your Pushlog session is ready to open.',
     ),
     (
-      title: 'Clock is running.',
-      body: 'Log a set now and keep the board moving.',
-    ),
-    (
-      title: 'Friends board check.',
-      body: 'Somebody can catch you if you stay still.',
-    ),
-    (
-      title: 'Quick session.',
-      body: '+10 is enough to change the day.',
-    ),
-    (
-      title: 'Stay dangerous.',
-      body: 'Drop and give yourself a better streak.',
+      title: 'A small session still counts.',
+      body: 'Log clean reps and adjust the effort to today.',
     ),
     (
       title: 'Pushlog reminder.',
-      body: 'One set today is better than none.',
-    ),
-    (
-      title: 'Board pressure.',
-      body: 'Your username looks better with fresh reps on it.',
-    ),
-    (
-      title: 'No dead days.',
-      body: 'Open Pushlog and get a set in.',
+      body: 'Your next clean set can start here.',
     ),
   ];
 
@@ -152,15 +133,13 @@ class ReminderService {
       return;
     }
 
-    for (var index = 0; index < _notificationWindowDays; index++) {
-      final scheduledAt = _scheduledDate(
-        preferences: preferences,
-        dayOffset: index,
-      );
-      final copy = _copyFor(
-        scheduledAt,
-        smart: preferences.smartReminderCopyEnabled,
-      );
+    final scheduledDates = scheduledDatesFor(
+      preferences,
+      now: DateTime.now(),
+    );
+    for (var index = 0; index < scheduledDates.length; index++) {
+      final scheduledAt = scheduledDates[index];
+      final copy = copyFor(preferences, scheduledAt);
 
       await _plugin.zonedSchedule(
         _notificationBaseId + index,
@@ -190,35 +169,62 @@ class ReminderService {
     }
   }
 
-  DateTime _scheduledDate({
-    required WorkoutPreferences preferences,
-    required int dayOffset,
+  List<DateTime> scheduledDatesFor(
+    WorkoutPreferences preferences, {
+    required DateTime now,
+    int windowDays = _notificationWindowDays,
   }) {
-    final now = DateTime.now();
-    var candidate = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      preferences.reminderHour,
-      preferences.reminderMinute,
-    ).add(Duration(days: dayOffset));
-
-    if (dayOffset == 0 &&
-        !candidate.isAfter(now.add(const Duration(seconds: 5)))) {
-      candidate = candidate.add(const Duration(days: 1));
+    final plan = preferences.trainingPlan;
+    final dates = <DateTime>[];
+    for (var offset = 0; offset < windowDays; offset++) {
+      final date = DateTime(
+        now.year,
+        now.month,
+        now.day + offset,
+        preferences.reminderHour,
+        preferences.reminderMinute,
+      );
+      if (!date.isAfter(now.add(const Duration(seconds: 5)))) continue;
+      if (plan != null && !plan.isTrainingDay(date)) continue;
+      dates.add(date);
     }
-
-    return candidate;
+    return dates;
   }
 
-  ({String title, String body}) _copyFor(
-    DateTime scheduledAt, {
-    required bool smart,
-  }) {
-    if (!smart) {
+  ({String title, String body}) copyFor(
+    WorkoutPreferences preferences,
+    DateTime scheduledAt,
+  ) {
+    final plan = preferences.trainingPlan;
+    if (plan != null) {
+      final session = plan.sessionFor(scheduledAt);
+      final prescription = '${session.sets} × ${session.repsPerSet} clean reps';
+      if (!preferences.smartReminderCopyEnabled) {
+        return (
+          title: 'Pushlog training day',
+          body: "Today's plan: $prescription.",
+        );
+      }
+      return switch (plan.profile.coachingStyle) {
+        CoachingStyle.calm => (
+          title: "Today's session is ready.",
+          body: '$prescription. Adjust if you need to.',
+        ),
+        CoachingStyle.energetic => (
+          title: 'Training day.',
+          body: '$prescription. Start when you are ready.',
+        ),
+        CoachingStyle.minimal => (
+          title: 'Pushlog',
+          body: '$prescription today.',
+        ),
+      };
+    }
+
+    if (!preferences.smartReminderCopyEnabled) {
       return (
         title: 'Pushlog reminder',
-        body: "Time to log today's pushups.",
+        body: 'Your Pushlog session is ready.',
       );
     }
 
@@ -227,7 +233,7 @@ class ReminderService {
       scheduledAt.month,
       scheduledAt.day,
     ).millisecondsSinceEpoch;
-    return _smartCopies[seed % _smartCopies.length];
+    return _fallbackCopies[seed % _fallbackCopies.length];
   }
 
   Future<void> _configureLocalTimeZone() async {

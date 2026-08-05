@@ -14,11 +14,13 @@ class CountBlock extends StatelessWidget {
   const CountBlock({
     required this.count,
     required this.theme,
+    this.target,
     super.key,
   });
 
   final int count;
   final AppTheme theme;
+  final int? target;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +31,7 @@ class CountBlock extends StatelessWidget {
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
           child: Text(
-            '$count',
+            target == null ? '$count' : '$count / $target',
             style: AppTypography.displayLarge(
               color: theme.ink,
             ),
@@ -38,7 +40,7 @@ class CountBlock extends StatelessWidget {
         Transform.translate(
           offset: const Offset(0, -8),
           child: Text(
-            'TODAY',
+            target == null ? 'TODAY' : 'TODAY / TARGET',
             style: AppTypography.labelMono(
               color: theme.secondaryInk,
               letterSpacing: 1.6,

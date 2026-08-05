@@ -18,6 +18,8 @@ import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
+import 'package:pushlog/training/models/training_plan.dart';
+import 'package:pushlog/training/views/training_onboarding_page.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/models/repos/abs/workout_repository.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
@@ -96,6 +98,12 @@ class _SettingsPageState extends State<SettingsPage> {
                               context,
                               theme,
                               state,
+                            ),
+                            const SizedBox(height: 32),
+                            buildTrainingPlanSection(
+                              context,
+                              theme,
+                              state.preferences,
                             ),
                             const SizedBox(height: 32),
                             buildRemindersSection(
@@ -287,8 +295,12 @@ class _SettingsPageState extends State<SettingsPage> {
           theme,
           children: [
             buildToggleRow(
-              title: 'DAILY REMINDER',
-              detail: prefs.remindersEnabled ? 'ENABLED' : 'DISABLED',
+              title: 'TRAINING REMINDERS',
+              detail: prefs.remindersEnabled
+                  ? prefs.trainingPlan == null
+                        ? 'ENABLED'
+                        : 'SCHEDULED DAYS ONLY'
+                  : 'DISABLED',
               isOn: prefs.remindersEnabled,
               theme: theme,
               onChanged: (value) async {
@@ -349,6 +361,77 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ],
     );
+  }
+
+  Widget buildTrainingPlanSection(
+    BuildContext context,
+    AppTheme theme,
+    WorkoutPreferences prefs,
+  ) {
+    final plan = prefs.trainingPlan;
+    if (plan == null) return const SizedBox.shrink();
+    final profile = plan.profile;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        buildSectionLabel('TRAINING PLAN', theme),
+        buildSettingsCard(
+          theme,
+          children: [
+            buildInfoRow(
+              title: 'GOAL',
+              detail: _goalLabel(profile.goal),
+              theme: theme,
+            ),
+            buildDivider(theme),
+            buildInfoRow(
+              title: 'TARGET',
+              detail: '${profile.targetMaxReps} CLEAN REPS',
+              theme: theme,
+            ),
+            buildDivider(theme),
+            buildInfoRow(
+              title: 'SCHEDULE',
+              detail: '${profile.sessionsPerWeek} DAYS / WEEK',
+              theme: theme,
+            ),
+            buildDivider(theme),
+            buildActionRow(
+              title: 'EDIT PLAN',
+              detail: 'GOALS + SCHEDULE + COACHING',
+              theme: theme,
+              onTap: () {
+                final workoutBloc = context.read<WorkoutBloc>();
+                unawaited(
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => BlocProvider.value(
+                        value: workoutBloc,
+                        child: TrainingOnboardingPage(
+                          preferences: prefs,
+                          isEditing: true,
+                        ),
+                      ),
+                      fullscreenDialog: true,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _goalLabel(TrainingGoal goal) {
+    return switch (goal) {
+      TrainingGoal.buildHabit => 'BUILD A HABIT',
+      TrainingGoal.increaseMaximum => 'INCREASE MAX',
+      TrainingGoal.improveEndurance => 'ENDURANCE',
+      TrainingGoal.maintainAbility => 'MAINTAIN',
+      TrainingGoal.custom => 'CUSTOM TARGET',
+    };
   }
 
   Widget buildHealthSection(

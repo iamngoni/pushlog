@@ -53,6 +53,43 @@ class AppTypography {
     color: color,
   );
 
+  static TextStyle headingLarge({Color? color}) => TextStyle(
+    fontSize: 40,
+    fontWeight: FontWeight.w800,
+    height: 1.05,
+    letterSpacing: -1.2,
+    color: color,
+  );
+
+  static TextStyle headingMedium({Color? color}) => TextStyle(
+    fontSize: 28,
+    fontWeight: FontWeight.w800,
+    height: 1.1,
+    letterSpacing: -0.5,
+    color: color,
+  );
+
+  static TextStyle title({Color? color}) => TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w700,
+    height: 1.25,
+    color: color,
+  );
+
+  static TextStyle bodyLarge({Color? color}) => TextStyle(
+    fontSize: 17,
+    fontWeight: FontWeight.w400,
+    height: 1.45,
+    color: color,
+  );
+
+  static TextStyle body({Color? color}) => TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    height: 1.45,
+    color: color,
+  );
+
   // Monospaced labels
   static TextStyle labelMono({
     double size = 12,

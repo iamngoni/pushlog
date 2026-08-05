@@ -17,6 +17,7 @@ import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/live/views/live_session_page.dart';
 import 'package:pushlog/today/views/widgets/action_strip.dart';
 import 'package:pushlog/today/views/widgets/count_block.dart';
+import 'package:pushlog/today/views/widgets/daily_plan_block.dart';
 import 'package:pushlog/today/views/widgets/day_strip_view.dart';
 import 'package:pushlog/today/views/widgets/friends_leaderboard.dart';
 import 'package:pushlog/today/views/widgets/stats_block.dart';
@@ -55,6 +56,7 @@ class TodayPage extends StatelessWidget {
   ) {
     final authState = context.watch<AuthCubit>().state;
     final profile = authState is AuthAuthenticated ? authState.profile : null;
+    final todayPlan = state.todayPlan;
     return ColoredBox(
       color: theme.background,
       child: Column(
@@ -66,16 +68,27 @@ class TodayPage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                   horizontal: 28,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: ListView(
+                  padding: EdgeInsets.zero,
                   children: [
                     const SizedBox(height: 24),
                     buildHeader(theme),
                     const SizedBox(height: 18),
                     CountBlock(
                       count: state.todayCount,
+                      target: todayPlan?.isTrainingDay ?? false
+                          ? todayPlan!.totalReps
+                          : null,
                       theme: theme,
                     ),
+                    if (todayPlan != null) ...[
+                      const SizedBox(height: 14),
+                      DailyPlanBlock(
+                        session: todayPlan,
+                        completedReps: state.todayCount,
+                        theme: theme,
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     Divider(
                       height: 1,
@@ -93,9 +106,10 @@ class TodayPage extends StatelessWidget {
                         me: profile,
                         todayCount: state.todayCount,
                       ),
-                    const Spacer(),
+                    const SizedBox(height: 28),
                     StatsBlock(
-                      streak: state.streak,
+                      consistencyValue: state.consistencyValue,
+                      consistencyLabel: state.consistencyLabel,
                       bestDay: state.bestDay,
                       totalAllTime: state.totalAllTime,
                       theme: theme,
@@ -175,6 +189,9 @@ class TodayPage extends StatelessWidget {
           if (state.pendingUndo != null) buildUndoStrip(context, theme, state),
           ActionStrip(
             theme: theme,
+            suggestedSet: state.todayPlan?.isTrainingDay ?? false
+                ? state.todayPlan!.repsPerSet
+                : null,
             onAddReps: (reps) =>
                 context.read<WorkoutBloc>().add(AddManualRepsEvent(reps)),
             onLive: () {

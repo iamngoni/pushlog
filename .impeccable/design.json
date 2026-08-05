@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-05T00:00:00+02:00",
+  "title": "Design System: Pushlog",
+  "extensions": {
+    "colorMeta": {
+      "signal-lime": {
+        "role": "primary",
+        "displayName": "Signal Lime",
+        "canonical": "#D7FF1F",
+        "tonalRamp": ["oklch(15% 0.09 115)", "oklch(27% 0.12 115)", "oklch(39% 0.15 115)", "oklch(51% 0.18 115)", "oklch(63% 0.19 115)", "oklch(75% 0.18 115)", "oklch(87% 0.13 115)", "oklch(95% 0.06 115)"]
+      },
+      "warm-black": {
+        "role": "neutral",
+        "displayName": "Warm Black",
+        "canonical": "#0A0908",
+        "tonalRamp": ["#0A0908", "#211F1C", "#393631", "#514D47", "#6B665F", "#918B83", "#C6C0B8", "#F5F1EB"]
+      },
+      "chalk": {
+        "role": "neutral",
+        "displayName": "Chalk",
+        "canonical": "#F8F5F0",
+        "tonalRamp": ["#211E1A", "#3A3631", "#544F49", "#706A63", "#8D877F", "#ADA79F", "#D0CAC3", "#F8F5F0"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Training Display",
+        "purpose": "Today's count, targets, and completion totals."
+      },
+      "body": {
+        "displayName": "Guidance Body",
+        "purpose": "Onboarding, plan rationale, errors, and explanations."
+      },
+      "label": {
+        "displayName": "Ledger Label",
+        "purpose": "Short metadata, navigation, dates, and controls."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "150ms cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "Pressed, selected, and progress feedback."
+      },
+      {
+        "name": "state-standard",
+        "value": "220ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Content state transitions and completion reveals."
+      }
+    ],
+    "breakpoints": [
+      {"name": "compact", "value": "360px"},
+      {"name": "standard", "value": "430px"},
+      {"name": "wide", "value": "768px"}
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single next action on a screen.",
+      "html": "<button class=\"ds-btn-primary\">START TODAY</button>",
+      "css": ".ds-btn-primary { min-height: 56px; padding: 16px 24px; border: 0; border-radius: 0; background: #D7FF1F; color: #0A0908; font: 900 18px/1 system-ui, sans-serif; transition: filter 150ms cubic-bezier(0.25, 1, 0.5, 1), transform 150ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-btn-primary:hover { filter: brightness(0.94); } .ds-btn-primary:active { transform: scale(0.985); } .ds-btn-primary:focus-visible { outline: 3px solid #F8F5F0; outline-offset: 3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A supporting action that does not compete with the daily task.",
+      "html": "<button class=\"ds-btn-secondary\">ADJUST PLAN</button>",
+      "css": ".ds-btn-secondary { min-height: 56px; padding: 16px 24px; border: 1px solid #282522; border-radius: 0; background: #141210; color: #F8F5F0; font: 500 12px/1.45 'SF Mono', Menlo, Monaco, monospace; letter-spacing: 1.5px; transition: background 150ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-btn-secondary:hover { background: #282522; } .ds-btn-secondary:focus-visible { outline: 3px solid #D7FF1F; outline-offset: 3px; }"
+    },
+    {
+      "name": "Goal Choice",
+      "kind": "chip",
+      "refersTo": "button-secondary",
+      "description": "A compact onboarding choice with an explicit selected state.",
+      "html": "<button class=\"ds-goal-choice\" aria-pressed=\"true\"><span>BUILD A HABIT</span><strong>SELECTED</strong></button>",
+      "css": ".ds-goal-choice { display: flex; justify-content: space-between; align-items: center; min-height: 52px; width: 100%; padding: 12px 16px; border: 1px solid #D7FF1F; border-radius: 2px; background: #141210; color: #F8F5F0; font: 600 14px/1.25 system-ui, sans-serif; } .ds-goal-choice strong { color: #D7FF1F; font: 500 10px/1.45 'SF Mono', Menlo, Monaco, monospace; letter-spacing: 1px; } .ds-goal-choice:hover { background: #1C1916; } .ds-goal-choice:focus-visible { outline: 3px solid #D7FF1F; outline-offset: 3px; }"
+    },
+    {
+      "name": "Plan Input",
+      "kind": "input",
+      "refersTo": "button-secondary",
+      "description": "A labeled full-width field for baseline and goal values.",
+      "html": "<label class=\"ds-field\"><span>CURRENT MAX REPS</span><input inputmode=\"numeric\" value=\"12\"></label>",
+      "css": ".ds-field { display: grid; gap: 8px; color: #B7B1A9; font: 500 10px/1.45 'SF Mono', Menlo, Monaco, monospace; letter-spacing: 1.5px; } .ds-field input { min-height: 56px; padding: 0 16px; border: 1px solid #282522; border-radius: 0; background: #141210; color: #F8F5F0; font: 700 22px/1 system-ui, sans-serif; } .ds-field input:focus { border-color: #D7FF1F; outline: 2px solid #D7FF1F; outline-offset: 2px; }"
+    },
+    {
+      "name": "Daily Progress",
+      "kind": "custom",
+      "refersTo": "progress-indicator",
+      "description": "Completed reps against today's planned target.",
+      "html": "<div class=\"ds-progress\"><div><strong>24</strong><span> / 40 REPS</span></div><progress max=\"40\" value=\"24\">60%</progress></div>",
+      "css": ".ds-progress { display: grid; gap: 12px; color: #F8F5F0; } .ds-progress strong { font: 900 48px/1 system-ui, sans-serif; } .ds-progress span { color: #B7B1A9; font: 500 11px/1.45 'SF Mono', Menlo, Monaco, monospace; letter-spacing: 1px; } .ds-progress progress { width: 100%; height: 8px; border: 0; border-radius: 2px; background: #282522; overflow: hidden; accent-color: #D7FF1F; } .ds-progress progress::-webkit-progress-bar { background: #282522; } .ds-progress progress::-webkit-progress-value { background: #D7FF1F; }"
+    },
+    {
+      "name": "Bottom Navigation",
+      "kind": "nav",
+      "refersTo": "button-secondary",
+      "description": "Three stable destinations with an explicit selected state.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><a aria-current=\"page\">TODAY</a><a>HISTORY</a><a>SETTINGS</a></nav>",
+      "css": ".ds-nav { display: grid; grid-template-columns: repeat(3, 1fr); height: 64px; border-top: 1px solid #282522; background: #0A0908; } .ds-nav a { display: grid; place-items: center; position: relative; color: #B7B1A9; font: 500 11px/1.45 'SF Mono', Menlo, Monaco, monospace; letter-spacing: 1.5px; text-decoration: none; } .ds-nav a[aria-current='page'] { color: #F8F5F0; } .ds-nav a[aria-current='page']::before { content: ''; position: absolute; top: 0; left: 25%; right: 25%; height: 2px; background: #D7FF1F; } .ds-nav a:focus-visible { outline: 3px solid #D7FF1F; outline-offset: -3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Training Ledger",
+    "overview": "Pushlog should feel like a precise record that quietly turns effort into momentum. Large numbers make today's work instantly legible. Monospaced labels provide the rhythm of a training log. Signal Lime marks the next action, current state, or earned completion, never decoration. The product is flat, fast, and mature. Structure comes from spacing, alignment, dividers, and tonal changes rather than floating cards or ornamental effects.",
+    "keyCharacteristics": ["One dominant action per screen.", "Strong numeric hierarchy with compact supporting labels.", "Restrained Signal Lime on active, selected, and completed states.", "Warm neutral light and dark themes rather than pure white or black.", "Square, divided controls that feel tactile and deliberate.", "Brief state motion that respects reduced-motion settings."],
+    "rules": [
+      {"name": "The One Signal Rule", "body": "Signal Lime has one job on each screen: identify the next action or the most important current state.", "section": "colors"},
+      {"name": "The Warm Neutral Rule", "body": "Pure black and pure white are prohibited. Every neutral remains slightly warm so both themes feel related.", "section": "colors"},
+      {"name": "The Color Independence Rule", "body": "Every state communicated with color must also have text, shape, progress, or icon support.", "section": "colors"},
+      {"name": "The Number Leads Rule", "body": "Training values lead through size and weight. Labels explain them without competing.", "section": "typography"},
+      {"name": "The Mono Restraint Rule", "body": "Monospaced text is for metadata and controls. Paragraphs and instructional copy must use the system sans.", "section": "typography"},
+      {"name": "The Ledger Plane Rule", "body": "Core content lives on one plane. If a screen resembles a pile of cards, the hierarchy is wrong.", "section": "elevation"}
+    ],
+    "dos": ["Do make today's target and next action understandable within one glance.", "Do reserve Signal Lime for active, selected, completed, and primary-action states.", "Do keep celebrations brief, earned, and optional through the selected coaching style."],
+    "donts": ["Don't use childish mascots, cartoon-heavy fitness experiences, or imitation-Duolingo visuals.", "Don't build noisy badge walls, multiple currencies, constant confetti, or gamification that competes with the workout.", "Don't use punitive streak mechanics, guilt-driven notifications, or language that frames rest as failure.", "Don't create decorative, poster-like layouts that make core controls harder to find."]
+  }
+}

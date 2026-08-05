@@ -19,6 +19,7 @@ import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/injection.dart';
+import 'package:pushlog/training/views/training_onboarding_page.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 
 class App extends StatelessWidget {
@@ -32,12 +33,8 @@ class App extends StatelessWidget {
       child: MaterialApp(
         title: 'Pushlog',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.light().toMaterialTheme(
-          Brightness.light,
-        ),
-        darkTheme: AppTheme.dark().toMaterialTheme(
-          Brightness.dark,
-        ),
+        theme: AppTheme.light().toMaterialTheme(Brightness.light),
+        darkTheme: AppTheme.dark().toMaterialTheme(Brightness.dark),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
@@ -61,9 +58,7 @@ class _RootView extends StatelessWidget {
           AuthLoading() => const _LoadingScreen(),
           AuthSignedOut() => const SignInPage(),
           AuthBlocked() => AuthBlockedPage(message: state.message),
-          AuthNeedsUsername() => UsernameClaimPage(
-            state: state,
-          ),
+          AuthNeedsUsername() => UsernameClaimPage(state: state),
           AuthAuthenticated() => _AuthenticatedRoot(
             key: ValueKey(state.profile.uid),
             profile: state.profile,
@@ -75,10 +70,7 @@ class _RootView extends StatelessWidget {
 }
 
 class _AuthenticatedRoot extends StatelessWidget {
-  const _AuthenticatedRoot({
-    required this.profile,
-    super.key,
-  });
+  const _AuthenticatedRoot({required this.profile, super.key});
 
   final UserProfile profile;
 
@@ -93,17 +85,96 @@ class _AuthenticatedRoot extends StatelessWidget {
         BlocProvider<FriendsCubit>(
           create: (_) {
             final cubit = getIt<FriendsCubit>();
-            unawaited(
-              cubit.load(
-                me: profile,
-                todayCount: profile.todayCount,
-              ),
-            );
+            unawaited(cubit.load(me: profile, todayCount: profile.todayCount));
             return cubit;
           },
         ),
       ],
-      child: const AppScaffold(),
+      child: const _TrainingGate(),
+    );
+  }
+}
+
+class _TrainingGate extends StatelessWidget {
+  const _TrainingGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<WorkoutBloc, WorkoutState>(
+      builder: (context, state) {
+        return switch (state) {
+          WorkoutInitial() || WorkoutLoading() => const _LoadingScreen(),
+          WorkoutError() => _WorkoutErrorScreen(message: state.error.message),
+          WorkoutLoaded() when !state.preferences.hasCompletedOnboarding =>
+            TrainingOnboardingPage(preferences: state.preferences),
+          WorkoutLoaded() => const AppScaffold(),
+        };
+      },
+    );
+  }
+}
+
+class _WorkoutErrorScreen extends StatelessWidget {
+  const _WorkoutErrorScreen({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    return Scaffold(
+      backgroundColor: theme.background,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'PUSHLOG',
+                style: AppTypography.labelMono(
+                  color: theme.secondaryInk,
+                  letterSpacing: 3,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Could not load your training data.',
+                style: AppTypography.headingMedium(color: theme.ink),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: AppTypography.body(color: theme.secondaryInk),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => context.read<WorkoutBloc>().add(
+                    const LoadWorkoutDataEvent(),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.accent,
+                    foregroundColor: AppColors.fixedDark,
+                    shape: const RoundedRectangleBorder(),
+                  ),
+                  child: Text(
+                    'TRY AGAIN',
+                    style: AppTypography.labelMono(
+                      color: AppColors.fixedDark,
+                      letterSpacing: 1.4,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -143,11 +214,7 @@ class _LoadingScreen extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              Center(
-                child: CircularProgressIndicator(
-                  color: theme.accent,
-                ),
-              ),
+              Center(child: CircularProgressIndicator(color: theme.accent)),
               const Spacer(),
             ],
           ),

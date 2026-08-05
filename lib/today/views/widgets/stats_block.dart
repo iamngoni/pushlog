@@ -12,14 +12,16 @@ import 'package:pushlog/core/configs/typography.dart';
 
 class StatsBlock extends StatelessWidget {
   const StatsBlock({
-    required this.streak,
+    required this.consistencyValue,
+    required this.consistencyLabel,
     required this.bestDay,
     required this.totalAllTime,
     required this.theme,
     super.key,
   });
 
-  final int streak;
+  final String consistencyValue;
+  final String consistencyLabel;
   final int bestDay;
   final int totalAllTime;
   final AppTheme theme;
@@ -39,8 +41,8 @@ class StatsBlock extends StatelessWidget {
       children: [
         Expanded(
           child: StatColumn(
-            value: twoDigit(streak),
-            label: 'STREAK',
+            value: consistencyValue,
+            label: consistencyLabel,
             theme: theme,
           ),
         ),

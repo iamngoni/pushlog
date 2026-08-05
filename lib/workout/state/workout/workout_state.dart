@@ -79,6 +79,62 @@ class WorkoutLoaded extends WorkoutState {
     return count;
   }
 
+  PlannedSession? get todayPlan {
+    return preferences.trainingPlan?.sessionFor(DateTime.now());
+  }
+
+  int get plannedSessionsThisWeek {
+    final plan = preferences.trainingPlan;
+    if (plan == null) return 0;
+    final now = startOfDay(DateTime.now());
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    return List.generate(DateTime.daysPerWeek, (offset) {
+      return monday.add(Duration(days: offset));
+    }).where(plan.isTrainingDay).length;
+  }
+
+  int get completedPlannedSessionsThisWeek {
+    final plan = preferences.trainingPlan;
+    if (plan == null) return 0;
+    final now = startOfDay(DateTime.now());
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    var completed = 0;
+    for (var offset = 0; offset < DateTime.daysPerWeek; offset++) {
+      final date = monday.add(Duration(days: offset));
+      if (date.isAfter(now) || !plan.isTrainingDay(date)) continue;
+      if ((dayTotals[WorkoutBloc.dayKey(date)] ?? 0) > 0) completed++;
+    }
+    return completed;
+  }
+
+  String get consistencyValue {
+    return switch (preferences.trainingPlan?.profile.consistencyPreference) {
+      ConsistencyPreference.weeklyPlan ||
+      ConsistencyPreference.scheduledSessions =>
+        '$completedPlannedSessionsThisWeek/$plannedSessionsThisWeek',
+      ConsistencyPreference.none => '$activeDaysThisWeek',
+      null => streak.toString().padLeft(2, '0'),
+    };
+  }
+
+  String get consistencyLabel {
+    return switch (preferences.trainingPlan?.profile.consistencyPreference) {
+      ConsistencyPreference.weeklyPlan => 'THIS WEEK',
+      ConsistencyPreference.scheduledSessions => 'ON PLAN',
+      ConsistencyPreference.none => 'ACTIVE DAYS',
+      null => 'STREAK',
+    };
+  }
+
+  int get activeDaysThisWeek {
+    final now = startOfDay(DateTime.now());
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    return List.generate(DateTime.daysPerWeek, (index) {
+      final date = monday.add(Duration(days: index));
+      return date.isAfter(now) ? 0 : (dayTotals[WorkoutBloc.dayKey(date)] ?? 0);
+    }).where((count) => count > 0).length;
+  }
+
   int get bestDay {
     if (dayTotals.values.isEmpty) return 0;
     return dayTotals.values.reduce(

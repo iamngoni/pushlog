@@ -10,6 +10,7 @@ import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
 import 'package:pushlog/platform/watch/watch_service.dart';
 import 'package:pushlog/today/views/pages/today_page.dart';
+import 'package:pushlog/training/models/training_plan.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 
@@ -90,5 +91,66 @@ void main() {
       find.text('TIMED SESSION MODE. START HERE, COUNT CLEAN, SAVE ONCE.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('shows the current plan as the primary daily target', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio();
+    });
+    final now = DateTime.now();
+    final plan = TrainingPlan(
+      profile: TrainingProfile(
+        goal: TrainingGoal.buildHabit,
+        experience: TrainingExperience.newToTraining,
+        baselineSource: BaselineSource.recentResult,
+        baselineMaxReps: 10,
+        targetMaxReps: 20,
+        durationWeeks: 12,
+        sessionsPerWeek: 2,
+        preferredWeekdays: [now.weekday, (now.weekday % 7) + 1],
+        consistencyPreference: ConsistencyPreference.weeklyPlan,
+        coachingStyle: CoachingStyle.calm,
+      ),
+      startDate: DateTime(now.year, now.month, now.day),
+      createdAt: now,
+    );
+    final planState = WorkoutLoaded(
+      dayTotals: {WorkoutBloc.dayKey(now): 12},
+      sessions: const [],
+      preferences: WorkoutPreferences(trainingPlan: plan),
+    );
+    when(() => workoutBloc.state).thenReturn(planState);
+    when(
+      () => workoutBloc.stream,
+    ).thenAnswer((_) => Stream<WorkoutState>.value(planState));
+    final theme = AppTheme.light();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme.toMaterialTheme(Brightness.light),
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<AuthCubit>.value(value: authCubit),
+            BlocProvider<WorkoutBloc>.value(value: workoutBloc),
+          ],
+          child: TodayPage(
+            selectedTab: PushlogTab.today,
+            onTabChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text("TODAY'S SESSION"), findsOneWidget);
+    expect(find.text('Session complete.'), findsOneWidget);
+    expect(find.text('12 / 8'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

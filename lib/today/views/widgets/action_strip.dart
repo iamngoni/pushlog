@@ -15,12 +15,14 @@ class ActionStrip extends StatelessWidget {
     required this.theme,
     required this.onAddReps,
     required this.onLive,
+    this.suggestedSet,
     super.key,
   });
 
   final AppTheme theme;
   final void Function(int reps) onAddReps;
   final VoidCallback onLive;
+  final int? suggestedSet;
 
   @override
   Widget build(BuildContext context) {
@@ -48,11 +50,11 @@ class ActionStrip extends StatelessWidget {
           ),
           Expanded(
             child: ActionCell(
-              title: '+10',
-              subtitle: 'SET',
+              title: '+${suggestedSet ?? 10}',
+              subtitle: suggestedSet == null ? 'SET' : 'PLAN',
               emphasized: false,
               theme: theme,
-              onTap: () => onAddReps(10),
+              onTap: () => onAddReps(suggestedSet ?? 10),
             ),
           ),
           VerticalDivider(
