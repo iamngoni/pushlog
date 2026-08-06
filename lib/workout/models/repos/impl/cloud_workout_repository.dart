@@ -156,10 +156,18 @@ class CloudWorkoutRepository implements WorkoutRepository {
       SetOptions(merge: true),
     );
     await localRepository.saveSnapshot(remoteSnapshot);
-    await profileService.updateStatsFromSnapshot(
-      user: user,
-      snapshot: remoteSnapshot,
-    );
+    try {
+      await profileService.updateStatsFromSnapshot(
+        user: user,
+        snapshot: remoteSnapshot,
+      );
+    } on Exception catch (error, stackTrace) {
+      log(
+        'public workout stats sync failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
     return remoteSnapshot;
   }
 }

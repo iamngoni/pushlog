@@ -66,6 +66,27 @@ class CompetitionNotificationService {
     required bool enabled,
     bool requestPermission = false,
   }) async {
+    try {
+      return await _syncForUser(
+        uid: uid,
+        enabled: enabled,
+        requestPermission: requestPermission,
+      );
+    } on Exception catch (error, stackTrace) {
+      log(
+        'competition notification sync failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
+  }
+
+  Future<bool> _syncForUser({
+    required String uid,
+    required bool enabled,
+    required bool requestPermission,
+  }) async {
     await initialize();
 
     if (!enabled) {
@@ -94,8 +115,16 @@ class CompetitionNotificationService {
     _tokenSubscription = _messaging.onTokenRefresh.listen((newToken) async {
       final currentUid = _uid;
       if (currentUid == null) return;
-      await _unregisterCurrentToken();
-      await _registerToken(currentUid, newToken);
+      try {
+        await _unregisterCurrentToken();
+        await _registerToken(currentUid, newToken);
+      } on Exception catch (error, stackTrace) {
+        log(
+          'competition notification token refresh failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
     });
     return true;
   }
