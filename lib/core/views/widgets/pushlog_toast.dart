@@ -426,83 +426,91 @@ class _ToastCard extends StatelessWidget {
           : '${data.message}. ${data.detail}',
       child: Material(
         color: Colors.transparent,
-        child: Container(
-          decoration: BoxDecoration(
-            color: theme.surfaceRaised,
-            borderRadius: AppRadius.all(AppRadius.lg),
-            boxShadow: AppElevation.lifted(theme),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // A stripe rather than a full border: it names the tone
-                    // without boxing the message in a second outline.
-                    Container(width: 4, color: tone.ink),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg,
-                          AppSpacing.lg,
-                          AppSpacing.md,
-                          AppSpacing.lg,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _ToneBadge(tone: tone),
-                            const SizedBox(width: AppSpacing.lg),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    data.message,
-                                    style: AppTypography.title(
-                                      color: theme.ink,
-                                    ),
-                                  ),
-                                  if (data.detail != null) ...[
-                                    const SizedBox(height: AppSpacing.xs),
+        child: GestureDetector(
+          // Tapping anywhere that is not the action dismisses. Together
+          // with swipe-up that covers getting rid of the thing, so the card
+          // does not need a close button competing with Undo for the same
+          // trailing corner.
+          onTap: onClose,
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.surfaceRaised,
+              borderRadius: AppRadius.all(AppRadius.lg),
+              boxShadow: AppElevation.lifted(theme),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // A stripe rather than a full border: it names the
+                      // tone without boxing the message in a second
+                      // outline.
+                      Container(width: 4, color: tone.ink),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.lg,
+                          ),
+                          child: Row(
+                            children: [
+                              _ToneBadge(tone: tone),
+                              const SizedBox(width: AppSpacing.lg),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
                                     Text(
-                                      data.detail!,
-                                      style: AppTypography.bodySmall(
-                                        color: theme.secondaryInk,
+                                      data.message,
+                                      style: AppTypography.title(
+                                        color: theme.ink,
                                       ),
                                     ),
+                                    if (data.detail != null) ...[
+                                      const SizedBox(height: AppSpacing.xxs),
+                                      Text(
+                                        data.detail!,
+                                        style: AppTypography.bodySmall(
+                                          color: theme.secondaryInk,
+                                        ),
+                                      ),
+                                    ],
                                   ],
-                                  if (hasAction) ...[
-                                    const SizedBox(height: AppSpacing.md),
-                                    _ToastAction(
-                                      label: data.actionLabel!,
-                                      theme: theme,
-                                      ink: tone.ink,
-                                      onTap: onAction,
-                                    ),
-                                  ],
-                                ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: AppSpacing.md),
-                            _CloseButton(theme: theme, onTap: onClose),
-                          ],
+                              // Inline and right-aligned, which is what
+                              // every undo toast worth copying does.
+                              // Stacking it under the message turns a
+                              // one-line confirmation into a three-row
+                              // block for no gain.
+                              if (hasAction) ...[
+                                const SizedBox(width: AppSpacing.lg),
+                                _ToastAction(
+                                  label: data.actionLabel!,
+                                  ink: tone.ink,
+                                  onTap: onAction,
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              _TimeRemaining(
-                total: data.resolvedDuration,
-                color: tone.ink,
-                track: theme.dividerSoft,
-              ),
-            ],
+                _TimeRemaining(
+                  total: data.resolvedDuration,
+                  color: tone.ink,
+                  track: theme.dividerSoft,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -535,13 +543,11 @@ class _ToneBadge extends StatelessWidget {
 class _ToastAction extends StatelessWidget {
   const _ToastAction({
     required this.label,
-    required this.theme,
     required this.ink,
     required this.onTap,
   });
 
   final String label;
-  final AppTheme theme;
   final Color ink;
   final VoidCallback onTap;
 
@@ -549,49 +555,17 @@ class _ToastAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      child: InkWell(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        borderRadius: AppRadius.all(AppRadius.xs),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 32),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          constraints: const BoxConstraints(
+            minWidth: AppSpacing.minTapTarget,
+            minHeight: AppSpacing.minTapTarget,
+          ),
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.all(AppRadius.xs),
-            border: Border.all(color: theme.divider),
-          ),
-          child: Text(
-            label,
-            style: AppTypography.label(color: ink, weight: FontWeight.w700),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CloseButton extends StatelessWidget {
-  const _CloseButton({required this.theme, required this.onTap});
-
-  final AppTheme theme;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Dismiss',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.all(AppRadius.full),
-        child: SizedBox(
-          width: 32,
-          height: 32,
-          child: Icon(
-            Icons.close_rounded,
-            size: 16,
-            color: theme.tertiaryInk,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Text(label, style: AppTypography.title(color: ink)),
         ),
       ),
     );

@@ -114,7 +114,7 @@ void main() {
     expect(find.text('Second'), findsOneWidget);
   });
 
-  testWidgets('close button dismisses without running the action', (
+  testWidgets('tapping the body dismisses without running the action', (
     tester,
   ) async {
     var actioned = false;
@@ -133,11 +133,35 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    await tester.tap(find.bySemanticsLabel('Dismiss'));
+    await tester.tap(find.text('Could not sync'));
     await tester.pumpAndSettle();
 
     expect(actioned, isFalse);
     expect(find.text('Could not sync'), findsNothing);
+  });
+
+  testWidgets('keeps the action on one row with the message', (tester) async {
+    await _pumpHost(
+      tester,
+      (context) => PushlogToast.success(
+        context,
+        '+10 reps logged',
+        detail: '40 to go today',
+        actionLabel: 'Undo',
+        onAction: () {},
+      ),
+    );
+
+    await tester.tap(find.text('trigger'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // The action sits to the right of the message rather than beneath it,
+    // which is what keeps a confirmation one row tall.
+    final message = tester.getRect(find.text('+10 reps logged'));
+    final action = tester.getRect(find.text('Undo'));
+    expect(action.left, greaterThan(message.right));
+    expect(action.center.dy, closeTo(message.center.dy, 24));
   });
 
   testWidgets('hides the countdown bar when motion is reduced', (
