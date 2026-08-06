@@ -16,6 +16,7 @@ import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/services/competition_notification_service.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/services/storage_service.dart';
+import 'package:pushlog/core/services/workout_shadow_sync_service.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
@@ -49,6 +50,9 @@ Future<void> configureInjection() async {
     scopeResolver: () => firebaseAuth.currentUser?.uid ?? 'guest',
   );
   final profileService = ProfileService(firestore);
+  final workoutShadowSyncService = CloudflareWorkoutShadowSyncService(
+    auth: firebaseAuth,
+  );
   const healthService = HealthService();
   const liveTrackingService = LiveTrackingService();
   const watchService = WatchService();
@@ -61,6 +65,7 @@ Future<void> configureInjection() async {
     auth: firebaseAuth,
     firestore: firestore,
     profileService: profileService,
+    shadowSync: workoutShadowSyncService.syncWorkoutSnapshot,
   );
 
   getIt

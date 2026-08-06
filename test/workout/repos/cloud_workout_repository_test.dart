@@ -50,6 +50,12 @@ void main() {
       final remoteDocument = _MockDocumentSnapshot();
       final localRepository = _MockLocalWorkoutRepository();
       final profileService = _MockProfileService();
+      var shadowSyncCalls = 0;
+      Future<void> failingShadowSync(WorkoutSnapshot snapshot) async {
+        shadowSyncCalls += 1;
+        throw Exception('D1 is unavailable');
+      }
+
       const localSnapshot = WorkoutSnapshot(
         dayTotals: {'2026-08-06': 24},
       );
@@ -85,15 +91,16 @@ void main() {
           code: 'permission-denied',
         ),
       );
-
       final repository = CloudWorkoutRepository(
         localRepository: localRepository,
         auth: auth,
         firestore: firestore,
         profileService: profileService,
+        shadowSync: failingShadowSync,
       );
 
       final result = await repository.loadSnapshot();
+      await Future<void>.delayed(Duration.zero);
       final snapshot = result.getOrElse(
         () => throw TestFailure('Expected training data to load'),
       );
@@ -109,6 +116,7 @@ void main() {
           snapshot: any(named: 'snapshot'),
         ),
       ).called(1);
+      expect(shadowSyncCalls, 1);
     },
   );
 }

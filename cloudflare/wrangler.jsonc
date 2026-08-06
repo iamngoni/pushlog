@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pushlog-api-staging",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-06",
+  "vars": {
+    "FIREBASE_PROJECT_ID": "pushlog-app",
+    "DATA_MODE": "shadow"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pushlog-staging",
+      "database_id": "150fa67b-ecf6-4833-a10a-2be0816e7678",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  }
+}

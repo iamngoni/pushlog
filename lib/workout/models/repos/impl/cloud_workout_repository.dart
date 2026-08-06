@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
@@ -6,6 +7,7 @@ import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pushlog/auth/services/profile_service.dart';
 import 'package:pushlog/core/models/data/application_error.dart';
+import 'package:pushlog/core/services/workout_shadow_sync_service.dart';
 import 'package:pushlog/workout/models/data/workout_snapshot.dart';
 import 'package:pushlog/workout/models/repos/abs/workout_repository.dart';
 import 'package:pushlog/workout/models/repos/impl/local_workout_repository.dart';
@@ -16,12 +18,14 @@ class CloudWorkoutRepository implements WorkoutRepository {
     required this.auth,
     required this.firestore,
     required this.profileService,
+    this.shadowSync = noopWorkoutShadowSync,
   });
 
   final LocalWorkoutRepository localRepository;
   final FirebaseAuth auth;
   final FirebaseFirestore firestore;
   final ProfileService profileService;
+  final WorkoutShadowSync shadowSync;
 
   WorkoutSnapshot? _memorySnapshot;
 
@@ -168,6 +172,19 @@ class CloudWorkoutRepository implements WorkoutRepository {
         stackTrace: stackTrace,
       );
     }
+    unawaited(_syncShadow(remoteSnapshot));
     return remoteSnapshot;
+  }
+
+  Future<void> _syncShadow(WorkoutSnapshot snapshot) async {
+    try {
+      await shadowSync(snapshot);
+    } on Exception catch (error, stackTrace) {
+      log(
+        'workout shadow sync failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 }
