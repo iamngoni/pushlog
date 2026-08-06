@@ -32,20 +32,27 @@ class FriendsCubit extends Cubit<FriendsState> {
       final outgoingRequests = await _profileService.loadOutgoingFriendRequests(
         ownerUid: me.uid,
       );
+      final friendIds = leaderboard
+          .where((entry) => !entry.isMe)
+          .map((entry) => entry.uid)
+          .toSet();
+      final openIncomingRequests = incomingRequests
+          .where((request) => !friendIds.contains(request.uid))
+          .toList();
+      final openOutgoingRequests = outgoingRequests
+          .where((request) => !friendIds.contains(request.uid))
+          .toList();
       emit(
         state.copyWith(
           isLoading: false,
           leaderboard: leaderboard,
-          friendIds: leaderboard
-              .where((entry) => !entry.isMe)
-              .map((entry) => entry.uid)
-              .toSet(),
-          incomingRequests: incomingRequests,
-          outgoingRequests: outgoingRequests,
-          incomingRequestIds: incomingRequests
+          friendIds: friendIds,
+          incomingRequests: openIncomingRequests,
+          outgoingRequests: openOutgoingRequests,
+          incomingRequestIds: openIncomingRequests
               .map((request) => request.uid)
               .toSet(),
-          outgoingRequestIds: outgoingRequests
+          outgoingRequestIds: openOutgoingRequests
               .map((request) => request.uid)
               .toSet(),
         ),

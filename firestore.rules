@@ -61,6 +61,22 @@ service cloud.firestore {
       );
     }
 
+    function hasNoAcceptedFriendship(firstUid, secondUid) {
+      return !existsAfter(
+        /databases/$(database)/documents/users/$(firstUid)/friends/$(secondUid)
+      ) && !existsAfter(
+        /databases/$(database)/documents/users/$(secondUid)/friends/$(firstUid)
+      );
+    }
+
+    function hasNoReciprocalFriendRequest(senderUid, receiverUid) {
+      return !existsAfter(
+        /databases/$(database)/documents/users/$(senderUid)/incomingFriendRequests/$(receiverUid)
+      ) && !existsAfter(
+        /databases/$(database)/documents/users/$(receiverUid)/outgoingFriendRequests/$(senderUid)
+      );
+    }
+
     function safePublicProfile(uid) {
       return request.resource.data.uid == uid &&
         request.resource.data.keys().hasOnly(publicProfileKeys());
@@ -121,6 +137,8 @@ service cloud.firestore {
         allow read: if isOwner(uid);
         allow create: if signedIn() &&
           request.auth.uid == requesterUid &&
+          hasNoAcceptedFriendship(uid, requesterUid) &&
+          hasNoReciprocalFriendRequest(requesterUid, uid) &&
           safeFriendRequest(requesterUid);
         allow update: if false;
         allow delete: if isOwner(uid) || (
@@ -130,7 +148,10 @@ service cloud.firestore {
 
       match /outgoingFriendRequests/{receiverUid} {
         allow read: if isOwner(uid);
-        allow create: if isOwner(uid) && safeFriendRequest(receiverUid);
+        allow create: if isOwner(uid) &&
+          hasNoAcceptedFriendship(uid, receiverUid) &&
+          hasNoReciprocalFriendRequest(uid, receiverUid) &&
+          safeFriendRequest(receiverUid);
         allow update: if false;
         allow delete: if isOwner(uid) || (
           signedIn() && request.auth.uid == receiverUid

@@ -329,6 +329,10 @@ class ProfileService {
         .doc(requester.uid)
         .collection('outgoingFriendRequests')
         .doc(receiver.uid);
+    final reciprocalIncomingRef = _users
+        .doc(requester.uid)
+        .collection('incomingFriendRequests')
+        .doc(receiver.uid);
     final incomingRef = _users
         .doc(receiver.uid)
         .collection('incomingFriendRequests')
@@ -337,6 +341,14 @@ class ProfileService {
     final existingFriend = await friendRef.get();
     final existingRequest = await outgoingRef.get();
     if (existingFriend.exists || existingRequest.exists) return;
+    final reciprocalRequest = await reciprocalIncomingRef.get();
+    if (reciprocalRequest.exists) {
+      await acceptFriendRequest(
+        receiver: requester,
+        requester: FriendRequest.fromUserProfile(receiver),
+      );
+      return;
+    }
 
     final now = DateTime.now();
     final batch = _firestore.batch()
@@ -383,6 +395,18 @@ class ProfileService {
         _users
             .doc(requester.uid)
             .collection('outgoingFriendRequests')
+            .doc(receiver.uid),
+      )
+      ..delete(
+        _users
+            .doc(receiver.uid)
+            .collection('outgoingFriendRequests')
+            .doc(requester.uid),
+      )
+      ..delete(
+        _users
+            .doc(requester.uid)
+            .collection('incomingFriendRequests')
             .doc(receiver.uid),
       );
     await batch.commit();
@@ -434,7 +458,31 @@ class ProfileService {
   }) async {
     final batch = _firestore.batch()
       ..delete(_users.doc(ownerUid).collection('friends').doc(friendUid))
-      ..delete(_users.doc(friendUid).collection('friends').doc(ownerUid));
+      ..delete(_users.doc(friendUid).collection('friends').doc(ownerUid))
+      ..delete(
+        _users
+            .doc(ownerUid)
+            .collection('incomingFriendRequests')
+            .doc(friendUid),
+      )
+      ..delete(
+        _users
+            .doc(ownerUid)
+            .collection('outgoingFriendRequests')
+            .doc(friendUid),
+      )
+      ..delete(
+        _users
+            .doc(friendUid)
+            .collection('incomingFriendRequests')
+            .doc(ownerUid),
+      )
+      ..delete(
+        _users
+            .doc(friendUid)
+            .collection('outgoingFriendRequests')
+            .doc(ownerUid),
+      );
     await batch.commit();
   }
 

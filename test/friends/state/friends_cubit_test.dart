@@ -45,7 +45,7 @@ void main() {
   });
 
   blocTest<FriendsCubit, FriendsState>(
-    'loads leaderboard, friend ids, and request ids',
+    'filters stale requests from accepted friends',
     build: () {
       when(
         () => profileService.loadFriends(
@@ -89,9 +89,7 @@ void main() {
           friendEntry,
         ],
         friendIds: {'friend'},
-        incomingRequests: [incomingRequest],
         outgoingRequests: [outgoingRequest],
-        incomingRequestIds: {'friend'},
         outgoingRequestIds: {'other'},
       ),
     ],
