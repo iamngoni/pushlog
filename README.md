@@ -1,39 +1,87 @@
 # Pushlog
 
-Pushlog is a minimal competitive push-up training app for iOS and Android.
+Pushlog is a focused push-up training app for iOS and Android. It turns a
+longer-term goal into an adjustable training plan, keeps daily logging fast,
+and adds optional competition without turning the workout into a noisy game.
 
-The migration target is parity with the old iOS app first, then cross-platform
-enhancements. Do not delete `old_ios/` until the Flutter app has verified
-replacements for the iOS-only capabilities it currently preserves.
+The Flutter app is now the primary product. It uses a Cloudflare Worker and D1
+for application data, while Firebase remains responsible for authentication
+and native messaging.
+
+## Current Standing
+
+| Area | Current state |
+| --- | --- |
+| Flutter client | Active primary client at `1.1.0+15`, with development, staging, and production flavors. |
+| Product flows | Training-plan onboarding, Today, History, Friends, You, reminders, export, reset, manual logging, and counted sessions are implemented. |
+| Application data | The client reads and writes profiles, workouts, friends, leaderboards, devices, and notifications through the Workers API backed by D1. It does not use Firestore at runtime. |
+| Backend environment | `pushlog-api-staging` and the `pushlog-staging` D1 database are the current internal-testing resources. Production promotion is a separate release step. |
+| Firebase | Firebase Auth issues identity tokens. Firebase Messaging remains available for native push delivery; Firestore is retained only as a historical migration source. |
+| iOS platform work | Flutter-to-native bridges exist for HealthKit workout export, ARKit/TrueDepth rep tracking, and WatchConnectivity. These capabilities still require real-device acceptance after relevant changes. |
+| Android platform work | Manual logging and manual counted sessions are supported. The app reports iOS-only camera, HealthKit, and watch capabilities as unavailable instead of presenting false parity. |
+| Apple Watch | The Flutter iPhone host contains the WatchConnectivity bridge, but the replacement watchOS app is not embedded in the current Runner project. The old watch source remains the reference implementation. |
+| Legacy iOS app | `old_ios/` is intentionally retained until Flutter parity and device verification are complete. |
+| Distribution | Repository state, CI configuration, store uploads, internal testing, and real-device behavior are separate proof layers. Confirm live TestFlight and Google Play status independently. |
 
 ## Product Scope
 
-- Manual rep logging with quick actions for `+1`, `+10`, and `+25`.
-- Daily, weekly, monthly, streak, best-day, and all-time totals.
-- Live session flow with setup, tracking, pause, summary, save, and discard.
-- Firebase sign-in with Apple and Google.
-- Username claiming, friend search, friend management, and daily leaderboard.
-- Workers + D1 sync for profiles, friends, workouts, leaderboards, and
-  competition events.
-- Daily local reminders with configurable time and rotating copy.
-- JSON export and full local/cloud reset.
+- Guided onboarding for different ability levels, goals, schedules, and
+  coaching styles.
+- Adjustable 8-, 12-, or 16-week training plans with planned rest days and
+  periodic reassessment.
+- Quick manual logging, including suggested sets and `+1`, `+10`, and `+25`
+  actions.
+- Counted sessions with setup, tracking, pause, summary, save, and discard
+  states.
+- Daily, weekly, monthly, streak, best-day, and all-time progress.
+- Apple and Google sign-in, username claiming, friend requests, search, and
+  daily, weekly, and all-time leaderboards.
+- Training-day reminders and competition notification events.
+- JSON export plus local, cloud, and account reset controls.
 
-## Parity Targets From `old_ios/`
+The product direction is documented in [`PRODUCT.md`](PRODUCT.md). The visual
+system is documented in [`DESIGN.md`](DESIGN.md).
 
-The old iOS implementation still owns these reference behaviors:
+## Architecture
 
-- ARKit TrueDepth live rep tracking.
-- HealthKit workout export for saved live sessions.
-- Apple Watch live workout coordination through WatchConnectivity.
-- Watch-side heart-rate/workout handling.
-- iCloud-era data behavior that informs the current sync expectations.
+The app keeps a local workout snapshot for fast startup and offline continuity.
+Signed-in data is merged with the remote snapshot through the Workers API.
 
-Keep `old_ios/` until those areas are implemented or intentionally replaced in
-Flutter and verified on device.
+| Layer | Responsibility |
+| --- | --- |
+| Flutter | UI, Bloc state, training plans, local preferences, offline workout snapshot, reminders, and platform-service adapters. |
+| Firebase Auth | Apple and Google identity plus Firebase ID tokens used to authorize API requests. |
+| Cloudflare Worker | Authenticated profile, friend, workout, device, notification, leaderboard, and account APIs. |
+| D1 | Profiles, usernames, workout snapshots and sessions, scores, friendships, devices, notification events, and migration records. |
+| Firebase Messaging | Native push transport. The D1 notification inbox works without an FCM gateway; immediate background delivery is optional. |
 
-## Run The App
+Every `/v1/*` request uses the verified Firebase token UID as its owner. The
+Worker does not trust a UID supplied in a request body.
 
-This project contains three flavors:
+The default internal endpoint is:
+
+```text
+https://pushlog-api-staging.imngonii.workers.dev
+```
+
+Override it for another environment with:
+
+```sh
+--dart-define=PUSHLOG_API_URL=https://example.workers.dev
+```
+
+## Run the App
+
+The repository currently targets Dart `3.11` and Flutter `3.41` or newer
+compatible releases.
+
+Install dependencies:
+
+```sh
+flutter pub get
+```
+
+Run a flavor:
 
 ```sh
 flutter run --flavor development --target lib/main_development.dart
@@ -41,35 +89,104 @@ flutter run --flavor staging --target lib/main_staging.dart
 flutter run --flavor production --target lib/main_production.dart
 ```
 
-Firebase Auth and Messaging are configured for Android and iOS through `firebase.json`,
-`android/app/google-services.json`, `ios/Runner/GoogleService-Info.plist`, and
-`lib/firebase_options.dart`. Application data is served by the Workers API at
-`https://pushlog-api-staging.imngonii.workers.dev`; the Flutter app does not
-read or write Firestore.
+Firebase Auth and Messaging are configured through `firebase.json`, the
+platform service files, and `lib/firebase_options.dart`. Application data uses
+the Workers API in every flavor unless `PUSHLOG_API_URL` overrides it.
+
+## Run the Backend Locally
+
+The Worker lives in `cloudflare/`.
+
+```sh
+cd cloudflare
+npm install
+npm run db:migrate:local
+npm run check
+npm test
+npm run dev
+```
+
+Staging migration and deployment are explicit operations:
+
+```sh
+npm run db:migrate:staging
+npm run deploy:staging
+```
+
+Do not treat a local migration, build, or test result as proof that staging or
+production was deployed.
 
 ## Verification
 
-Run these before considering a migration slice complete:
+The current source passes `flutter analyze`, Bloc lint across 88 files, 58
+Flutter tests, both Workers TypeScript checks, and 6 Workers tests. Re-run the
+complete gate after changes:
 
 ```sh
-flutter test
+dart format --set-exit-if-changed .
 flutter analyze
+flutter test --concurrency=1
 dart run bloc_tools:bloc lint .
 flutter build apk --debug --flavor development --target lib/main_development.dart
-cd cloudflare && npm run check && npm test
+cd cloudflare
+npm run check
+npm test
 ```
 
-iOS-specific parity work also needs an iOS simulator build and real-device
-checks for Apple Sign-In, Google Sign-In, HealthKit, camera access, and watch
-coordination.
+The GitHub Actions workflow runs formatting, analysis, and Flutter tests on a
+self-hosted runner. Xcode Cloud manifests and a post-clone script are present,
+but CI configuration alone does not prove a current successful archive or
+store upload.
 
-## Migration Plan
+iOS platform changes also need:
 
-The active parity plan is in:
+- an iOS simulator build;
+- Apple and Google sign-in checks on a physical device;
+- HealthKit authorization and saved-workout verification;
+- TrueDepth pre-flight, tracking-loss, pause, and manual-fallback checks;
+- Apple Watch launch, workout ownership, heart-rate, save, and discard checks;
+- notification checks in foreground, background, and terminated states.
+
+Android changes need an emulator or device check for authentication, manual
+sessions, reminders, notifications, data sync, and honest unavailable states
+for iOS-only capabilities.
+
+## Migration Boundaries
+
+### Firestore to D1
+
+The Flutter client has completed the direct Workers/D1 cutover. The recorded
+staging migration reconciled all 41 historical Firestore source documents with
+D1 checksums. Keep Firestore as a read-only historical archive until internal
+builds pass profile, friend, workout, account-deletion, and notification
+acceptance against the intended D1 environment.
+
+See [`docs/migrations/FIRESTORE_TO_D1.md`](docs/migrations/FIRESTORE_TO_D1.md)
+for the inventory, backfill, reconciliation, and recovery procedures.
+
+### Native iOS parity
+
+The Flutter iOS host now contains native HealthKit, TrueDepth, and
+WatchConnectivity implementations. `old_ios/` still preserves the reference
+native app and watch app behavior. Delete it only after the Flutter client and
+an embedded replacement watch target have passed the real-device parity gates,
+or after those capabilities are explicitly removed from product scope.
+
+The older implementation plan in
+[`docs/superpowers/plans/2026-05-30-pushlog-flutter-parity.md`](docs/superpowers/plans/2026-05-30-pushlog-flutter-parity.md)
+is useful as historical context, but some architecture notes predate the
+Workers/D1 cutover. The current source and this README are authoritative for
+the present architecture.
+
+## Repository Map
 
 ```text
-docs/superpowers/plans/2026-05-30-pushlog-flutter-parity.md
+lib/                 Flutter product, state, services, and platform adapters
+test/                Flutter unit and widget tests
+cloudflare/          Workers API, D1 migrations, migration tooling, and tests
+ios/Runner/          Current iOS host and native platform bridges
+android/             Current Android host and flavor configuration
+old_ios/             Legacy native iOS and watchOS parity reference
+docs/migrations/     Backend migration and recovery documentation
+docs/superpowers/    Historical implementation plans
 ```
-
-The final migration step is deleting `old_ios/`, but only after the plan's
-parity gates are complete.
