@@ -328,47 +328,44 @@ class DayDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      minChildSize: 0.4,
-      maxChildSize: 0.6,
-      expand: false,
-      builder: (_, scrollController) => ColoredBox(
-        color: theme.background,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 28,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: AppSpacing.md),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.divider,
-                  borderRadius: BorderRadius.circular(2),
+    // `showModalBottomSheet` gives its child loose horizontal constraints.
+    // Without an explicit width this compact content shrink-wraps into the
+    // narrow pill seen on iPhone instead of using the sheet's available width.
+    return SizedBox(
+      width: double.infinity,
+      child: DraggableScrollableSheet(
+        minChildSize: 0.4,
+        maxChildSize: 0.6,
+        expand: false,
+        builder: (_, scrollController) => ColoredBox(
+          color: theme.background,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 28,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Spacer(),
+                Text(
+                  rowTitle(entry.date),
+                  style: AppTypography.overline(color: theme.tertiaryInk),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                rowTitle(entry.date),
-                style: AppTypography.overline(color: theme.tertiaryInk),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  '${entry.count}',
-                  style: AppTypography.metricXLarge(color: theme.ink),
+                const SizedBox(height: AppSpacing.xs),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '${entry.count}',
+                    style: AppTypography.metricXLarge(color: theme.ink),
+                  ),
                 ),
-              ),
-              Text(
-                'REPS',
-                style: AppTypography.overline(color: theme.tertiaryInk),
-              ),
-              const Spacer(),
-            ],
+                Text(
+                  'REPS',
+                  style: AppTypography.overline(color: theme.tertiaryInk),
+                ),
+                const Spacer(),
+              ],
+            ),
           ),
         ),
       ),

@@ -12,7 +12,7 @@ and native messaging.
 
 | Area | Current state |
 | --- | --- |
-| Flutter client | Active primary client at `1.1.0+15`, with development, staging, and production flavors. |
+| Flutter client | Active primary client at `1.1.0+16`, with development, staging, and production flavors. |
 | Product flows | Training-plan onboarding, Today, History, Friends, You, reminders, export, reset, manual logging, and counted sessions are implemented. |
 | Application data | The client reads and writes profiles, workouts, friends, leaderboards, devices, and notifications through the Workers API backed by D1. It does not use Firestore at runtime. |
 | Backend environment | `pushlog-api-staging` and the `pushlog-staging` D1 database are the current internal-testing resources. Production promotion is a separate release step. |
