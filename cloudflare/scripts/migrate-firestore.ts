@@ -629,23 +629,24 @@ async function reconcileInventory(
     ([path, checksumValue]) => ledger.get(path) !== checksumValue,
   );
   const extra = [...ledger.keys()].filter((path) => !source.has(path));
-  const counts = await d1.select(`
-    SELECT 'users' AS table_name, COUNT(*) AS row_count FROM users
-    UNION ALL SELECT 'workout_snapshots', COUNT(*) FROM workout_snapshots
-    UNION ALL SELECT 'workout_sessions', COUNT(*) FROM workout_sessions
-    UNION ALL SELECT 'daily_scores', COUNT(*) FROM daily_scores
-    UNION ALL SELECT 'friend_links', COUNT(*) FROM friend_links
-    UNION ALL SELECT 'friend_requests', COUNT(*) FROM friend_requests
-    UNION ALL SELECT 'devices', COUNT(*) FROM devices
-    UNION ALL SELECT 'notification_events', COUNT(*) FROM notification_events
+  const [counts = {}] = await d1.select(`
+    SELECT
+      (SELECT COUNT(*) FROM users) AS users,
+      (SELECT COUNT(*) FROM workout_snapshots) AS workout_snapshots,
+      (SELECT COUNT(*) FROM workout_sessions) AS workout_sessions,
+      (SELECT COUNT(*) FROM daily_scores) AS daily_scores,
+      (SELECT COUNT(*) FROM friend_links) AS friend_links,
+      (SELECT COUNT(*) FROM friend_requests) AS friend_requests,
+      (SELECT COUNT(*) FROM devices) AS devices,
+      (SELECT COUNT(*) FROM notification_events) AS notification_events
   `);
 
   console.log(`ledgerMatched: ${source.size - missing.length - mismatched.length}`);
   console.log(`ledgerMissing: ${missing.length}`);
   console.log(`ledgerMismatched: ${mismatched.length}`);
   console.log(`ledgerExtra: ${extra.length}`);
-  for (const row of counts) {
-    console.log(`d1.${String(row.table_name)}: ${String(row.row_count)}`);
+  for (const [tableName, rowCount] of Object.entries(counts)) {
+    console.log(`d1.${tableName}: ${String(rowCount)}`);
   }
   if (missing.length > 0 || mismatched.length > 0 || extra.length > 0) {
     throw new Error('Reconciliation failed. Firestore remains the source of truth.');
@@ -678,12 +679,12 @@ class D1Client {
           authorization: `Bearer ${apiToken}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify(
-          statements.map((statement) => ({
+        body: JSON.stringify({
+          batch: statements.map((statement) => ({
             sql: statement.sql,
             params: statement.params ?? [],
           })),
-        ),
+        }),
       },
     );
     const envelope = (await response.json()) as D1Envelope;
