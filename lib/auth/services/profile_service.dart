@@ -1,9 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
+import 'package:pushlog/core/services/pushlog_api_client.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/models/friend_request.dart';
-import 'package:pushlog/workout/models/data/workout_snapshot.dart';
 
 class UsernameClaimResult {
   const UsernameClaimResult._({
@@ -20,81 +21,29 @@ class UsernameClaimResult {
   final String? message;
 }
 
-class UsernameTakenException implements Exception {
-  const UsernameTakenException();
-}
-
 class ProfileService {
-  ProfileService(this._firestore);
+  ProfileService(this._api);
 
-  final FirebaseFirestore _firestore;
+  final PushlogApiClient _api;
+  final StreamController<UserProfile?> _profileUpdates =
+      StreamController<UserProfile?>.broadcast();
+  UserProfile? _cachedProfile;
 
-  CollectionReference<Map<String, dynamic>> get _users =>
-      _firestore.collection('users');
-
-  CollectionReference<Map<String, dynamic>> get _publicProfiles =>
-      _firestore.collection('publicProfiles');
-
-  CollectionReference<Map<String, dynamic>> get _friendStats =>
-      _firestore.collection('friendStats');
-
-  CollectionReference<Map<String, dynamic>> get _usernames =>
-      _firestore.collection('usernames');
-
-  Stream<UserProfile?> watchProfile(String uid) {
-    return _users.doc(uid).snapshots().map((snapshot) {
-      if (!snapshot.exists) return null;
-      final data = snapshot.data();
-      if (data == null) return null;
-      return UserProfile.fromJson(data);
-    });
+  Stream<UserProfile?> watchProfile(String uid) async* {
+    final cached = _cachedProfile;
+    if (cached != null && cached.uid == uid) {
+      yield cached;
+    } else {
+      yield await _loadOwnProfile();
+    }
+    yield* _profileUpdates.stream.where(
+      (profile) => profile == null || profile.uid == uid,
+    );
   }
 
   Future<void> ensureProfileShell(User user) async {
-    final now = DateTime.now().toIso8601String();
-    final userRef = _users.doc(user.uid);
-    final publicProfileRef = _publicProfiles.doc(user.uid);
-    final userSnapshot = await userRef.get();
-    final publicSnapshot = await publicProfileRef.get();
-    final privateProfile = userSnapshot.data();
-    final publicProfile = publicSnapshot.data();
-    final previousUsername =
-        privateProfile?['username'] as String? ??
-        publicProfile?['username'] as String?;
-    final previousUsernameLower =
-        privateProfile?['usernameLower'] as String? ??
-        publicProfile?['usernameLower'] as String? ??
-        (previousUsername == null ? null : normalizeUsername(previousUsername));
-    final createdAt =
-        privateProfile?['createdAt'] as String? ??
-        publicProfile?['createdAt'] as String? ??
-        now;
-    final privateData = <String, dynamic>{
-      'uid': user.uid,
-      'email': user.email,
-      'displayName': user.displayName,
-      'photoUrl': user.photoURL,
-      'createdAt': createdAt,
-      'updatedAt': now,
-    };
-    if (previousUsername != null) {
-      privateData['username'] = previousUsername;
-    }
-    if (previousUsernameLower != null) {
-      privateData['usernameLower'] = previousUsernameLower;
-    }
-    final publicData = _publicProfileData(
-      user: user,
-      fallbackUsername: previousUsername,
-      usernameLower: previousUsernameLower,
-      createdAt: createdAt,
-      updatedAt: now,
-    );
-
-    final batch = _firestore.batch()
-      ..set(userRef, privateData, SetOptions(merge: true))
-      ..set(publicProfileRef, publicData);
-    await batch.commit();
+    final response = await _api.put('/v1/profile');
+    _cacheProfile(_profileFromResponse(response));
   }
 
   Future<UsernameClaimResult> claimUsername({
@@ -108,68 +57,17 @@ class ProfileService {
       );
     }
 
-    final userRef = _users.doc(user.uid);
-    final publicProfileRef = _publicProfiles.doc(user.uid);
-    final usernameRef = _usernames.doc(normalized);
-
     try {
-      await _firestore.runTransaction((transaction) async {
-        final existingUsername = await transaction.get(usernameRef);
-        if (existingUsername.exists) {
-          final existingUid = existingUsername.data()?['uid'] as String?;
-          if (existingUid != user.uid) {
-            throw const UsernameTakenException();
-          }
-        }
-
-        final profileSnapshot = await transaction.get(userRef);
-        final previousLower =
-            profileSnapshot.data()?['usernameLower'] as String?;
-        final previousUsername = profileSnapshot.data()?['username'] as String?;
-        final now = DateTime.now().toIso8601String();
-
-        transaction.set(usernameRef, {
-          'uid': user.uid,
-          'username': username.trim(),
-          'usernameLower': normalized,
-          'updatedAt': now,
-        });
-
-        if (previousLower != null &&
-            previousLower.isNotEmpty &&
-            previousLower != normalized) {
-          transaction.delete(_usernames.doc(previousLower));
-        }
-
-        transaction
-          ..set(userRef, {
-            'uid': user.uid,
-            'email': user.email,
-            'displayName': _bestDisplayName(user, previousUsername),
-            'photoUrl': user.photoURL,
-            'username': username.trim(),
-            'usernameLower': normalized,
-            'updatedAt': now,
-            'createdAt': profileSnapshot.data()?['createdAt'] ?? now,
-          }, SetOptions(merge: true))
-          ..set(
-            publicProfileRef,
-            _publicProfileData(
-              user: user,
-              fallbackUsername: username.trim(),
-              username: username.trim(),
-              usernameLower: normalized,
-              createdAt: profileSnapshot.data()?['createdAt'] as String? ?? now,
-              updatedAt: now,
-            ),
-          );
-      });
-      return const UsernameClaimResult.success();
-    } on UsernameTakenException {
-      return const UsernameClaimResult.failure(
-        'That username is already taken.',
+      final response = await _api.put(
+        '/v1/profile/username',
+        body: {'username': username.trim()},
       );
-    } on Exception {
+      _cacheProfile(_profileFromResponse(response));
+      return const UsernameClaimResult.success();
+    } on PushlogApiException catch (error) {
+      if (error.code == 'username_taken' || error.code == 'invalid_username') {
+        return UsernameClaimResult.failure(error.message);
+      }
       return const UsernameClaimResult.failure(
         'Unable to claim username right now.',
       );
@@ -182,23 +80,13 @@ class ProfileService {
   }) async {
     final normalized = query.trim().toLowerCase();
     if (normalized.length < 2) return const [];
-
-    final snapshot = await _publicProfiles
-        .where('usernameLower', isGreaterThanOrEqualTo: normalized)
-        .where(
-          'usernameLower',
-          isLessThan: '$normalized\uf8ff',
-        )
-        .limit(8)
-        .get();
-
-    return snapshot.docs
-        .map((doc) => UserProfile.fromJson(doc.data()))
-        .where((profile) => profile.uid != excludeUid)
-        .toList()
-      ..sort(
-        (left, right) => left.usernameLower!.compareTo(right.usernameLower!),
-      );
+    final response = await _api.get(
+      '/v1/users/search',
+      query: {'q': normalized},
+    );
+    return _profileList(
+      response['profiles'],
+    ).where((profile) => profile.uid != excludeUid).toList();
   }
 
   Future<List<FriendProfile>> loadFriends({
@@ -207,112 +95,46 @@ class ProfileService {
     required int weekCount,
     required int totalAllTime,
   }) async {
-    final friendDocs = await _users.doc(me.uid).collection('friends').get();
-    final ids = friendDocs.docs
-        .map((doc) => doc.id)
-        .where((id) => id.isNotEmpty)
-        .toList();
-
-    final entries = <FriendProfile>[
-      FriendProfile.fromUserProfile(
-        me,
-        isMe: true,
-        todayCount: todayCount,
-        weekCount: weekCount,
-        totalAllTime: totalAllTime,
-      ),
-    ];
-
-    if (ids.isEmpty) {
-      entries.sort(
-        (left, right) => right.todayCount.compareTo(left.todayCount),
-      );
-      return entries;
-    }
-
-    final chunks = <List<String>>[];
-    for (var index = 0; index < ids.length; index += 10) {
-      final end = (index + 10) > ids.length ? ids.length : index + 10;
-      chunks.add(ids.sublist(index, end));
-    }
-
-    final friendProfiles = <String, UserProfile>{};
-    final friendStats = <String, Map<String, dynamic>>{};
-    final todayKey = _dayKey(DateTime.now());
-    final weekKey = _weekKey(DateTime.now());
-    for (final chunk in chunks) {
-      final profileSnapshot = await _publicProfiles
-          .where(FieldPath.documentId, whereIn: chunk)
-          .get();
-      friendProfiles.addEntries(
-        profileSnapshot.docs.map(
-          (doc) => MapEntry(doc.id, UserProfile.fromJson(doc.data())),
+    final now = DateTime.now();
+    final response = await _api.get(
+      '/v1/friends',
+      query: {
+        'dayKey': _dayKey(now),
+        'weekKey': _dayKey(
+          DateTime(now.year, now.month, now.day).subtract(
+            Duration(days: now.weekday - 1),
+          ),
         ),
-      );
-
-      final statsSnapshot = await _friendStats
-          .where(FieldPath.documentId, whereIn: chunk)
-          .get();
-      friendStats.addEntries(
-        statsSnapshot.docs.map(
-          (doc) => MapEntry(doc.id, doc.data()),
-        ),
-      );
-    }
-
-    entries
-      ..addAll(
-        ids.map((id) {
-          final profile = friendProfiles[id];
-          if (profile == null) return null;
-          final stats = friendStats[id];
-          final friendTodayCount = stats?['todayKey'] == todayKey
-              ? (stats?['todayCount'] as num?)?.toInt() ?? 0
-              : 0;
-          final friendWeekCount = stats?['weekKey'] == weekKey
-              ? (stats?['weekCount'] as num?)?.toInt() ?? 0
-              : 0;
-          return FriendProfile.fromUserProfile(
-            profile.copyWith(
-              todayCount: friendTodayCount,
-              weekCount: friendWeekCount,
-              totalAllTime: (stats?['totalAllTime'] as num?)?.toInt(),
-              bestDay: (stats?['bestDay'] as num?)?.toInt(),
-              streak: (stats?['streak'] as num?)?.toInt(),
-            ),
-          );
-        }).whereType<FriendProfile>(),
-      )
-      ..sort(
-        (left, right) => right.todayCount.compareTo(left.todayCount),
-      );
+      },
+    );
+    final entries =
+        <FriendProfile>[
+          FriendProfile.fromUserProfile(
+            me,
+            isMe: true,
+            todayCount: todayCount,
+            weekCount: weekCount,
+            totalAllTime: totalAllTime,
+          ),
+          ..._profileList(response['friends']).map(
+            FriendProfile.fromUserProfile,
+          ),
+        ]..sort(
+          (left, right) => right.todayCount.compareTo(left.todayCount),
+        );
     return entries;
   }
 
   Future<List<FriendRequest>> loadIncomingFriendRequests({
     required String ownerUid,
   }) async {
-    final snapshot = await _users
-        .doc(ownerUid)
-        .collection('incomingFriendRequests')
-        .orderBy('createdAt', descending: true)
-        .get();
-    return snapshot.docs
-        .map((doc) => FriendRequest.fromJson(doc.data()))
-        .toList();
+    return _loadRequests('incoming');
   }
 
   Future<List<FriendRequest>> loadOutgoingFriendRequests({
     required String ownerUid,
   }) async {
-    final snapshot = await _users
-        .doc(ownerUid)
-        .collection('outgoingFriendRequests')
-        .orderBy('createdAt', descending: true)
-        .get();
-    return snapshot.docs
-        .map((doc) => FriendRequest.fromJson(doc.data()))
-        .toList();
+    return _loadRequests('outgoing');
   }
 
   Future<void> sendFriendRequest({
@@ -320,47 +142,10 @@ class ProfileService {
     required UserProfile receiver,
   }) async {
     if (requester.uid == receiver.uid) return;
-
-    final friendRef = _users
-        .doc(requester.uid)
-        .collection('friends')
-        .doc(receiver.uid);
-    final outgoingRef = _users
-        .doc(requester.uid)
-        .collection('outgoingFriendRequests')
-        .doc(receiver.uid);
-    final reciprocalIncomingRef = _users
-        .doc(requester.uid)
-        .collection('incomingFriendRequests')
-        .doc(receiver.uid);
-    final incomingRef = _users
-        .doc(receiver.uid)
-        .collection('incomingFriendRequests')
-        .doc(requester.uid);
-
-    final existingFriend = await friendRef.get();
-    final existingRequest = await outgoingRef.get();
-    if (existingFriend.exists || existingRequest.exists) return;
-    final reciprocalRequest = await reciprocalIncomingRef.get();
-    if (reciprocalRequest.exists) {
-      await acceptFriendRequest(
-        receiver: requester,
-        requester: FriendRequest.fromUserProfile(receiver),
-      );
-      return;
-    }
-
-    final now = DateTime.now();
-    final batch = _firestore.batch()
-      ..set(
-        incomingRef,
-        FriendRequest.fromUserProfile(requester).toJson(createdAt: now),
-      )
-      ..set(
-        outgoingRef,
-        FriendRequest.fromUserProfile(receiver).toJson(createdAt: now),
-      );
-    await batch.commit();
+    await _api.post(
+      '/v1/friend-requests',
+      body: {'receiverUid': receiver.uid},
+    );
   }
 
   Future<void> acceptFriendRequest({
@@ -368,122 +153,37 @@ class ProfileService {
     required FriendRequest requester,
   }) async {
     if (receiver.uid == requester.uid) return;
-
-    final now = DateTime.now().toIso8601String();
-    final batch = _firestore.batch()
-      ..set(
-        _users.doc(receiver.uid).collection('friends').doc(requester.uid),
-        {
-          'uid': requester.uid,
-          'addedAt': now,
-        },
-      )
-      ..set(
-        _users.doc(requester.uid).collection('friends').doc(receiver.uid),
-        {
-          'uid': receiver.uid,
-          'addedAt': now,
-        },
-      )
-      ..delete(
-        _users
-            .doc(receiver.uid)
-            .collection('incomingFriendRequests')
-            .doc(requester.uid),
-      )
-      ..delete(
-        _users
-            .doc(requester.uid)
-            .collection('outgoingFriendRequests')
-            .doc(receiver.uid),
-      )
-      ..delete(
-        _users
-            .doc(receiver.uid)
-            .collection('outgoingFriendRequests')
-            .doc(requester.uid),
-      )
-      ..delete(
-        _users
-            .doc(requester.uid)
-            .collection('incomingFriendRequests')
-            .doc(receiver.uid),
-      );
-    await batch.commit();
+    await _api.post(
+      '/v1/friend-requests/accept',
+      body: {'requesterUid': requester.uid},
+    );
   }
 
   Future<void> declineFriendRequest({
     required String ownerUid,
     required String requesterUid,
   }) async {
-    final batch = _firestore.batch()
-      ..delete(
-        _users
-            .doc(ownerUid)
-            .collection('incomingFriendRequests')
-            .doc(requesterUid),
-      )
-      ..delete(
-        _users
-            .doc(requesterUid)
-            .collection('outgoingFriendRequests')
-            .doc(ownerUid),
-      );
-    await batch.commit();
+    await _api.post(
+      '/v1/friend-requests/decline',
+      body: {'requesterUid': requesterUid},
+    );
   }
 
   Future<void> cancelFriendRequest({
     required String ownerUid,
     required String receiverUid,
   }) async {
-    final batch = _firestore.batch()
-      ..delete(
-        _users
-            .doc(ownerUid)
-            .collection('outgoingFriendRequests')
-            .doc(receiverUid),
-      )
-      ..delete(
-        _users
-            .doc(receiverUid)
-            .collection('incomingFriendRequests')
-            .doc(ownerUid),
-      );
-    await batch.commit();
+    await _api.post(
+      '/v1/friend-requests/cancel',
+      body: {'receiverUid': receiverUid},
+    );
   }
 
   Future<void> revokeFriendship({
     required String ownerUid,
     required String friendUid,
   }) async {
-    final batch = _firestore.batch()
-      ..delete(_users.doc(ownerUid).collection('friends').doc(friendUid))
-      ..delete(_users.doc(friendUid).collection('friends').doc(ownerUid))
-      ..delete(
-        _users
-            .doc(ownerUid)
-            .collection('incomingFriendRequests')
-            .doc(friendUid),
-      )
-      ..delete(
-        _users
-            .doc(ownerUid)
-            .collection('outgoingFriendRequests')
-            .doc(friendUid),
-      )
-      ..delete(
-        _users
-            .doc(friendUid)
-            .collection('incomingFriendRequests')
-            .doc(ownerUid),
-      )
-      ..delete(
-        _users
-            .doc(friendUid)
-            .collection('outgoingFriendRequests')
-            .doc(ownerUid),
-      );
-    await batch.commit();
+    await _api.delete('/v1/friends', body: {'friendUid': friendUid});
   }
 
   Future<void> removeFriend({
@@ -494,242 +194,65 @@ class ProfileService {
   }
 
   Future<void> deleteAccountData({required String uid}) async {
-    final userRef = _users.doc(uid);
-    final userSnapshot = await userRef.get();
-    final publicProfileSnapshot = await _publicProfiles.doc(uid).get();
-    final usernameLower =
-        userSnapshot.data()?['usernameLower'] as String? ??
-        publicProfileSnapshot.data()?['usernameLower'] as String?;
-
-    final friendsSnapshot = await userRef.collection('friends').get();
-    final incomingSnapshot = await userRef
-        .collection('incomingFriendRequests')
-        .get();
-    final outgoingSnapshot = await userRef
-        .collection('outgoingFriendRequests')
-        .get();
-    final privateStateSnapshot = await userRef.collection('privateState').get();
-    final tokenSnapshot = await userRef.collection('pushTokens').get();
-    final notificationSnapshot = await userRef
-        .collection('notifications')
-        .get();
-
-    final refs = <DocumentReference<Map<String, dynamic>>>[
-      ...friendsSnapshot.docs.map((doc) => doc.reference),
-      ...friendsSnapshot.docs.map(
-        (doc) => _users.doc(doc.id).collection('friends').doc(uid),
-      ),
-      ...incomingSnapshot.docs.map((doc) => doc.reference),
-      ...incomingSnapshot.docs.map(
-        (doc) =>
-            _users.doc(doc.id).collection('outgoingFriendRequests').doc(uid),
-      ),
-      ...outgoingSnapshot.docs.map((doc) => doc.reference),
-      ...outgoingSnapshot.docs.map(
-        (doc) =>
-            _users.doc(doc.id).collection('incomingFriendRequests').doc(uid),
-      ),
-      ...privateStateSnapshot.docs.map((doc) => doc.reference),
-      ...tokenSnapshot.docs.map((doc) => doc.reference),
-      ...notificationSnapshot.docs.map((doc) => doc.reference),
-      _publicProfiles.doc(uid),
-      _friendStats.doc(uid),
-      userRef,
-    ];
-
-    if (usernameLower != null && usernameLower.isNotEmpty) {
-      refs.add(_usernames.doc(usernameLower));
-    }
-
-    await _commitDeletes(refs);
-  }
-
-  Future<void> updateStatsFromSnapshot({
-    required User user,
-    required WorkoutSnapshot snapshot,
-  }) async {
-    final now = DateTime.now().toIso8601String();
-    final userRef = _users.doc(user.uid);
-    final publicProfileRef = _publicProfiles.doc(user.uid);
-    final userSnapshot = await userRef.get();
-    final publicSnapshot = await publicProfileRef.get();
-    final privateProfile = userSnapshot.data();
-    final publicProfile = publicSnapshot.data();
-    final previousUsername =
-        privateProfile?['username'] as String? ??
-        publicProfile?['username'] as String?;
-    final previousUsernameLower =
-        privateProfile?['usernameLower'] as String? ??
-        publicProfile?['usernameLower'] as String? ??
-        (previousUsername == null ? null : normalizeUsername(previousUsername));
-    final createdAt =
-        privateProfile?['createdAt'] as String? ??
-        publicProfile?['createdAt'] as String? ??
-        now;
-    final todayCount = snapshot.dayTotals[_dayKey(DateTime.now())] ?? 0;
-    final weekCount = _weekCount(snapshot.dayTotals, DateTime.now());
-    final todayKey = _dayKey(DateTime.now());
-    final weekKey = _weekKey(DateTime.now());
-    final bestDay = snapshot.dayTotals.values.isEmpty
-        ? 0
-        : snapshot.dayTotals.values.reduce(
-            (left, right) => left > right ? left : right,
-          );
-    final totalAllTime = snapshot.dayTotals.values.fold<int>(
-      0,
-      (total, value) => total + value,
-    );
-
-    final privateData = <String, dynamic>{
-      'uid': user.uid,
-      'email': user.email,
-      'displayName': _bestDisplayName(user, null),
-      'photoUrl': user.photoURL,
-      'todayCount': todayCount,
-      'weekCount': weekCount,
-      'bestDay': bestDay,
-      'totalAllTime': totalAllTime,
-      'streak': _streak(snapshot.dayTotals),
-      'updatedAt': now,
-    };
-    if (previousUsername != null) {
-      privateData['username'] = previousUsername;
-    }
-    if (previousUsernameLower != null) {
-      privateData['usernameLower'] = previousUsernameLower;
-    }
-    final statsData = {
-      'uid': user.uid,
-      'todayCount': todayCount,
-      'todayKey': todayKey,
-      'weekCount': weekCount,
-      'weekKey': weekKey,
-      'bestDay': bestDay,
-      'totalAllTime': totalAllTime,
-      'streak': _streak(snapshot.dayTotals),
-      'updatedAt': now,
-    };
-    final publicData = _publicProfileData(
-      user: user,
-      fallbackUsername: previousUsername,
-      usernameLower: previousUsernameLower,
-      createdAt: createdAt,
-      updatedAt: now,
-    );
-
-    final batch = _firestore.batch()
-      ..set(userRef, privateData, SetOptions(merge: true))
-      ..set(_friendStats.doc(user.uid), statsData)
-      ..set(publicProfileRef, publicData);
-    await batch.commit();
-  }
-
-  static Map<String, dynamic> _publicProfileData({
-    required User user,
-    required String createdAt,
-    required String updatedAt,
-    String? fallbackUsername,
-    String? username,
-    String? usernameLower,
-  }) {
-    final resolvedUsername = username ?? fallbackUsername;
-    final data = <String, dynamic>{
-      'uid': user.uid,
-      'displayName': _bestPublicDisplayName(user, fallbackUsername),
-      'photoUrl': user.photoURL,
-      'createdAt': createdAt,
-      'updatedAt': updatedAt,
-    };
-    if (resolvedUsername != null) {
-      data['username'] = resolvedUsername;
-    }
-    if (usernameLower != null) {
-      data['usernameLower'] = usernameLower;
-    }
-    return data;
+    await _api.delete('/v1/account');
+    _cachedProfile = null;
+    _profileUpdates.add(null);
   }
 
   static String? normalizeUsername(String input) {
-    final trimmed = input.trim();
-    final lowered = trimmed.toLowerCase();
-    final valid = RegExp(r'^[a-z0-9_]{3,20}$');
-    if (!valid.hasMatch(lowered)) return null;
-    return lowered;
+    final lowered = input.trim().toLowerCase();
+    return RegExp(r'^[a-z0-9_]{3,20}$').hasMatch(lowered) ? lowered : null;
   }
 
-  static String _bestDisplayName(
-    User user,
-    String? fallback,
-  ) {
-    final raw = user.displayName?.trim();
-    if (raw != null && raw.isNotEmpty) return raw;
-    final email = user.email?.split('@').first.trim();
-    if (email != null && email.isNotEmpty) return email;
-    final previous = fallback?.trim();
-    if (previous != null && previous.isNotEmpty) {
-      return previous;
-    }
-    return 'Pusher';
+  Future<UserProfile> _loadOwnProfile() async {
+    final response = await _api.get('/v1/profile');
+    final profile = _profileFromResponse(response);
+    _cacheProfile(profile);
+    return profile;
   }
 
-  static String _bestPublicDisplayName(
-    User user,
-    String? fallback,
-  ) {
-    final raw = user.displayName?.trim();
-    if (raw != null && raw.isNotEmpty) return raw;
-    final previous = fallback?.trim();
-    if (previous != null && previous.isNotEmpty) {
-      return previous;
-    }
-    return 'Pusher';
+  Future<List<FriendRequest>> _loadRequests(String direction) async {
+    final response = await _api.get(
+      '/v1/friend-requests',
+      query: {'direction': direction},
+    );
+    final requests = response['requests'];
+    if (requests is! List) return const [];
+    return requests
+        .whereType<Map<String, dynamic>>()
+        .map(FriendRequest.fromJson)
+        .toList();
   }
 
-  static int _streak(Map<String, int> dayTotals) {
-    var cursor = DateTime.now();
-    cursor = DateTime(cursor.year, cursor.month, cursor.day);
-    if ((dayTotals[_dayKey(cursor)] ?? 0) == 0) {
-      cursor = cursor.subtract(const Duration(days: 1));
+  UserProfile _profileFromResponse(Map<String, dynamic> response) {
+    final value = response['profile'];
+    if (value is! Map<String, dynamic>) {
+      throw const PushlogApiException(
+        statusCode: 502,
+        code: 'invalid_response',
+        message: 'Pushlog returned an invalid profile.',
+      );
     }
-
-    var count = 0;
-    while ((dayTotals[_dayKey(cursor)] ?? 0) > 0) {
-      count += 1;
-      cursor = cursor.subtract(const Duration(days: 1));
-    }
-    return count;
+    return UserProfile.fromJson(value);
   }
 
-  static String _dayKey(DateTime date) {
+  List<UserProfile> _profileList(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map<String, dynamic>>()
+        .map(UserProfile.fromJson)
+        .toList();
+  }
+
+  void _cacheProfile(UserProfile profile) {
+    _cachedProfile = profile;
+    _profileUpdates.add(profile);
+  }
+
+  String _dayKey(DateTime date) {
     final year = date.year.toString().padLeft(4, '0');
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
-  }
-
-  static String _weekKey(DateTime date) {
-    final start = DateTime(date.year, date.month, date.day).subtract(
-      Duration(days: date.weekday - 1),
-    );
-    return _dayKey(start);
-  }
-
-  static int _weekCount(Map<String, int> dayTotals, DateTime date) {
-    final today = DateTime(date.year, date.month, date.day);
-    final monday = today.subtract(Duration(days: today.weekday - 1));
-    return List.generate(today.weekday, (index) {
-      return dayTotals[_dayKey(monday.add(Duration(days: index)))] ?? 0;
-    }).fold(0, (total, reps) => total + reps);
-  }
-
-  Future<void> _commitDeletes(
-    List<DocumentReference<Map<String, dynamic>>> refs,
-  ) async {
-    for (var index = 0; index < refs.length; index += 450) {
-      final end = (index + 450) > refs.length ? refs.length : index + 450;
-      final batch = _firestore.batch();
-      refs.sublist(index, end).forEach(batch.delete);
-      await batch.commit();
-    }
   }
 }

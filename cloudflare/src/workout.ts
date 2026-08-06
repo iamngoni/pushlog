@@ -1,5 +1,7 @@
 import type {AuthenticatedUser, Env} from './env';
 import {HttpError, jsonResponse} from './http';
+import {notifyFriendsPassed} from './notifications';
+import {ensureProfile} from './profile';
 
 interface WorkoutSessionPayload {
   id: string;
@@ -19,6 +21,12 @@ interface WorkoutSnapshotPayload {
   lastSyncedAt: string | null;
 }
 
+interface WorkoutRequestPayload {
+  snapshot: WorkoutSnapshotPayload;
+  dayKey: string;
+  weekKey: string;
+}
+
 interface StoredSnapshotRow {
   sync_id: string;
   snapshot_json: string;
@@ -35,8 +43,10 @@ export async function putWorkoutSnapshot(
   request: Request,
   env: Env,
   user: AuthenticatedUser,
+  context?: ExecutionContext,
 ): Promise<Response> {
-  const snapshot = await parseWorkoutSnapshot(request);
+  const payload = await parseWorkoutRequest(request);
+  const {snapshot} = payload;
   const snapshotJson = JSON.stringify(snapshot);
   if (new TextEncoder().encode(snapshotJson).byteLength > maximumSnapshotBytes) {
     throw new HttpError(
@@ -62,7 +72,17 @@ export async function putWorkoutSnapshot(
 
   const now = new Date().toISOString();
   const syncId = crypto.randomUUID();
-  await upsertUser(env.DB, user, now);
+  await ensureProfile(env, user);
+  const previousStats = await env.DB.prepare(
+    'SELECT today_count, today_key FROM friend_stats WHERE uid = ?',
+  )
+    .bind(user.uid)
+    .first<{today_count: number; today_key: string | null}>();
+  const previousTodayCount =
+    previousStats?.today_key === payload.dayKey
+      ? previousStats.today_count
+      : 0;
+  const stats = workoutStats(snapshot.dayTotals, payload.dayKey, payload.weekKey);
 
   const sessionStatements = snapshot.sessions.map((session) =>
     env.DB.prepare(
@@ -119,7 +139,52 @@ export async function putWorkoutSnapshot(
     env.DB.prepare(
       'DELETE FROM daily_scores WHERE uid = ? AND sync_id <> ?',
     ).bind(user.uid, syncId),
+    env.DB.prepare(
+      `INSERT INTO friend_stats (
+        uid, today_count, today_key, week_count, week_key, best_day,
+        total_all_time, streak, source_json, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(uid) DO UPDATE SET
+        today_count = excluded.today_count,
+        today_key = excluded.today_key,
+        week_count = excluded.week_count,
+        week_key = excluded.week_key,
+        best_day = excluded.best_day,
+        total_all_time = excluded.total_all_time,
+        streak = excluded.streak,
+        source_json = excluded.source_json,
+        updated_at = excluded.updated_at`,
+    ).bind(
+      user.uid,
+      stats.todayCount,
+      payload.dayKey,
+      stats.weekCount,
+      payload.weekKey,
+      stats.bestDay,
+      stats.totalAllTime,
+      stats.streak,
+      JSON.stringify(stats),
+      now,
+    ),
   ]);
+
+  const delivery = notifyFriendsPassed(
+    env,
+    user.uid,
+    previousTodayCount,
+    stats.todayCount,
+    payload.dayKey,
+  ).catch((error: unknown) => {
+    console.error('Lead-change notification processing failed', {
+      uid: user.uid,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+  if (context == null) {
+    await delivery;
+  } else {
+    context.waitUntil(delivery);
+  }
 
   return jsonResponse(
     {status: 'stored', syncId, contentHash},
@@ -142,7 +207,7 @@ export async function getWorkoutSnapshot(
     throw new HttpError(
       404,
       'snapshot_not_found',
-      'No shadow workout snapshot exists for this user.',
+      'No workout snapshot exists for this user.',
     );
   }
 
@@ -161,31 +226,11 @@ export async function getWorkoutSnapshot(
         syncId: stored.sync_id,
         contentHash: stored.content_hash,
         storedAt: stored.updated_at,
-        dataMode: env.DATA_MODE,
+        source: 'd1',
       },
     },
     {headers: {etag}},
   );
-}
-
-async function upsertUser(
-  db: D1Database,
-  user: AuthenticatedUser,
-  now: string,
-): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO users (
-        uid, email, display_name, photo_url, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(uid) DO UPDATE SET
-        email = COALESCE(excluded.email, users.email),
-        display_name = COALESCE(excluded.display_name, users.display_name),
-        photo_url = COALESCE(excluded.photo_url, users.photo_url),
-        updated_at = excluded.updated_at`,
-    )
-    .bind(user.uid, user.email ?? null, user.name ?? null, user.picture ?? null, now, now)
-    .run();
 }
 
 async function runInBatches(
@@ -197,9 +242,9 @@ async function runInBatches(
   }
 }
 
-async function parseWorkoutSnapshot(
+async function parseWorkoutRequest(
   request: Request,
-): Promise<WorkoutSnapshotPayload> {
+): Promise<WorkoutRequestPayload> {
   let body: unknown;
   try {
     body = await request.json();
@@ -218,13 +263,73 @@ async function parseWorkoutSnapshot(
   const dayTotals = parseDayTotals(raw.dayTotals);
   const sessions = parseSessions(raw.sessions);
   const preferences = isObject(raw.preferences) ? raw.preferences : {};
+  const clientContext = isObject(body.clientContext) ? body.clientContext : {};
+  const today = new Date().toISOString().slice(0, 10);
+  const dayKey = optionalDayKey(clientContext.dayKey) ?? today;
+  const weekKey = optionalDayKey(clientContext.weekKey) ?? weekStart(dayKey);
   return {
-    dayTotals,
-    sessions,
-    preferences,
-    updatedAt: optionalIsoDate(raw.updatedAt, 'updatedAt'),
-    lastSyncedAt: optionalIsoDate(raw.lastSyncedAt, 'lastSyncedAt'),
+    snapshot: {
+      dayTotals,
+      sessions,
+      preferences,
+      updatedAt: optionalIsoDate(raw.updatedAt, 'updatedAt'),
+      lastSyncedAt: optionalIsoDate(raw.lastSyncedAt, 'lastSyncedAt'),
+    },
+    dayKey,
+    weekKey,
   };
+}
+
+function workoutStats(
+  dayTotals: Record<string, number>,
+  dayKey: string,
+  weekKey: string,
+): {
+  todayCount: number;
+  weekCount: number;
+  bestDay: number;
+  totalAllTime: number;
+  streak: number;
+} {
+  const counts = Object.values(dayTotals);
+  const totalAllTime = counts.reduce((total, count) => total + count, 0);
+  const weekCount = Object.entries(dayTotals)
+    .filter(([key]) => key >= weekKey && key <= dayKey)
+    .reduce((total, [, count]) => total + count, 0);
+  let streak = 0;
+  let cursor = dayKey;
+  if ((dayTotals[cursor] ?? 0) === 0) cursor = addDays(cursor, -1);
+  while ((dayTotals[cursor] ?? 0) > 0) {
+    streak += 1;
+    cursor = addDays(cursor, -1);
+  }
+  return {
+    todayCount: dayTotals[dayKey] ?? 0,
+    weekCount,
+    bestDay: counts.length === 0 ? 0 : Math.max(...counts),
+    totalAllTime,
+    streak,
+  };
+}
+
+function optionalDayKey(value: unknown): string | null {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+  return Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)) ? null : value;
+}
+
+function weekStart(dayKey: string): string {
+  const date = new Date(`${dayKey}T00:00:00.000Z`);
+  const weekday = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
+  date.setUTCDate(date.getUTCDate() - (weekday - 1));
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(dayKey: string, days: number): string {
+  const date = new Date(`${dayKey}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 function parseDayTotals(value: unknown): Record<string, number> {

@@ -1,7 +1,9 @@
 export interface Env {
   DB: D1Database;
   FIREBASE_PROJECT_ID: string;
-  DATA_MODE: string;
+  ENVIRONMENT: string;
+  FCM_GATEWAY_URL?: string;
+  FCM_GATEWAY_SECRET?: string;
 }
 
 export interface AuthenticatedUser {

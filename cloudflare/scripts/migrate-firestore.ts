@@ -649,7 +649,7 @@ async function reconcileInventory(
     console.log(`d1.${tableName}: ${String(rowCount)}`);
   }
   if (missing.length > 0 || mismatched.length > 0 || extra.length > 0) {
-    throw new Error('Reconciliation failed. Firestore remains the source of truth.');
+    throw new Error('Reconciliation failed. The historical Firestore archive and D1 do not match.');
   }
   console.log('Reconciliation passed. Every Firestore document checksum matches D1.');
 }

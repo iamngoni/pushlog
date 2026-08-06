@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/auth/services/auth_service.dart';
 import 'package:pushlog/auth/services/profile_service.dart';
+import 'package:pushlog/core/services/pushlog_api_client.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 
 part 'auth_state.dart';
@@ -183,6 +184,16 @@ class AuthCubit extends Cubit<AuthState> {
         return 'Sign in again before deleting this account.';
       }
       return error.message ?? 'Unable to sign in right now.';
+    }
+
+    if (error is PushlogApiException) {
+      if (error.statusCode == 401) {
+        return 'Session expired. Sign in again.';
+      }
+      if (error.statusCode >= 500) {
+        return 'Could not reach Pushlog. Check your connection and try again.';
+      }
+      return error.message;
     }
 
     if (error is FirebaseException) {

@@ -6,7 +6,6 @@
 //  Copyright (c) 2026 Codecraft Solutions. All rights reserved.
 //
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get_it/get_it.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -14,9 +13,9 @@ import 'package:pushlog/auth/services/auth_service.dart';
 import 'package:pushlog/auth/services/profile_service.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/services/competition_notification_service.dart';
+import 'package:pushlog/core/services/pushlog_api_client.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/services/storage_service.dart';
-import 'package:pushlog/core/services/workout_shadow_sync_service.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
@@ -36,12 +35,12 @@ Future<void> configureInjection() async {
 
   final prefs = await SharedPreferences.getInstance();
   final firebaseAuth = FirebaseAuth.instance;
-  final firestore = FirebaseFirestore.instance;
   final googleSignIn = GoogleSignIn.instance;
+  final api = PushlogApiClient(auth: firebaseAuth);
   final reminderService = ReminderService();
   await reminderService.initialize();
   final competitionNotificationService = CompetitionNotificationService(
-    firestore: firestore,
+    api: api,
   );
   await competitionNotificationService.initialize();
   final storageService = StorageService(prefs);
@@ -49,10 +48,7 @@ Future<void> configureInjection() async {
     storage: storageService,
     scopeResolver: () => firebaseAuth.currentUser?.uid ?? 'guest',
   );
-  final profileService = ProfileService(firestore);
-  final workoutShadowSyncService = CloudflareWorkoutShadowSyncService(
-    auth: firebaseAuth,
-  );
+  final profileService = ProfileService(api);
   const healthService = HealthService();
   const liveTrackingService = LiveTrackingService();
   const watchService = WatchService();
@@ -63,16 +59,14 @@ Future<void> configureInjection() async {
   final workoutRepo = CloudWorkoutRepository(
     localRepository: localRepository,
     auth: firebaseAuth,
-    firestore: firestore,
-    profileService: profileService,
-    shadowSync: workoutShadowSyncService.syncWorkoutSnapshot,
+    api: api,
   );
 
   getIt
     ..registerSingleton<SharedPreferences>(prefs)
     ..registerSingleton<FirebaseAuth>(firebaseAuth)
-    ..registerSingleton<FirebaseFirestore>(firestore)
     ..registerSingleton<GoogleSignIn>(googleSignIn)
+    ..registerSingleton<PushlogApiClient>(api)
     ..registerSingleton<ReminderService>(reminderService)
     ..registerSingleton<CompetitionNotificationService>(
       competitionNotificationService,

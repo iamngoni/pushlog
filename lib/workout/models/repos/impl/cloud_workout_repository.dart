@@ -1,13 +1,10 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:pushlog/auth/services/profile_service.dart';
 import 'package:pushlog/core/models/data/application_error.dart';
-import 'package:pushlog/core/services/workout_shadow_sync_service.dart';
+import 'package:pushlog/core/services/pushlog_api_client.dart';
 import 'package:pushlog/workout/models/data/workout_snapshot.dart';
 import 'package:pushlog/workout/models/repos/abs/workout_repository.dart';
 import 'package:pushlog/workout/models/repos/impl/local_workout_repository.dart';
@@ -16,26 +13,14 @@ class CloudWorkoutRepository implements WorkoutRepository {
   CloudWorkoutRepository({
     required this.localRepository,
     required this.auth,
-    required this.firestore,
-    required this.profileService,
-    this.shadowSync = noopWorkoutShadowSync,
+    required this.api,
   });
 
   final LocalWorkoutRepository localRepository;
   final FirebaseAuth auth;
-  final FirebaseFirestore firestore;
-  final ProfileService profileService;
-  final WorkoutShadowSync shadowSync;
+  final PushlogApiClient api;
 
   WorkoutSnapshot? _memorySnapshot;
-
-  DocumentReference<Map<String, dynamic>> _stateDocument(String uid) {
-    return firestore
-        .collection('users')
-        .doc(uid)
-        .collection('privateState')
-        .doc('workout');
-  }
 
   @override
   Future<Either<ApplicationError, WorkoutSnapshot>> loadSnapshot() async {
@@ -47,12 +32,17 @@ class CloudWorkoutRepository implements WorkoutRepository {
         return Right(localSnapshot);
       }
 
-      await profileService.ensureProfileShell(user);
-
-      final remoteDocument = await _stateDocument(user.uid).get();
-      if (!remoteDocument.exists || remoteDocument.data() == null) {
+      Map<String, dynamic>? remoteJson;
+      try {
+        final response = await api.get('/v1/workout-snapshot');
+        final value = response['snapshot'];
+        if (value is Map) remoteJson = Map<String, dynamic>.from(value);
+      } on PushlogApiException catch (error) {
+        if (error.statusCode != 404) rethrow;
+      }
+      if (remoteJson == null) {
         if (!localSnapshot.isEmpty) {
-          final seeded = await _pushRemote(user, localSnapshot);
+          final seeded = await _pushRemote(localSnapshot);
           _memorySnapshot = seeded;
           return Right(seeded);
         }
@@ -61,18 +51,13 @@ class CloudWorkoutRepository implements WorkoutRepository {
         return Right(localSnapshot);
       }
 
-      final remoteSnapshot = WorkoutSnapshot.fromJson(
-        remoteDocument.data()!,
-      );
+      final remoteSnapshot = WorkoutSnapshot.fromJson(remoteJson);
 
       final chosen = localSnapshot.isEmpty
           ? remoteSnapshot.copyWith(
               lastSyncedAt: remoteSnapshot.lastSyncedAt ?? DateTime.now(),
             )
-          : await _pushRemote(
-              user,
-              localSnapshot.mergeWith(remoteSnapshot),
-            );
+          : await _pushRemote(localSnapshot.mergeWith(remoteSnapshot));
 
       await localRepository.saveSnapshot(chosen);
       _memorySnapshot = chosen;
@@ -103,7 +88,7 @@ class CloudWorkoutRepository implements WorkoutRepository {
         return Right(normalized);
       }
 
-      final synced = await _pushRemote(user, normalized);
+      final synced = await _pushRemote(normalized);
       _memorySnapshot = synced;
       return Right(synced);
     } on Exception catch (error, stackTrace) {
@@ -146,45 +131,35 @@ class CloudWorkoutRepository implements WorkoutRepository {
     }
   }
 
-  Future<WorkoutSnapshot> _pushRemote(
-    User user,
-    WorkoutSnapshot snapshot,
-  ) async {
+  Future<WorkoutSnapshot> _pushRemote(WorkoutSnapshot snapshot) async {
     final syncedAt = DateTime.now();
     final remoteSnapshot = snapshot.copyWith(
       lastSyncedAt: syncedAt,
     );
 
-    await _stateDocument(user.uid).set(
-      remoteSnapshot.toJson(),
-      SetOptions(merge: true),
+    final now = DateTime.now();
+    await api.put(
+      '/v1/workout-snapshot',
+      body: {
+        'snapshot': remoteSnapshot.toJson(),
+        'clientContext': {
+          'dayKey': _dayKey(now),
+          'weekKey': _dayKey(
+            DateTime(now.year, now.month, now.day).subtract(
+              Duration(days: now.weekday - 1),
+            ),
+          ),
+        },
+      },
     );
     await localRepository.saveSnapshot(remoteSnapshot);
-    try {
-      await profileService.updateStatsFromSnapshot(
-        user: user,
-        snapshot: remoteSnapshot,
-      );
-    } on Exception catch (error, stackTrace) {
-      log(
-        'public workout stats sync failed',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
-    unawaited(_syncShadow(remoteSnapshot));
     return remoteSnapshot;
   }
 
-  Future<void> _syncShadow(WorkoutSnapshot snapshot) async {
-    try {
-      await shadowSync(snapshot);
-    } on Exception catch (error, stackTrace) {
-      log(
-        'workout shadow sync failed',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
+  String _dayKey(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
   }
 }

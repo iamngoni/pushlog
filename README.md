@@ -1,7 +1,6 @@
 # Pushlog
 
-Pushlog is a push-up logging app being migrated from the previous native iOS
-codebase to Flutter so the core experience works for iOS and Android users.
+Pushlog is a minimal competitive push-up training app for iOS and Android.
 
 The migration target is parity with the old iOS app first, then cross-platform
 enhancements. Do not delete `old_ios/` until the Flutter app has verified
@@ -14,7 +13,8 @@ replacements for the iOS-only capabilities it currently preserves.
 - Live session flow with setup, tracking, pause, summary, save, and discard.
 - Firebase sign-in with Apple and Google.
 - Username claiming, friend search, friend management, and daily leaderboard.
-- Firestore sync for profile, friends, and workout state.
+- Workers + D1 sync for profiles, friends, workouts, leaderboards, and
+  competition events.
 - Daily local reminders with configurable time and rotating copy.
 - JSON export and full local/cloud reset.
 
@@ -41,9 +41,11 @@ flutter run --flavor staging --target lib/main_staging.dart
 flutter run --flavor production --target lib/main_production.dart
 ```
 
-Firebase is configured for Android and iOS through `firebase.json`,
+Firebase Auth and Messaging are configured for Android and iOS through `firebase.json`,
 `android/app/google-services.json`, `ios/Runner/GoogleService-Info.plist`, and
-`lib/firebase_options.dart`.
+`lib/firebase_options.dart`. Application data is served by the Workers API at
+`https://pushlog-api-staging.imngonii.workers.dev`; the Flutter app does not
+read or write Firestore.
 
 ## Verification
 
@@ -54,6 +56,7 @@ flutter test
 flutter analyze
 dart run bloc_tools:bloc lint .
 flutter build apk --debug --flavor development --target lib/main_development.dart
+cd cloudflare && npm run check && npm test
 ```
 
 iOS-specific parity work also needs an iOS simulator build and real-device

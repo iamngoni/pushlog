@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-06",
   "vars": {
     "FIREBASE_PROJECT_ID": "pushlog-app",
-    "DATA_MODE": "shadow"
+    "ENVIRONMENT": "staging"
   },
   "d1_databases": [
     {

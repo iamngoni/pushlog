@@ -7,6 +7,7 @@ import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/auth/services/auth_service.dart';
 import 'package:pushlog/auth/services/profile_service.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
+import 'package:pushlog/core/services/pushlog_api_client.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 
 class _MockAuthService extends Mock implements AuthService {}
@@ -76,12 +77,13 @@ void main() {
   );
 
   blocTest<AuthCubit, AuthState>(
-    'emits blocked state when profile shell write is denied',
+    'emits blocked state when the Worker rejects profile setup',
     build: () {
       when(() => profileService.ensureProfileShell(any())).thenThrow(
-        FirebaseException(
-          plugin: 'cloud_firestore',
-          code: 'permission-denied',
+        const PushlogApiException(
+          statusCode: 403,
+          code: 'forbidden',
+          message: 'Profile access was denied.',
         ),
       );
       return AuthCubit(
@@ -94,22 +96,23 @@ void main() {
     expect: () => const [
       AuthLoading(),
       AuthBlocked(
-        message: 'Account setup is temporarily blocked. Try again shortly.',
+        message: 'Profile access was denied.',
       ),
     ],
   );
 
   blocTest<AuthCubit, AuthState>(
-    'emits blocked state when profile stream errors',
+    'emits blocked state when the Worker is unavailable',
     build: () {
       when(() => profileService.ensureProfileShell(any())).thenAnswer(
         (_) async {},
       );
       when(() => profileService.watchProfile(any())).thenAnswer(
         (_) => Stream<UserProfile?>.error(
-          FirebaseException(
-            plugin: 'cloud_firestore',
+          const PushlogApiException(
+            statusCode: 503,
             code: 'unavailable',
+            message: 'Service unavailable.',
           ),
         ),
       );
@@ -124,7 +127,7 @@ void main() {
       AuthLoading(),
       AuthBlocked(
         message:
-            'Could not reach the cloud. Check your connection and try again.',
+            'Could not reach Pushlog. Check your connection and try again.',
       ),
     ],
   );
