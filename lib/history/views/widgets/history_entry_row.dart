@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
 
@@ -63,7 +64,7 @@ class HistoryEntryRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: theme.divider)),
         ),

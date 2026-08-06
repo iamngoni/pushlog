@@ -8,9 +8,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
-import 'package:pushlog/core/views/widgets/app_scaffold.dart';
+import 'package:pushlog/core/views/widgets/empty_state.dart';
 import 'package:pushlog/history/views/widgets/history_entry_row.dart';
 import 'package:pushlog/today/views/widgets/stats_block.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
@@ -18,14 +20,7 @@ import 'package:pushlog/workout/models/data/workout_session.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 
 class HistoryPage extends StatefulWidget {
-  const HistoryPage({
-    required this.selectedTab,
-    required this.onTabChanged,
-    super.key,
-  });
-
-  final PushlogTab selectedTab;
-  final void Function(PushlogTab) onTabChanged;
+  const HistoryPage({super.key});
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
@@ -50,85 +45,56 @@ class _HistoryPageState extends State<HistoryPage> {
     AppTheme theme,
     WorkoutLoaded state,
   ) {
+    final isEmpty = state.historyEntries.isEmpty;
+
     return ColoredBox(
       color: theme.background,
-      child: Column(
-        children: [
-          Expanded(
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 22),
-                    buildHeader(theme),
-                    const SizedBox(height: 18),
-                    buildMonthBlock(theme, state),
-                    const SizedBox(height: 18),
-                    Divider(
-                      height: 1,
-                      color: theme.divider,
-                    ),
-                    const SizedBox(height: 20),
-                    Expanded(
-                      child: buildHistoryBody(
-                        context,
-                        theme,
-                        state,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.gutter,
           ),
-        ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: AppSpacing.xxl),
+              buildHeader(theme),
+              const SizedBox(height: AppSpacing.block),
+              // The month summary is hidden until there is a month to
+              // summarise. A row of zeroes above an empty list makes a
+              // fresh install look like a failed load rather than a
+              // feature the user has not started yet.
+              if (!isEmpty) ...[
+                buildMonthBlock(theme, state),
+                const SizedBox(height: AppSpacing.block),
+                Divider(height: 1, color: theme.divider),
+                const SizedBox(height: AppSpacing.xxl),
+              ],
+              Expanded(child: buildHistoryBody(context, theme, state)),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget buildHeader(AppTheme theme) {
-    const months = [
-      'JANUARY',
-      'FEBRUARY',
-      'MARCH',
-      'APRIL',
-      'MAY',
-      'JUNE',
-      'JULY',
-      'AUGUST',
-      'SEPTEMBER',
-      'OCTOBER',
-      'NOVEMBER',
-      'DECEMBER',
-    ];
-    final now = DateTime.now();
-    final label = '${months[now.month - 1]} ${now.year}';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'PUSHLOG',
-          style: AppTypography.labelMono(
-            size: 11,
-            color: theme.secondaryInk,
-            weight: FontWeight.w700,
-            letterSpacing: 2.4,
-          ),
+          style: AppTypography.overline(color: theme.tertiaryInk),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.lg),
         Text(
           'History',
           style: AppTypography.headingLarge(color: theme.ink),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: AppSpacing.sm),
         Text(
-          label.toLowerCase(),
+          DateFormat('MMMM yyyy').format(DateTime.now()),
           style: AppTypography.bodyLarge(color: theme.secondaryInk),
         ),
       ],
@@ -152,9 +118,7 @@ class _HistoryPageState extends State<HistoryPage> {
           alignment: Alignment.centerLeft,
           child: Text(
             '$monthTotal',
-            style: AppTypography.displayMedium(
-              color: theme.ink,
-            ),
+            style: AppTypography.metricXLarge(color: theme.ink),
           ),
         ),
         Text(
@@ -281,24 +245,12 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget buildEmptyState(AppTheme theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'NO LOGS YET',
-          style: AppTypography.displayCompact(
-            color: theme.ink,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'ADD REPS FROM TODAY OR START A LIVE SESSION.',
-          style: AppTypography.labelMono(
-            color: theme.secondaryInk,
-            letterSpacing: 1.5,
-          ),
-        ),
-      ],
+    return const EmptyState(
+      icon: Icons.history_rounded,
+      title: 'Your log starts today',
+      message: 'Every set you record shows up here — day by day, with your '
+          'best days and live sessions called out. Log a set from the '
+          'Today tab and this fills in.',
     );
   }
 
@@ -394,27 +346,19 @@ class DayDetailSheet extends StatelessWidget {
               const Spacer(),
               Text(
                 rowTitle(entry.date),
-                style: AppTypography.labelMono(
-                  color: theme.secondaryInk,
-                  letterSpacing: 1.6,
-                ),
+                style: AppTypography.overline(color: theme.tertiaryInk),
               ),
               const SizedBox(height: 4),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   '${entry.count}',
-                  style: AppTypography.displayMedium(
-                    color: theme.ink,
-                  ),
+                  style: AppTypography.metricXLarge(color: theme.ink),
                 ),
               ),
               Text(
                 'REPS',
-                style: AppTypography.labelMono(
-                  color: theme.secondaryInk,
-                  letterSpacing: 1.6,
-                ),
+                style: AppTypography.overline(color: theme.tertiaryInk),
               ),
               const Spacer(),
             ],

@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/views/widgets/avatar_badge.dart';
+import 'package:pushlog/core/views/widgets/empty_state.dart';
+import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/models/friend_request.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
@@ -195,71 +199,70 @@ class _LeaderboardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: theme.divider),
+    final score = entry.scoreFor(period);
+
+    return Semantics(
+      label: '${entry.isMe ? 'You' : entry.label}, '
+          'rank $rank, $score reps',
+      excludeSemantics: true,
+      child: Container(
+        // The row that is *you* gets a tinted band. On a list where every
+        // entry looks alike, finding yourself should not require reading.
+        color: entry.isMe ? theme.accentSoft : null,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.lg,
         ),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 34,
-            child: Text(
-              '$rank',
-              style: AppTypography.title(
-                color: rank <= 3 ? theme.ink : theme.secondaryInk,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 28,
+              child: Text(
+                '$rank',
+                style: AppTypography.metricInline(
+                  color: rank <= 3 ? theme.ink : theme.tertiaryInk,
+                  weight: rank <= 3 ? FontWeight.w800 : FontWeight.w600,
+                ),
               ),
             ),
-          ),
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: entry.isMe ? theme.accent : theme.divider,
+            const SizedBox(width: AppSpacing.md),
+            AvatarBadge(
+              initials: entry.initials,
+              seed: entry.uid,
+              isMe: entry.isMe,
             ),
-            child: Text(
-              entry.initials,
-              style: AppTypography.labelMono(
-                color: entry.isMe ? AppColors.fixedDark : theme.ink,
-                weight: FontWeight.w700,
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.isMe ? 'You' : entry.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.title(color: theme.ink),
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    '@${entry.username}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodySmall(
+                      color: theme.secondaryInk,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.isMe ? 'You' : entry.label,
-                  style: AppTypography.title(
-                    color: entry.isMe ? theme.ink : theme.secondaryInk,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  entry.isMe
-                      ? '@${entry.username} · you'
-                      : '@${entry.username}',
-                  style: AppTypography.labelMono(
-                    size: 11,
-                    color: theme.secondaryInk,
-                  ),
-                ),
-              ],
+            const SizedBox(width: AppSpacing.lg),
+            Text(
+              _formatScore(score),
+              style: AppTypography.metricSmall(
+                color: entry.isMe ? theme.accentInk : theme.ink,
+              ),
             ),
-          ),
-          Text(
-            _formatScore(entry.scoreFor(period)),
-            style: AppTypography.headingMedium(
-              color: entry.isMe ? theme.accentInk : theme.ink,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -279,35 +282,14 @@ class _EmptyLeaderboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 28),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: theme.divider),
-          bottom: BorderSide(color: theme.divider),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Your first rival is missing.',
-            style: AppTypography.title(color: theme.ink),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Add a friend to race today, this week, and all time.',
-            style: AppTypography.body(color: theme.secondaryInk),
-          ),
-          const SizedBox(height: 14),
-          TextButton(
-            onPressed: onInvite,
-            style: TextButton.styleFrom(foregroundColor: theme.accentInk),
-            child: const Text('Find a friend'),
-          ),
-        ],
-      ),
+    return EmptyState(
+      compact: true,
+      icon: Icons.groups_rounded,
+      title: 'No one to race yet',
+      message: 'Add a friend by username and you will both see who is '
+          'ahead today, this week, and all time.',
+      actionLabel: 'Find a friend',
+      onAction: onInvite,
     );
   }
 }
@@ -368,21 +350,21 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'FRIENDS',
-                      style: AppTypography.displayCompact(
+                      'Friends',
+                      style: AppTypography.headingLarge(
                         color: widget.theme.ink,
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: AppSpacing.block),
                     _sectionTitle('REQUESTS'),
                     const SizedBox(height: 8),
                     if (state.incomingRequests.isEmpty)
-                      _emptyText('NO OPEN REQUESTS.')
+                      _emptyText('No open requests.')
                     else
                       for (final request in state.incomingRequests)
                         _requestRow(
                           request,
-                          primary: 'ACCEPT',
+                          primary: 'Accept',
                           onPrimary: () => unawaited(
                             cubit.acceptFriendRequest(
                               me: widget.me,
@@ -390,7 +372,7 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                               requester: request,
                             ),
                           ),
-                          secondary: 'DECLINE',
+                          secondary: 'Decline',
                           onSecondary: () => unawaited(
                             cubit.declineFriendRequest(
                               me: widget.me,
@@ -403,13 +385,13 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                     TextField(
                       controller: _controller,
                       autocorrect: false,
-                      style: AppTypography.displayAction(
+                      style: AppTypography.headingSmall(
                         color: widget.theme.ink,
                       ),
                       decoration: InputDecoration(
                         hintText: '@username',
-                        hintStyle: AppTypography.displayAction(
-                          color: widget.theme.secondaryInk,
+                        hintStyle: AppTypography.headingSmall(
+                          color: widget.theme.tertiaryInk,
                         ),
                         enabledBorder: UnderlineInputBorder(
                           borderSide: BorderSide(
@@ -433,7 +415,7 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                     _sectionTitle('CAN SEE YOUR STATS'),
                     const SizedBox(height: 8),
                     if (acceptedFriends.isEmpty)
-                      _emptyText('NO ACCEPTED FRIENDS.')
+                      _emptyText('No friends added yet.')
                     else
                       for (final friend in acceptedFriends)
                         _friendRow(
@@ -484,11 +466,11 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
     }
 
     if (state.searchQuery.trim().length < 2) {
-      return _emptyText('SEARCH BY USERNAME.');
+      return _emptyText('Search for a friend by username.');
     }
 
     if (state.searchResults.isEmpty) {
-      return _emptyText('NO MATCHES.');
+      return _emptyText('No one matches that username.');
     }
 
     return Column(
@@ -581,88 +563,80 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: widget.theme.divider),
+          bottom: BorderSide(color: widget.theme.dividerSoft),
         ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
       child: Row(
         children: [
+          AvatarBadge(initials: _initialsOf(label), seed: username, size: 36),
+          const SizedBox(width: AppSpacing.lg),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label.toUpperCase(),
-                  style: AppTypography.labelMono(
-                    color: widget.theme.ink,
-                    weight: FontWeight.w700,
-                    letterSpacing: 1.1,
-                  ),
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.title(color: widget.theme.ink),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   '@$username',
-                  style: AppTypography.labelMono(
-                    size: 9,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodySmall(
                     color: widget.theme.secondaryInk,
-                    letterSpacing: 1,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: AppSpacing.lg),
+          // Real buttons rather than bare tappable text: these sit side by
+          // side and each needs a target a thumb can hit without landing
+          // on the other one.
           if (secondaryAction != null) ...[
-            GestureDetector(
-              onTap: onSecondaryAction,
-              child: Text(
-                secondaryAction,
-                style: AppTypography.labelMono(
-                  color: widget.theme.secondaryInk,
-                  weight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
-              ),
+            PushlogButton(
+              label: secondaryAction,
+              expand: false,
+              size: PushlogButtonSize.small,
+              variant: PushlogButtonVariant.ghost,
+              onPressed: onSecondaryAction,
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: AppSpacing.md),
           ],
-          GestureDetector(
-            onTap: onAction,
-            child: Text(
-              action,
-              style: AppTypography.labelMono(
-                color: onAction == null
-                    ? widget.theme.secondaryInk
-                    : widget.theme.accentInk,
-                weight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
+          PushlogButton(
+            label: action,
+            expand: false,
+            size: PushlogButtonSize.small,
+            variant: onAction == null
+                ? PushlogButtonVariant.ghost
+                : PushlogButtonVariant.primary,
+            onPressed: onAction,
           ),
         ],
       ),
     );
   }
 
+  String _initialsOf(String value) {
+    final parts = value.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.characters.first.toUpperCase();
+    return (parts.first.characters.first + parts.last.characters.first)
+        .toUpperCase();
+  }
+
   Widget _sectionTitle(String title) {
     return Text(
-      title,
-      style: AppTypography.labelMono(
-        color: widget.theme.secondaryInk,
-        weight: FontWeight.w700,
-        letterSpacing: 1.8,
-      ),
+      title.toUpperCase(),
+      style: AppTypography.overline(color: widget.theme.tertiaryInk),
     );
   }
 
-  Widget _emptyText(String message) {
-    return Text(
-      message,
-      style: AppTypography.labelMono(
-        color: widget.theme.secondaryInk,
-        letterSpacing: 1.1,
-      ),
-    );
-  }
+  Widget _emptyText(String message) => EmptyLine(message);
 
   FriendRequest? _incomingRequestFor(FriendsState state, String uid) {
     for (final request in state.incomingRequests) {

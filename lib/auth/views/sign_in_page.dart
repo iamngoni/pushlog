@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 
 class SignInPage extends StatelessWidget {
   const SignInPage({super.key});
@@ -12,104 +15,140 @@ class SignInPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
-    final rawMessage = switch (context.watch<AuthCubit>().state) {
-      AuthSignedOut(:final message) => message,
+    final message = switch (context.watch<AuthCubit>().state) {
+      AuthSignedOut(:final message) => _readableMessage(message),
       _ => null,
     };
-    final message = _normalizeMessage(rawMessage);
 
     return Scaffold(
       backgroundColor: theme.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 24),
-              _Header(theme: theme, trailing: 'ACCOUNT'),
-              const SizedBox(height: 64),
-              Text(
-                'Sign in',
-                style: AppTypography.displayMedium(
-                  color: theme.ink,
-                ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.proseMaxWidth,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.gutter,
               ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: 320,
-                child: Text(
-                  'Sync your sessions, choose a username, '
-                  'and compete with friends.',
-                  style: AppTypography.bodyLarge(
-                    color: theme.secondaryInk,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 36),
-              _AuthButton(
-                title: 'Continue with Apple',
-                subtitle: 'Apple ID',
-                theme: theme,
-                emphasized: true,
-                onTap: () => context.read<AuthCubit>().signInWithApple(),
-              ),
-              const SizedBox(height: 12),
-              _AuthButton(
-                title: 'Continue with Google',
-                subtitle: 'Google',
-                theme: theme,
-                onTap: () => context.read<AuthCubit>().signInWithGoogle(),
-              ),
-              if (message != null && message.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                Text(
-                  message,
-                  style: AppTypography.body(
-                    color: theme.accentInk,
-                  ),
-                ),
-              ],
-              const Spacer(),
-              Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.lock_outline_rounded,
-                    size: 18,
-                    color: theme.secondaryInk,
+                  const SizedBox(height: AppSpacing.block),
+                  const _Wordmark(trailing: 'ACCOUNT'),
+                  const Spacer(),
+                  Text(
+                    'Sign in',
+                    style: AppTypography.headingXLarge(color: theme.ink),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Your email stays private. Friends find you by username.',
-                      style: AppTypography.body(color: theme.secondaryInk),
+                  const SizedBox(height: AppSpacing.lg),
+                  // A short accent rule instead of a decorative flourish.
+                  // It puts Signal Lime on the screen without colouring a
+                  // provider button, which would imply one sign-in method
+                  // is the recommended one when both are equivalent.
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: theme.accent,
+                      borderRadius: AppRadius.all(AppRadius.indicator),
                     ),
                   ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  Text(
+                    'Sync your sessions across devices, claim a username, '
+                    'and race your friends.',
+                    style: AppTypography.bodyLarge(color: theme.secondaryInk),
+                  ),
+                  const SizedBox(height: AppSpacing.sectionLarge),
+                  PushlogButton(
+                    label: 'Continue with Apple',
+                    icon: Icons.apple_rounded,
+                    variant: PushlogButtonVariant.secondary,
+                    onPressed: () =>
+                        context.read<AuthCubit>().signInWithApple(),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  PushlogButton(
+                    label: 'Continue with Google',
+                    variant: PushlogButtonVariant.ghost,
+                    onPressed: () =>
+                        context.read<AuthCubit>().signInWithGoogle(),
+                  ),
+                  if (message != null) ...[
+                    const SizedBox(height: AppSpacing.xxl),
+                    InlineNotice(message: message),
+                  ],
+                  const Spacer(),
+                  const _PrivacyNote(),
+                  const SizedBox(height: AppSpacing.block),
                 ],
               ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  String? _normalizeMessage(String? message) {
+  String? _readableMessage(String? message) {
     if (message == null || message.isEmpty) return null;
     if (message.contains('GIDCLIENTID')) {
-      return 'GOOGLE SIGN-IN IS NOT CONFIGURED FOR IOS YET.';
+      return 'Google sign-in is not configured for iOS yet. '
+          'Continue with Apple instead.';
     }
-    return message.toUpperCase();
+    return message;
+  }
+}
+
+/// An inline problem message.
+///
+/// Errors used to be set in Signal Lime, which is the same colour the app
+/// uses for a completed target — the two states read identically at a
+/// glance. They now use the danger ink and carry an icon, so the meaning
+/// does not rest on colour alone.
+class InlineNotice extends StatelessWidget {
+  const InlineNotice({required this.message, super.key});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: theme.dangerSoft,
+          borderRadius: AppRadius.all(AppRadius.sm),
+          border: Border(left: BorderSide(color: theme.danger, width: 3)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.priority_high_rounded,
+              size: 18,
+              color: theme.danger,
+            ),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Text(
+                message,
+                style: AppTypography.body(color: theme.ink),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 class UsernameClaimPage extends StatefulWidget {
-  const UsernameClaimPage({
-    required this.state,
-    super.key,
-  });
+  const UsernameClaimPage({required this.state, super.key});
 
   final AuthNeedsUsername state;
 
@@ -118,12 +157,16 @@ class UsernameClaimPage extends StatefulWidget {
 }
 
 class _UsernameClaimPageState extends State<UsernameClaimPage> {
+  static final RegExp _allowed = RegExp(r'^[a-zA-Z0-9_]+$');
+
   late final TextEditingController _controller;
+  String _value = '';
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController();
+    _controller = TextEditingController()
+      ..addListener(() => setState(() => _value = _controller.text));
   }
 
   @override
@@ -132,89 +175,101 @@ class _UsernameClaimPageState extends State<UsernameClaimPage> {
     super.dispose();
   }
 
+  /// Null when the current text is acceptable.
+  ///
+  /// Checked as the user types rather than on submit, so the rule is
+  /// answered before they commit to a name and get bounced.
+  String? get _problem {
+    if (_value.isEmpty) return null;
+    if (_value.length < 3) return 'At least 3 characters';
+    if (_value.length > 20) return 'No more than 20 characters';
+    if (!_allowed.hasMatch(_value)) {
+      return 'Letters, numbers, and underscores only';
+    }
+    return null;
+  }
+
+  bool get _canSubmit =>
+      _value.length >= 3 && _problem == null && !widget.state.isSubmitting;
+
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
     final state = widget.state;
+    final problem = _problem;
 
     return Scaffold(
       backgroundColor: theme.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 24),
-              _Header(theme: theme, trailing: 'USERNAME'),
-              const SizedBox(height: 48),
-              Text(
-                'Choose your name',
-                style: AppTypography.displayMedium(
-                  color: theme.ink,
-                ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.proseMaxWidth,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.gutter,
               ),
-              const SizedBox(height: 10),
-              Text(
-                'This is how friends find you and how you appear on the board.',
-                style: AppTypography.bodyLarge(
-                  color: theme.secondaryInk,
-                ),
-              ),
-              const SizedBox(height: 28),
-              TextField(
-                controller: _controller,
-                autofocus: true,
-                autocorrect: false,
-                enableSuggestions: false,
-                style: AppTypography.displayCompact(
-                  color: theme.ink,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'username',
-                  hintStyle: AppTypography.displayCompact(
-                    color: theme.secondaryInk,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSpacing.block),
+                  const _Wordmark(trailing: 'USERNAME'),
+                  const SizedBox(height: AppSpacing.hero),
+                  Text(
+                    'Choose your name',
+                    style: AppTypography.headingLarge(color: theme.ink),
                   ),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: theme.divider),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'This is how friends find you and how you appear on '
+                    'the board.',
+                    style: AppTypography.bodyLarge(color: theme.secondaryInk),
                   ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: theme.accent),
+                  const SizedBox(height: AppSpacing.section),
+                  _UsernameField(
+                    controller: _controller,
+                    theme: theme,
+                    hasProblem: problem != null,
+                    onSubmitted: _canSubmit ? () => _submit(context) : null,
                   ),
-                ),
-                onSubmitted: (_) => _submit(context),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '3-20 CHARS · LETTERS, NUMBERS, UNDERSCORES',
-                style: AppTypography.labelMono(
-                  color: theme.secondaryInk,
-                  letterSpacing: 1.1,
-                ),
-              ),
-              if (state.message != null && state.message!.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                Text(
-                  state.message!.toUpperCase(),
-                  style: AppTypography.labelMono(
-                    color: theme.accentInk,
-                    letterSpacing: 1.1,
+                  const SizedBox(height: AppSpacing.lg),
+                  // The hint and the error occupy the same slot so the
+                  // layout does not jump as the user types.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          problem ?? '3–20 characters · letters, numbers, _',
+                          style: AppTypography.bodySmall(
+                            color: problem != null
+                                ? theme.danger
+                                : theme.secondaryInk,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${_value.length}/20',
+                        style: AppTypography.metricInline(
+                          color: theme.tertiaryInk,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                child: _AuthButton(
-                  title: state.isSubmitting ? 'Saving...' : 'Use this username',
-                  subtitle: 'Continue',
-                  theme: theme,
-                  emphasized: true,
-                  onTap: state.isSubmitting ? null : () => _submit(context),
-                ),
+                  if (state.message != null && state.message!.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.xxl),
+                    InlineNotice(message: state.message!),
+                  ],
+                  const Spacer(),
+                  PushlogButton(
+                    label: 'Use this username',
+                    isLoading: state.isSubmitting,
+                    onPressed: _canSubmit ? () => _submit(context) : null,
+                  ),
+                  const SizedBox(height: AppSpacing.block),
+                ],
               ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
       ),
@@ -222,8 +277,79 @@ class _UsernameClaimPageState extends State<UsernameClaimPage> {
   }
 
   void _submit(BuildContext context) {
-    unawaited(
-      context.read<AuthCubit>().claimUsername(_controller.text),
+    unawaited(context.read<AuthCubit>().claimUsername(_controller.text));
+  }
+}
+
+class _UsernameField extends StatelessWidget {
+  const _UsernameField({
+    required this.controller,
+    required this.theme,
+    required this.hasProblem,
+    required this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final AppTheme theme;
+  final bool hasProblem;
+  final VoidCallback? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = hasProblem ? theme.danger : theme.divider;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        // A recessed well: darker than the page reads as further away,
+        // which is what an input should feel like.
+        color: theme.surfaceSunken,
+        borderRadius: AppRadius.all(AppRadius.md),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Text(
+            '@',
+            style: AppTypography.headingLarge(color: theme.tertiaryInk),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              maxLength: 20,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp('[a-zA-Z0-9_]')),
+              ],
+              style: AppTypography.headingLarge(color: theme.ink),
+              decoration: InputDecoration(
+                counterText: '',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.xl,
+                ),
+                hintText: 'username',
+                hintStyle: AppTypography.headingLarge(
+                  color: theme.tertiaryInk,
+                ),
+              ),
+              onSubmitted: (_) => onSubmitted?.call(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -239,55 +365,54 @@ class AuthBlockedPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 24),
-              _Header(theme: theme, trailing: 'ACCOUNT'),
-              const SizedBox(height: 28),
-              Text(
-                'SYNC',
-                style: AppTypography.displayMedium(
-                  color: theme.ink,
-                ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSpacing.proseMaxWidth,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.gutter,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'YOUR ACCOUNT IS AUTHENTICATED, '
-                'BUT PUSHLOG COULD NOT FINISH ACCOUNT SETUP.',
-                style: AppTypography.labelMono(
-                  color: theme.secondaryInk,
-                  letterSpacing: 1.3,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSpacing.block),
+                  const _Wordmark(trailing: 'ACCOUNT'),
+                  const Spacer(),
+                  Text(
+                    'Almost there',
+                    style: AppTypography.headingLarge(color: theme.ink),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'You are signed in, but Pushlog could not finish '
+                    'setting up your account.',
+                    style: AppTypography.bodyLarge(color: theme.secondaryInk),
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                  InlineNotice(message: message),
+                  const Spacer(),
+                  PushlogButton(
+                    label: 'Try again',
+                    icon: Icons.refresh_rounded,
+                    onPressed: () => unawaited(
+                      context.read<AuthCubit>().retryBootstrap(),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  // Signing out is the escape hatch, not the recommended
+                  // move, so it is the quietest control on the screen.
+                  PushlogButton(
+                    label: 'Sign out',
+                    variant: PushlogButtonVariant.ghost,
+                    onPressed: () =>
+                        unawaited(context.read<AuthCubit>().signOut()),
+                  ),
+                  const SizedBox(height: AppSpacing.block),
+                ],
               ),
-              const SizedBox(height: 24),
-              Divider(height: 1, color: theme.divider),
-              const SizedBox(height: 24),
-              Text(
-                message.toUpperCase(),
-                style: AppTypography.labelMono(
-                  color: theme.accentInk,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const Spacer(),
-              _BottomPair(
-                theme: theme,
-                leading: 'SIGN OUT',
-                onLeadingTap: () {
-                  unawaited(context.read<AuthCubit>().signOut());
-                },
-                trailing: 'RETRY',
-                onTrailingTap: () {
-                  unawaited(
-                    context.read<AuthCubit>().retryBootstrap(),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         ),
       ),
@@ -295,157 +420,52 @@ class AuthBlockedPage extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.theme,
-    required this.trailing,
-  });
+class _Wordmark extends StatelessWidget {
+  const _Wordmark({required this.trailing});
 
-  final AppTheme theme;
   final String trailing;
 
   @override
   Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           'PUSHLOG',
-          style: AppTypography.labelMono(
-            color: theme.secondaryInk,
-            letterSpacing: 3,
-          ),
+          style: AppTypography.overline(color: theme.tertiaryInk),
         ),
         Text(
           trailing,
-          style: AppTypography.labelMono(
-            color: theme.secondaryInk,
-            letterSpacing: 1.5,
-          ),
+          style: AppTypography.overline(color: theme.tertiaryInk),
         ),
       ],
     );
   }
 }
 
-class _BottomPair extends StatelessWidget {
-  const _BottomPair({
-    required this.theme,
-    required this.leading,
-    required this.onLeadingTap,
-    required this.trailing,
-    required this.onTrailingTap,
-  });
-
-  final AppTheme theme;
-  final String leading;
-  final VoidCallback onLeadingTap;
-  final String trailing;
-  final VoidCallback onTrailingTap;
+class _PrivacyNote extends StatelessWidget {
+  const _PrivacyNote();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 72,
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: onLeadingTap,
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: theme.divider),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  leading,
-                  style: AppTypography.displayUndo(
-                    color: theme.ink,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: onTrailingTap,
-              child: ColoredBox(
-                color: theme.accent,
-                child: Center(
-                  child: Text(
-                    trailing,
-                    style: AppTypography.displayUndo(
-                      color: AppColors.fixedDark,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuthButton extends StatelessWidget {
-  const _AuthButton({
-    required this.title,
-    required this.subtitle,
-    required this.theme,
-    required this.onTap,
-    this.emphasized = false,
-  });
-
-  final String title;
-  final String subtitle;
-  final AppTheme theme;
-  final VoidCallback? onTap;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null ? 0.5 : 1,
-      child: Material(
-        color: emphasized ? theme.accent : theme.surface,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 18,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: theme.divider),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: AppTypography.title(
-                      color: emphasized ? AppColors.fixedDark : theme.ink,
-                    ),
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: AppTypography.body(
-                    color: emphasized
-                        ? AppColors.fixedDark
-                        : theme.secondaryInk,
-                  ),
-                ),
-              ],
-            ),
+    final theme = AppTheme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.lock_outline_rounded,
+          size: 16,
+          color: theme.tertiaryInk,
+        ),
+        const SizedBox(width: AppSpacing.lg),
+        Expanded(
+          child: Text(
+            'Your email stays private. Friends find you by username.',
+            style: AppTypography.bodySmall(color: theme.tertiaryInk),
           ),
         ),
-      ),
+      ],
     );
   }
 }

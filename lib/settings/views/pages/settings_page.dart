@@ -13,10 +13,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/services/competition_notification_service.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
-import 'package:pushlog/core/views/widgets/app_scaffold.dart';
+import 'package:pushlog/core/views/widgets/pushlog_button.dart';
+import 'package:pushlog/core/views/widgets/pushlog_toast.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/training/models/training_plan.dart';
@@ -27,14 +29,7 @@ import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({
-    required this.selectedTab,
-    required this.onTabChanged,
-    super.key,
-  });
-
-  final PushlogTab selectedTab;
-  final void Function(PushlogTab) onTabChanged;
+  const SettingsPage({super.key});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -77,14 +72,14 @@ class _SettingsPageState extends State<SettingsPage> {
               bottom: false,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
+                  horizontal: AppSpacing.gutter,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 22),
+                    const SizedBox(height: AppSpacing.xxl),
                     buildHeader(theme),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: AppSpacing.block),
                     Expanded(
                       child: SingleChildScrollView(
                         child: Column(
@@ -94,36 +89,36 @@ class _SettingsPageState extends State<SettingsPage> {
                               context,
                               theme,
                             ),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: AppSpacing.sectionLarge),
                             buildSyncSection(
                               context,
                               theme,
                               state,
                             ),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: AppSpacing.sectionLarge),
                             buildTrainingPlanSection(
                               context,
                               theme,
                               state.preferences,
                             ),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: AppSpacing.sectionLarge),
                             buildRemindersSection(
                               context,
                               theme,
                               state.preferences,
                             ),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: AppSpacing.sectionLarge),
                             buildHealthSection(
                               context,
                               theme,
                               state.preferences,
                             ),
-                            const SizedBox(height: 32),
+                            const SizedBox(height: AppSpacing.sectionLarge),
                             buildDataSection(
                               context,
                               theme,
                             ),
-                            const SizedBox(height: 48),
+                            const SizedBox(height: AppSpacing.hero),
                           ],
                         ),
                       ),
@@ -144,19 +139,14 @@ class _SettingsPageState extends State<SettingsPage> {
       children: [
         Text(
           'PUSHLOG',
-          style: AppTypography.labelMono(
-            size: 11,
-            color: theme.secondaryInk,
-            weight: FontWeight.w700,
-            letterSpacing: 2.4,
-          ),
+          style: AppTypography.overline(color: theme.tertiaryInk),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.lg),
         Text(
           'You',
           style: AppTypography.headingLarge(color: theme.ink),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: AppSpacing.sm),
         Text(
           'Your plan, account, devices, and alerts.',
           style: AppTypography.bodyLarge(color: theme.secondaryInk),
@@ -169,11 +159,16 @@ class _SettingsPageState extends State<SettingsPage> {
     String title,
     AppTheme theme,
   ) {
+    // A group header, not a page heading. Sized as the label it actually
+    // is so it orders the list without competing with the rows inside it.
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(
+        left: AppSpacing.xs,
+        bottom: AppSpacing.lg,
+      ),
       child: Text(
-        _sentenceCase(title),
-        style: AppTypography.title(color: theme.ink),
+        title.toUpperCase(),
+        style: AppTypography.overline(color: theme.tertiaryInk),
       ),
     );
   }
@@ -188,32 +183,34 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        buildSectionLabel('ACCOUNT', theme),
+        buildSectionLabel('Account', theme),
         buildSettingsCard(
           theme,
           children: [
             buildInfoRow(
-              title: 'USERNAME',
-              detail: profile?.username?.toUpperCase() ?? 'UNSET',
+              title: 'Username',
+              detail: profile?.username == null
+                  ? 'Not set'
+                  : '@${profile!.username}',
               theme: theme,
             ),
             buildDivider(theme),
             buildInfoRow(
-              title: 'SIGNED IN',
-              detail: profile?.email?.toUpperCase() ?? 'UNKNOWN',
+              title: 'Signed in',
+              detail: profile?.email ?? 'Unknown',
               theme: theme,
             ),
             buildDivider(theme),
             buildActionRow(
-              title: 'SIGN OUT',
-              detail: 'DISCONNECT THIS DEVICE',
+              title: 'Sign out',
+              detail: 'Disconnect this device',
               theme: theme,
               onTap: () => unawaited(_signOut(context)),
             ),
             buildDivider(theme),
             buildActionRow(
-              title: 'DELETE ACCOUNT',
-              detail: 'REMOVE PROFILE + SIGN-IN',
+              title: 'Delete account',
+              detail: 'Removes your profile and sign-in',
               accent: true,
               theme: theme,
               onTap: () => showDialog<void>(
@@ -237,31 +234,31 @@ class _SettingsPageState extends State<SettingsPage> {
   ) {
     final syncedAt = state.lastSyncedAt;
     final syncLabel = syncedAt == null
-        ? 'WAITING'
+        ? 'Waiting'
         : formatSettingsDate(syncedAt);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        buildSectionLabel('SYNC', theme),
+        buildSectionLabel('Sync', theme),
         buildSettingsCard(
           theme,
           children: [
             buildInfoRow(
-              title: 'CLOUD BACKUP',
-              detail: 'AUTOMATIC',
+              title: 'Cloud backup',
+              detail: 'Automatic',
               theme: theme,
             ),
             buildDivider(theme),
             buildInfoRow(
-              title: 'LAST SYNC',
+              title: 'Last sync',
               detail: syncLabel,
               theme: theme,
             ),
             if (state.syncError != null && state.syncError!.isNotEmpty) ...[
               buildDivider(theme),
               buildInfoRow(
-                title: 'SYNC ISSUE',
+                title: 'Sync issue',
                 detail: state.syncError!.toUpperCase(),
                 theme: theme,
                 accent: true,
@@ -269,8 +266,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
             buildDivider(theme),
             buildActionRow(
-              title: state.isSyncing ? 'SYNCING...' : 'SYNC NOW',
-              detail: 'SAVE LATEST CLOUD COPY',
+              title: state.isSyncing ? 'Syncing…' : 'Sync now',
+              detail: 'Save the latest copy to the cloud',
               theme: theme,
               onTap: state.isSyncing
                   ? () {}
@@ -292,17 +289,17 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        buildSectionLabel('REMINDERS', theme),
+        buildSectionLabel('Reminders', theme),
         buildSettingsCard(
           theme,
           children: [
             buildToggleRow(
-              title: 'TRAINING REMINDERS',
+              title: 'Training reminders',
               detail: prefs.remindersEnabled
                   ? prefs.trainingPlan == null
-                        ? 'ENABLED'
-                        : 'SCHEDULED DAYS ONLY'
-                  : 'DISABLED',
+                        ? 'On'
+                        : 'Scheduled days only'
+                  : 'Off',
               isOn: prefs.remindersEnabled,
               theme: theme,
               onChanged: (value) async {
@@ -310,17 +307,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   final granted = await getIt<ReminderService>()
                       .requestPermissions();
                   if (!granted && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: theme.surface,
-                        content: Text(
-                          'ALLOW NOTIFICATIONS TO ENABLE DAILY REMINDERS.',
-                          style: AppTypography.labelMono(
-                            color: theme.ink,
-                            letterSpacing: 1.1,
-                          ),
-                        ),
-                      ),
+                    PushlogToast.warning(
+                      context,
+                      'Reminders need notification access',
+                      detail: 'Allow notifications for Pushlog in your '
+                          'device settings, then switch this back on.',
                     );
                     return;
                   }
@@ -343,10 +334,10 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               buildDivider(theme),
               buildToggleRow(
-                title: 'SMART COPY',
+                title: 'Smart copy',
                 detail: prefs.smartReminderCopyEnabled
-                    ? 'ROTATES CREATIVE MESSAGES'
-                    : 'USES A STANDARD REMINDER',
+                    ? 'Rotates through varied messages'
+                    : 'Uses one standard reminder',
                 isOn: prefs.smartReminderCopyEnabled,
                 theme: theme,
                 onChanged: (value) {
@@ -361,10 +352,10 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
             buildDivider(theme),
             buildToggleRow(
-              title: 'FRIEND LEAD CHANGES',
+              title: 'Friend lead changes',
               detail: prefs.competitionNotificationsEnabled
-                  ? 'ALERT BOTH FRIENDS WHEN THE LEAD CHANGES'
-                  : 'COMPETITION ALERTS ARE OFF',
+                  ? 'Alerts both friends when the lead changes'
+                  : 'Competition alerts are off',
               isOn: prefs.competitionNotificationsEnabled,
               theme: theme,
               onChanged: (value) async {
@@ -378,14 +369,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     );
                 if (value && !granted) {
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: theme.surface,
-                      content: Text(
-                        'Allow notifications to hear when a friend passes you.',
-                        style: AppTypography.body(color: theme.ink),
-                      ),
-                    ),
+                  PushlogToast.warning(
+                    context,
+                    'Friend alerts need notification access',
+                    detail: 'Allow notifications for Pushlog in your device '
+                        'settings to hear when a friend passes you.',
                   );
                   return;
                 }
@@ -414,31 +402,31 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        buildSectionLabel('TRAINING PLAN', theme),
+        buildSectionLabel('Training plan', theme),
         buildSettingsCard(
           theme,
           children: [
             buildInfoRow(
-              title: 'GOAL',
+              title: 'Goal',
               detail: _goalLabel(profile.goal),
               theme: theme,
             ),
             buildDivider(theme),
             buildInfoRow(
-              title: 'TARGET',
+              title: 'Target',
               detail: '${profile.targetMaxReps} CLEAN REPS',
               theme: theme,
             ),
             buildDivider(theme),
             buildInfoRow(
-              title: 'SCHEDULE',
+              title: 'Schedule',
               detail: '${profile.sessionsPerWeek} DAYS / WEEK',
               theme: theme,
             ),
             buildDivider(theme),
             buildActionRow(
-              title: 'EDIT PLAN',
-              detail: 'GOALS + SCHEDULE + COACHING',
+              title: 'Edit plan',
+              detail: 'Goals, schedule, and coaching',
               theme: theme,
               onTap: () {
                 final workoutBloc = context.read<WorkoutBloc>();
@@ -466,11 +454,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   String _goalLabel(TrainingGoal goal) {
     return switch (goal) {
-      TrainingGoal.buildHabit => 'BUILD A HABIT',
-      TrainingGoal.increaseMaximum => 'INCREASE MAX',
-      TrainingGoal.improveEndurance => 'ENDURANCE',
-      TrainingGoal.maintainAbility => 'MAINTAIN',
-      TrainingGoal.custom => 'CUSTOM TARGET',
+      TrainingGoal.buildHabit => 'Build a habit',
+      TrainingGoal.increaseMaximum => 'Increase max',
+      TrainingGoal.improveEndurance => 'Endurance',
+      TrainingGoal.maintainAbility => 'Maintain',
+      TrainingGoal.custom => 'Custom target',
     };
   }
 
@@ -482,12 +470,12 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        buildSectionLabel('HEALTH', theme),
+        buildSectionLabel('Health', theme),
         buildSettingsCard(
           theme,
           children: [
             buildToggleRow(
-              title: 'HEALTHKIT SYNC',
+              title: 'HealthKit sync',
               detail: healthDetail(prefs),
               isOn: prefs.healthSyncEnabled,
               theme: theme,
@@ -498,17 +486,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   await _refreshHealthStatus();
                   if (!granted) {
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: theme.surface,
-                        content: Text(
-                          'HEALTHKIT IS NOT AVAILABLE OR NOT AUTHORIZED.',
-                          style: AppTypography.labelMono(
-                            color: theme.ink,
-                            letterSpacing: 1.1,
-                          ),
-                        ),
-                      ),
+                    PushlogToast.warning(
+                      context,
+                      'Health sync is unavailable',
+                      detail: 'Grant Pushlog access to Health, or keep '
+                          'logging sets by hand — nothing is lost either way.',
                     );
                     return;
                   }
@@ -524,8 +506,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             buildDivider(theme),
             buildInfoRow(
-              title: 'LIVE SESSION EXPORT',
-              detail: 'SAVES AS FUNCTIONAL STRENGTH',
+              title: 'Live session export',
+              detail: 'Saves as functional strength training',
               theme: theme,
             ),
           ],
@@ -543,10 +525,10 @@ class _SettingsPageState extends State<SettingsPage> {
   String healthDetail(WorkoutPreferences prefs) {
     return switch (_healthStatus) {
       HealthAuthorizationStatus.authorized =>
-        prefs.healthSyncEnabled ? 'AUTHORIZED' : 'AVAILABLE',
-      HealthAuthorizationStatus.notDetermined => 'NOT ASKED',
-      HealthAuthorizationStatus.denied => 'DENIED',
-      HealthAuthorizationStatus.unavailable => 'UNAVAILABLE',
+        prefs.healthSyncEnabled ? 'Authorized' : 'Available',
+      HealthAuthorizationStatus.notDetermined => 'Not asked',
+      HealthAuthorizationStatus.denied => 'Denied',
+      HealthAuthorizationStatus.unavailable => 'Unavailable',
     };
   }
 
@@ -557,20 +539,20 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        buildSectionLabel('DATA', theme),
+        buildSectionLabel('Data', theme),
         buildSettingsCard(
           theme,
           children: [
             buildActionRow(
-              title: 'EXPORT JSON',
-              detail: 'SHARE YOUR PUSHLOG DATA',
+              title: 'Export JSON',
+              detail: 'Share a copy of your Pushlog data',
               theme: theme,
               onTap: exportData,
             ),
             buildDivider(theme),
             buildActionRow(
-              title: 'RESET APP DATA',
-              detail: 'CLEAR LOCAL HISTORY + PREFS',
+              title: 'Reset app data',
+              detail: 'Clears local history and preferences',
               accent: true,
               theme: theme,
               onTap: () => showDialog<void>(
@@ -591,49 +573,16 @@ class _SettingsPageState extends State<SettingsPage> {
     BuildContext context,
     AppTheme theme,
   ) {
-    return AlertDialog(
-      backgroundColor: theme.background,
-      title: Text(
-        'DELETE ACCOUNT?',
-        style: AppTypography.labelMono(
-          size: 13,
-          color: theme.ink,
-          weight: FontWeight.w700,
-          letterSpacing: 1.2,
-        ),
-      ),
-      content: Text(
-        'THIS REMOVES YOUR PROFILE, USERNAME, FRIENDS, REQUESTS, '
-        'AND CLOUD BACKUP.',
-        style: AppTypography.labelMono(
-          color: theme.secondaryInk,
-          letterSpacing: 0.8,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(
-            'CANCEL',
-            style: AppTypography.labelMono(
-              color: theme.secondaryInk,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            unawaited(deleteAccount(context, theme));
-          },
-          child: Text(
-            'DELETE',
-            style: AppTypography.labelMono(
-              color: theme.accentInk,
-              weight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
+    return _ConfirmDialog(
+      theme: theme,
+      title: 'Delete your account?',
+      message: 'This removes your profile, username, friends, requests, '
+          'and cloud backup. It cannot be undone.',
+      confirmLabel: 'Delete account',
+      onConfirm: () {
+        Navigator.of(context).pop();
+        unawaited(deleteAccount(context, theme));
+      },
     );
   }
 
@@ -641,51 +590,19 @@ class _SettingsPageState extends State<SettingsPage> {
     BuildContext context,
     AppTheme theme,
   ) {
-    return AlertDialog(
-      backgroundColor: theme.background,
-      title: Text(
-        'RESET PUSHLOG?',
-        style: AppTypography.labelMono(
-          size: 13,
-          color: theme.ink,
-          weight: FontWeight.w700,
-          letterSpacing: 1.5,
-        ),
-      ),
-      content: Text(
-        'THIS CLEARS HISTORY, LIVE LOGS, AND PREFERENCES.',
-        style: AppTypography.labelMono(
-          color: theme.secondaryInk,
-          letterSpacing: 0.8,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(
-            'CANCEL',
-            style: AppTypography.labelMono(
-              color: theme.secondaryInk,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            context.read<WorkoutBloc>().add(
-              const ResetWorkoutDataEvent(),
-            );
-            Navigator.of(context).pop();
-          },
-          child: Text(
-            'RESET',
-            style: AppTypography.labelMono(
-              color: theme.accentInk,
-            ),
-          ),
-        ),
-      ],
+    return _ConfirmDialog(
+      theme: theme,
+      title: 'Reset Pushlog?',
+      message: 'This clears your history, live logs, and preferences on '
+          'this device.',
+      confirmLabel: 'Reset data',
+      onConfirm: () {
+        context.read<WorkoutBloc>().add(const ResetWorkoutDataEvent());
+        Navigator.of(context).pop();
+      },
     );
   }
+
 
   Widget buildTimePickerRow(
     BuildContext context,
@@ -715,7 +632,7 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       },
       child: buildInfoRow(
-        title: 'REMINDER TIME',
+        title: 'Reminder time',
         detail: '$h:$m',
         theme: theme,
       ),
@@ -726,17 +643,24 @@ class _SettingsPageState extends State<SettingsPage> {
     AppTheme theme, {
     required List<Widget> children,
   }) {
+    // No border. The card already sits a tonal step off the page, and
+    // saying the same thing twice is what makes settings look like a stack
+    // of boxes rather than grouped content.
     return Container(
       decoration: BoxDecoration(
         color: theme.surface,
-        border: Border.all(color: theme.divider),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppRadius.all(AppRadius.xl),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
     );
   }
 
+  /// A label and its value.
+  ///
+  /// Values are baseline-aligned with their labels rather than centred,
+  /// and the label is the quieter of the two — in a settings list the user
+  /// is scanning for the current setting, not re-reading its name.
   Widget buildInfoRow({
     required String title,
     required String detail,
@@ -745,32 +669,38 @@ class _SettingsPageState extends State<SettingsPage> {
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: 18,
-        vertical: 18,
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.xl,
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
           Text(
-            _sentenceCase(title),
-            style: AppTypography.body(
-              color: accent ? theme.accentInk : theme.ink,
-            ),
+            title,
+            style: AppTypography.body(color: theme.secondaryInk),
           ),
-          const Spacer(),
-          Text(
-            detail,
-            style: AppTypography.labelMono(
-              color: accent ? theme.accentInk : theme.secondaryInk,
-              letterSpacing: 1.2,
+          const SizedBox(width: AppSpacing.xl),
+          Expanded(
+            child: Text(
+              detail,
+              textAlign: TextAlign.right,
+              style: AppTypography.body(
+                color: accent ? theme.accentInk : theme.ink,
+                weight: FontWeight.w600,
+              ),
             ),
-            textAlign: TextAlign.right,
           ),
         ],
       ),
     );
   }
 
+  /// A row that goes somewhere or does something.
+  ///
+  /// Destructive rows are not styled as big red buttons here — deleting an
+  /// account is not the primary action on this screen. The emphasis moves
+  /// to the confirmation dialog, where it *is* the primary action.
   Widget buildActionRow({
     required String title,
     required String detail,
@@ -778,13 +708,46 @@ class _SettingsPageState extends State<SettingsPage> {
     required VoidCallback onTap,
     bool accent = false,
   }) {
-    return GestureDetector(
+    return PressFeedback(
       onTap: onTap,
-      child: buildInfoRow(
-        title: title,
-        detail: detail,
-        theme: theme,
-        accent: accent,
+      scale: 0.99,
+      semanticLabel: '$title. $detail',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xl,
+          vertical: AppSpacing.xl,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.body(
+                      color: accent ? theme.danger : theme.ink,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    detail,
+                    style: AppTypography.bodySmall(
+                      color: theme.secondaryInk,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.lg),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: theme.tertiaryInk,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -796,56 +759,57 @@ class _SettingsPageState extends State<SettingsPage> {
     required AppTheme theme,
     required ValueChanged<bool> onChanged,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 18,
-        vertical: 18,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTypography.labelMono(
-                    color: theme.ink,
-                    letterSpacing: 1.8,
+    return Semantics(
+      toggled: isOn,
+      label: title,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.body(
+                      color: theme.ink,
+                      weight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  detail,
-                  style: AppTypography.labelMono(
-                    color: theme.secondaryInk,
-                    letterSpacing: 1.2,
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    detail,
+                    style: AppTypography.bodySmall(
+                      color: theme.secondaryInk,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Switch(
-            value: isOn,
-            onChanged: onChanged,
-            activeThumbColor: theme.accent,
-            activeTrackColor: theme.accent.withAlpha(80),
-          ),
-        ],
+            const SizedBox(width: AppSpacing.lg),
+            Switch(
+              value: isOn,
+              onChanged: onChanged,
+              activeThumbColor: theme.onAccent,
+              activeTrackColor: theme.accent,
+              inactiveTrackColor: theme.surfaceSunken,
+              inactiveThumbColor: theme.tertiaryInk,
+              trackOutlineColor: WidgetStatePropertyAll(theme.divider),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget buildDivider(AppTheme theme) {
-    return Divider(height: 1, color: theme.divider);
-  }
-
-  String _sentenceCase(String value) {
-    final lower = value.toLowerCase();
-    return lower.isEmpty
-        ? lower
-        : '${lower[0].toUpperCase()}${lower.substring(1)}';
+    return Divider(height: 1, indent: AppSpacing.xl, color: theme.dividerSoft);
   }
 
   Widget buildLoading(AppTheme theme) {
@@ -897,17 +861,10 @@ class _SettingsPageState extends State<SettingsPage> {
       workoutBloc.add(const ResetWorkoutDataEvent());
     } on Object catch (error) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: theme.surface,
-          content: Text(
-            accountDeletionMessage(error).toUpperCase(),
-            style: AppTypography.labelMono(
-              color: theme.ink,
-              letterSpacing: 0.8,
-            ),
-          ),
-        ),
+      PushlogToast.danger(
+        context,
+        'Could not delete your account',
+        detail: accountDeletionMessage(error),
       );
     }
   }
@@ -953,5 +910,79 @@ class _SettingsPageState extends State<SettingsPage> {
     final hh = date.hour.toString().padLeft(2, '0');
     final mm = date.minute.toString().padLeft(2, '0');
     return '$day $dd $month · $hh:$mm';
+  }
+}
+
+
+/// A confirmation for something that cannot be undone.
+///
+/// The destructive action is quiet on the settings row that offers it and
+/// loud here, where the user has been told exactly what it does. Reversing
+/// that — a big red button on the list itself — pressures the decision at
+/// the point where the least context is available.
+class _ConfirmDialog extends StatelessWidget {
+  const _ConfirmDialog({
+    required this.theme,
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.onConfirm,
+  });
+
+  final AppTheme theme;
+  final String title;
+  final String message;
+  final String confirmLabel;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: theme.surfaceRaised,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.all(AppRadius.xl),
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(
+        AppSpacing.block,
+        AppSpacing.block,
+        AppSpacing.block,
+        AppSpacing.lg,
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.block,
+      ),
+      actionsPadding: const EdgeInsets.all(AppSpacing.block),
+      title: Text(
+        title,
+        style: AppTypography.headingSmall(color: theme.ink),
+      ),
+      content: Text(
+        message,
+        style: AppTypography.body(color: theme.secondaryInk),
+      ),
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              child: PushlogButton(
+                label: 'Cancel',
+                variant: PushlogButtonVariant.ghost,
+                size: PushlogButtonSize.medium,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: PushlogButton(
+                label: confirmLabel,
+                variant: PushlogButtonVariant.danger,
+                size: PushlogButtonSize.medium,
+                onPressed: onConfirm,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }

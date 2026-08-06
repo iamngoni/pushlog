@@ -15,8 +15,10 @@ import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/auth/views/sign_in_page.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
+import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/training/views/training_onboarding_page.dart';
@@ -41,6 +43,20 @@ class App extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: const [Locale('en')],
+        builder: (context, child) {
+          final media = MediaQuery.of(context);
+          return MediaQuery(
+            // Dynamic Type is honoured, with the top of the range pulled
+            // in. Today's count is set at 72pt; at the largest system
+            // sizes an unclamped scale pushes the logging controls off the
+            // bottom of the screen, which costs more accessibility than
+            // the extra few points gain.
+            data: media.copyWith(
+              textScaler: media.textScaler.clamp(maxScaleFactor: 1.4),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: const _RootView(),
       ),
     );
@@ -126,48 +142,35 @@ class _WorkoutErrorScreen extends StatelessWidget {
       backgroundColor: theme.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(AppSpacing.gutter),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'PUSHLOG',
-                style: AppTypography.labelMono(
-                  color: theme.secondaryInk,
-                  letterSpacing: 3,
-                ),
+                style: AppTypography.overline(color: theme.tertiaryInk),
               ),
               const Spacer(),
               Text(
-                'Could not load your training data.',
+                'Could not load your training',
                 style: AppTypography.headingMedium(color: theme.ink),
               ),
-              const SizedBox(height: 12),
-              Text(
-                message,
-                style: AppTypography.body(color: theme.secondaryInk),
+              const SizedBox(height: AppSpacing.lg),
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppSpacing.proseMaxWidth,
+                ),
+                child: Text(
+                  message,
+                  style: AppTypography.body(color: theme.secondaryInk),
+                ),
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  onPressed: () => context.read<WorkoutBloc>().add(
-                    const LoadWorkoutDataEvent(),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: theme.accent,
-                    foregroundColor: AppColors.fixedDark,
-                    shape: const RoundedRectangleBorder(),
-                  ),
-                  child: Text(
-                    'TRY AGAIN',
-                    style: AppTypography.labelMono(
-                      color: AppColors.fixedDark,
-                      letterSpacing: 1.4,
-                      weight: FontWeight.w700,
-                    ),
-                  ),
+              const SizedBox(height: AppSpacing.block),
+              PushlogButton(
+                label: 'Try again',
+                icon: Icons.refresh_rounded,
+                onPressed: () => context.read<WorkoutBloc>().add(
+                  const LoadWorkoutDataEvent(),
                 ),
               ),
               const Spacer(),
@@ -189,32 +192,33 @@ class _LoadingScreen extends StatelessWidget {
       backgroundColor: theme.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.gutter,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.block),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'PUSHLOG',
-                    style: AppTypography.labelMono(
-                      color: theme.secondaryInk,
-                      letterSpacing: 3,
-                    ),
+                    style: AppTypography.overline(color: theme.tertiaryInk),
                   ),
                   Text(
                     'LOADING',
-                    style: AppTypography.labelMono(
-                      color: theme.secondaryInk,
-                      letterSpacing: 1.5,
-                    ),
+                    style: AppTypography.overline(color: theme.tertiaryInk),
                   ),
                 ],
               ),
               const Spacer(),
-              Center(child: CircularProgressIndicator(color: theme.accent)),
+              Center(
+                child: CircularProgressIndicator(
+                  color: theme.accent,
+                  strokeWidth: 3,
+                ),
+              ),
               const Spacer(),
             ],
           ),

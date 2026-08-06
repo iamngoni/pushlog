@@ -51,12 +51,12 @@ void main() {
 
     expect(find.text('What should Pushlog help you change?'), findsOneWidget);
     for (var step = 0; step < 8; step++) {
-      await tester.tap(find.text('CONTINUE'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
     }
 
     expect(find.text('Your starting plan'), findsOneWidget);
-    await tester.tap(find.text('START PLAN'));
+    await tester.tap(find.text('Start plan'));
     await tester.pump();
 
     final captured = verify(() => bloc.add(captureAny())).captured.single;
@@ -116,10 +116,10 @@ void main() {
       ),
     );
     for (var step = 0; step < 8; step++) {
-      await tester.tap(find.text('CONTINUE'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
     }
-    await tester.tap(find.text('SAVE PLAN'));
+    await tester.tap(find.text('Save plan'));
     await tester.pump();
 
     final captured = verify(() => bloc.add(captureAny())).captured.single;

@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
@@ -51,7 +52,12 @@ class _FriendsPageState extends State<FriendsPage> {
           onRefresh: _refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(24, 22, 24, 36),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.gutter,
+              AppSpacing.xxl,
+              AppSpacing.gutter,
+              AppSpacing.sectionLarge,
+            ),
             children: [
               _Header(
                 theme: theme,
@@ -162,14 +168,9 @@ class _Header extends StatelessWidget {
             children: [
               Text(
                 'PUSHLOG',
-                style: AppTypography.labelMono(
-                  size: 11,
-                  color: theme.secondaryInk,
-                  weight: FontWeight.w700,
-                  letterSpacing: 2.4,
-                ),
+                style: AppTypography.overline(color: theme.tertiaryInk),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text(
                 'Friends',
                 style: AppTypography.headingLarge(color: theme.ink),
@@ -212,7 +213,7 @@ class _PeriodSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 44,
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(AppSpacing.xs),
       decoration: BoxDecoration(
         color: theme.surface,
         borderRadius: BorderRadius.circular(14),
@@ -326,7 +327,7 @@ class _RaceHeadline extends StatelessWidget {
         : 'Log the next set and the board updates for everyone.';
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      padding: const EdgeInsets.all(AppSpacing.xxl),
       decoration: BoxDecoration(
         color: theme.ink,
         borderRadius: BorderRadius.circular(22),

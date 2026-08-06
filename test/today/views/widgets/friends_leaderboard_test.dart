@@ -78,9 +78,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('FRIENDS'), findsOneWidget);
+    expect(find.text('Friends'), findsOneWidget);
     expect(find.text('REQUESTS'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.text('SEARCH BY USERNAME.'), findsOneWidget);
+    expect(
+      find.text('Search for a friend by username.'),
+      findsOneWidget,
+    );
   });
 }

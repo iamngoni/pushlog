@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/motion.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/views/widgets/pushlog_button.dart';
+import 'package:pushlog/core/views/widgets/pushlog_surface.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
@@ -87,7 +91,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
 
   Widget _buildSetup(BuildContext context, AppTheme theme) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -95,18 +99,13 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           _TopBar(theme: theme, trailing: 'GUIDED LIVE'),
           const SizedBox(height: 28),
           Text(
-            'LIVE',
-            style: AppTypography.displayLarge(
-              color: theme.ink,
-            ),
+            'Live',
+            style: AppTypography.headingXLarge(color: theme.ink),
           ),
           const SizedBox(height: 8),
           Text(
-            'TIMED SESSION MODE. START HERE, COUNT CLEAN, SAVE ONCE.',
-            style: AppTypography.labelMono(
-              color: theme.secondaryInk,
-              letterSpacing: 1.2,
-            ),
+            'Timed session mode. Start here, count clean, save once.',
+            style: AppTypography.bodyLarge(color: theme.secondaryInk),
           ),
           const SizedBox(height: 24),
           Divider(height: 1, color: theme.divider),
@@ -116,12 +115,12 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             detail:
                 _preferences.liveDevicePreference ==
                     LiveDevicePreference.iphoneOnly
-                ? 'IPHONE ONLY'
+                ? 'iPhone only'
                 : _watchStatus.statusLabel,
             theme: theme,
             children: [
               _DeviceOption(
-                title: 'IPHONE ONLY',
+                title: 'iPhone only',
                 isSelected:
                     _preferences.liveDevicePreference ==
                     LiveDevicePreference.iphoneOnly,
@@ -135,8 +134,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               const SizedBox(height: 8),
               _DeviceOption(
                 title: _watchStatus.canUseForWorkout
-                    ? 'IPHONE + APPLE WATCH'
-                    : 'IPHONE + WATCH FALLBACK',
+                    ? 'iPhone + Apple Watch'
+                    : 'iPhone + Watch fallback',
                 isSelected:
                     _preferences.liveDevicePreference ==
                     LiveDevicePreference.iphoneAndWatch,
@@ -154,27 +153,24 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             title: 'FLOW',
             detail: _trackingSnapshot.canUseAutoTracking
                 ? _trackingSnapshot.statusLabel
-                : 'MANUAL FALLBACK',
+                : 'Manual fallback',
             theme: theme,
             children: [
               Text(
                 _trackingSnapshot.canUseAutoTracking
                     ? _trackingSnapshot.metricsLine
-                    : 'ANDROID AND NON-TRUEDEPTH DEVICES USE MANUAL LIVE '
-                          'COUNTING. TRUEDEPTH IPHONES OPEN CAMERA PRE-FLIGHT.',
-                style: AppTypography.labelMono(
-                  color: theme.secondaryInk,
-                  letterSpacing: 1.1,
-                ),
+                    : 'Android and non-TrueDepth devices count manually. '
+                          'TrueDepth iPhones open camera pre-flight.',
+                style: AppTypography.body(color: theme.secondaryInk),
               ),
             ],
           ),
           const Spacer(),
           _BottomPair(
             theme: theme,
-            leading: 'EXIT',
+            leading: 'Exit',
             onLeadingTap: () => Navigator.of(context).pop(),
-            trailing: 'START',
+            trailing: 'Start',
             onTrailingTap: () {
               unawaited(_startPreflightOrManual());
             },
@@ -188,7 +184,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   Widget _buildPreflight(BuildContext context, AppTheme theme) {
     final countdown = _trackingSnapshot.countdownValue;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -197,39 +193,31 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           const SizedBox(height: 28),
           Text(
             countdown?.toString() ?? _trackingSnapshot.statusLabel,
-            style: AppTypography.displayMedium(
-              color: theme.ink,
-            ),
+            style: AppTypography.metricXLarge(color: theme.ink),
           ),
           const SizedBox(height: 8),
           Text(
             _trackingSnapshot.movementLabel,
-            style: AppTypography.labelMono(
-              color: theme.secondaryInk,
-              letterSpacing: 1.6,
-            ),
+            style: AppTypography.bodyLarge(color: theme.secondaryInk),
           ),
           const SizedBox(height: 26),
           _SelectorCard(
             title: 'CAMERA LOCK',
-            detail: _trackingSnapshot.phase.name.toUpperCase(),
+            detail: _trackingSnapshot.phase.name,
             theme: theme,
             children: [
               Text(
                 _trackingSnapshot.metricsLine,
-                style: AppTypography.labelMono(
-                  color: theme.secondaryInk,
-                  letterSpacing: 1.1,
-                ),
+                style: AppTypography.body(color: theme.secondaryInk),
               ),
             ],
           ),
           const Spacer(),
           _BottomPair(
             theme: theme,
-            leading: 'MANUAL',
+            leading: 'Manual',
             onLeadingTap: () => _startSession(usesAutoTracking: false),
-            trailing: _trackingSnapshot.canBeginCountdown ? 'BEGIN' : 'HOLD',
+            trailing: _trackingSnapshot.canBeginCountdown ? 'Begin' : 'Hold',
             onTrailingTap: _trackingSnapshot.canBeginCountdown
                 ? () {
                     unawaited(_beginCountdown());
@@ -247,7 +235,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     AppTheme theme,
   ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -256,26 +244,23 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           const SizedBox(height: 24),
           Text(
             _formatDuration(_elapsed),
-            style: AppTypography.displayMedium(
-              color: theme.ink,
-            ),
+            style: AppTypography.metricXLarge(color: theme.ink),
           ),
           const SizedBox(height: 6),
           Text(
             _usesAutoTracking
                 ? _trackingSnapshot.movementLabel
                 : _isPaused
-                ? 'PAUSED'
-                : 'RUNNING',
-            style: AppTypography.labelMono(
+                ? 'Paused'
+                : 'Running',
+            style: AppTypography.bodyLarge(
               color: _isPaused ? theme.accentInk : theme.secondaryInk,
-              letterSpacing: 1.6,
             ),
           ),
           const SizedBox(height: 26),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             decoration: BoxDecoration(
               border: Border.all(color: theme.divider),
               color: theme.surface,
@@ -285,27 +270,19 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               children: [
                 Text(
                   'TOTAL REPS',
-                  style: AppTypography.labelMono(
-                    color: theme.secondaryInk,
-                    letterSpacing: 1.6,
-                  ),
+                  style: AppTypography.overline(color: theme.tertiaryInk),
                 ),
                 const SizedBox(height: 14),
                 Text(
                   '$_reps',
-                  style: AppTypography.displayLarge(
-                    color: theme.ink,
-                  ),
+                  style: AppTypography.metricHero(color: theme.ink),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _usesAutoTracking
                       ? _trackingSnapshot.metricsLine
-                      : 'MANUAL ADJUSTMENTS $_manualAdjustments',
-                  style: AppTypography.labelMono(
-                    color: theme.secondaryInk,
-                    letterSpacing: 1.1,
-                  ),
+                      : 'Manual adjustments: $_manualAdjustments',
+                  style: AppTypography.body(color: theme.secondaryInk),
                 ),
               ],
             ),
@@ -326,7 +303,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
 
   Widget _buildSummary(BuildContext context, AppTheme theme) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -335,46 +312,38 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           const SizedBox(height: 28),
           Text(
             '$_reps',
-            style: AppTypography.displayLarge(
-              color: theme.ink,
-            ),
+            style: AppTypography.metricHero(color: theme.ink),
           ),
           const SizedBox(height: 8),
           Text(
-            'LIVE SESSION SAVES ONCE, AT THE END.',
-            style: AppTypography.labelMono(
-              color: theme.secondaryInk,
-              letterSpacing: 1.2,
-            ),
+            'Live sessions save once, at the end.',
+            style: AppTypography.bodyLarge(color: theme.secondaryInk),
           ),
           const SizedBox(height: 24),
           _SummaryCard(
             theme: theme,
             rows: [
-              ('DURATION', _formatDuration(_elapsed)),
-              ('SOURCE', 'LIVE SESSION'),
+              ('Duration', _formatDuration(_elapsed)),
+              ('Source', 'Live session'),
               (
-                'DEVICE',
+                'Device',
                 _preferences.liveDevicePreference ==
                         LiveDevicePreference.iphoneOnly
-                    ? 'IPHONE'
+                    ? 'iPhone'
                     : _watchStatus.statusLabel,
               ),
-              ('HEALTH OWNER', _healthKitWriteOwner.name.toUpperCase()),
-              (
-                'ADJUSTMENTS',
-                '$_manualAdjustments',
-              ),
+              ('Health owner', _healthKitWriteOwner.name),
+              ('Adjustments', '$_manualAdjustments'),
             ],
           ),
           const Spacer(),
           _BottomPair(
             theme: theme,
-            leading: 'DISCARD',
+            leading: 'Discard',
             onLeadingTap: () {
               unawaited(_discardSession(context));
             },
-            trailing: 'SAVE',
+            trailing: 'Save',
             onTrailingTap: () {
               unawaited(_saveSession(context));
             },
@@ -672,17 +641,11 @@ class _TopBar extends StatelessWidget {
       children: [
         Text(
           'PUSHLOG',
-          style: AppTypography.labelMono(
-            color: theme.secondaryInk,
-            letterSpacing: 3,
-          ),
+          style: AppTypography.overline(color: theme.tertiaryInk),
         ),
         Text(
           trailing,
-          style: AppTypography.labelMono(
-            color: theme.secondaryInk,
-            letterSpacing: 1.5,
-          ),
+          style: AppTypography.overline(color: theme.tertiaryInk),
         ),
       ],
     );
@@ -704,33 +667,15 @@ class _SelectorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.divider),
-        color: theme.surface,
-      ),
+    return PushlogCard(
+      padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: AppTypography.labelMono(
-              color: theme.secondaryInk,
-              letterSpacing: 1.6,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            detail,
-            style: AppTypography.labelMono(
-              color: theme.ink,
-              letterSpacing: 1.1,
-              weight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 14),
+          OverlineLabel(title),
+          const SizedBox(height: AppSpacing.md),
+          Text(detail, style: AppTypography.title(color: theme.ink)),
+          const SizedBox(height: AppSpacing.xl),
           ...children,
         ],
       ),
@@ -753,28 +698,43 @@ class _DeviceOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: isSelected ? theme.accent : theme.background,
-      child: InkWell(
+    return Semantics(
+      inMutuallyExclusiveGroup: true,
+      selected: isSelected,
+      child: PressFeedback(
         onTap: onTap,
-        child: Container(
+        semanticLabel: title,
+        child: AnimatedContainer(
+          duration: AppMotion.duration(context, AppMotion.fast),
           width: double.infinity,
+          constraints: const BoxConstraints(
+            minHeight: AppSpacing.minTapTarget,
+          ),
           padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 14,
+            horizontal: AppSpacing.xl,
+            vertical: AppSpacing.lg,
           ),
           decoration: BoxDecoration(
+            color: isSelected ? theme.accentSoft : theme.surfaceSunken,
+            borderRadius: AppRadius.all(AppRadius.sm),
             border: Border.all(
-              color: isSelected ? theme.accent : theme.divider,
+              color: isSelected ? theme.accent : Colors.transparent,
             ),
           ),
-          child: Text(
-            title,
-            style: AppTypography.labelMono(
-              color: isSelected ? AppColors.fixedDark : theme.ink,
-              weight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTypography.body(
+                    color: theme.ink,
+                    weight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                Icon(Icons.check_rounded, size: 18, color: theme.accentInk),
+            ],
           ),
         ),
       ),
@@ -799,69 +759,36 @@ class _BottomPair extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _LiveFooterButton(
-            title: leading,
-            theme: theme,
-            onTap: onLeadingTap,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _LiveFooterButton(
-            title: trailing,
-            theme: theme,
-            emphasized: true,
-            onTap: onTrailingTap,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _LiveFooterButton extends StatelessWidget {
-  const _LiveFooterButton({
-    required this.title,
-    required this.theme,
-    required this.onTap,
-    this.emphasized = false,
-  });
-
-  final String title;
-  final AppTheme theme;
-  final VoidCallback onTap;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: emphasized ? theme.accent : theme.surface,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            vertical: 18,
-          ),
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.divider),
-          ),
-          child: Center(
-            child: Text(
-              title,
-              style: AppTypography.displayAction(
-                color: emphasized ? AppColors.fixedDark : theme.ink,
-              ),
+    return SafeArea(
+      top: false,
+      child: Row(
+        children: [
+          Expanded(
+            child: PushlogButton(
+              label: leading,
+              variant: PushlogButtonVariant.ghost,
+              onPressed: onLeadingTap,
             ),
           ),
-        ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            flex: 2,
+            child: PushlogButton(
+              label: trailing,
+              onPressed: onTrailingTap,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
+/// Rep controls for a session in progress.
+///
+/// The three add buttons are peers — nothing about "+1" makes it more
+/// likely than "+10" mid-set — so none of them takes the accent. Signal
+/// Lime goes to End, which is the one action that closes the session out.
 class _LiveAdjustStrip extends StatelessWidget {
   const _LiveAdjustStrip({
     required this.theme,
@@ -879,45 +806,61 @@ class _LiveAdjustStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            for (final value in const [1, 10, 25]) ...[
+    return SafeArea(
+      top: false,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              for (final value in const [1, 10, 25]) ...[
+                Expanded(
+                  child: PressFeedback(
+                    onTap: () => onAdd(value),
+                    haptic: AppHaptics.tick,
+                    semanticLabel: 'Add $value reps',
+                    child: Container(
+                      height: AppSpacing.controlHeight,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: theme.surface,
+                        borderRadius: AppRadius.all(AppRadius.md),
+                      ),
+                      child: Text(
+                        '+$value',
+                        style: AppTypography.metricCompact(color: theme.ink),
+                      ),
+                    ),
+                  ),
+                ),
+                if (value != 25) const SizedBox(width: AppSpacing.lg),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
               Expanded(
-                child: _LiveFooterButton(
-                  title: '+$value',
-                  theme: theme,
-                  emphasized: value == 1,
-                  onTap: () => onAdd(value),
+                child: PushlogButton(
+                  label: isPaused ? 'Resume' : 'Pause',
+                  icon: isPaused
+                      ? Icons.play_arrow_rounded
+                      : Icons.pause_rounded,
+                  variant: PushlogButtonVariant.ghost,
+                  onPressed: onPause,
                 ),
               ),
-              if (value != 25) const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: PushlogButton(
+                  label: 'End',
+                  icon: Icons.flag_rounded,
+                  onPressed: onEnd,
+                ),
+              ),
             ],
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _LiveFooterButton(
-                title: isPaused ? 'RESUME' : 'PAUSE',
-                theme: theme,
-                onTap: onPause,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _LiveFooterButton(
-                title: 'END',
-                theme: theme,
-                emphasized: true,
-                onTap: onEnd,
-              ),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -933,44 +876,37 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.divider),
-        color: theme.surface,
-      ),
+    return PushlogCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           for (final indexedRow in rows.indexed)
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 18,
+                horizontal: AppSpacing.xl,
+                vertical: AppSpacing.xl,
               ),
               decoration: BoxDecoration(
                 border: indexedRow.$1 == rows.length - 1
                     ? null
                     : Border(
-                        bottom: BorderSide(
-                          color: theme.divider,
-                        ),
+                        bottom: BorderSide(color: theme.dividerSoft),
                       ),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
                     indexedRow.$2.$1,
-                    style: AppTypography.labelMono(
-                      color: theme.ink,
-                      letterSpacing: 1.6,
-                    ),
+                    style: AppTypography.body(color: theme.secondaryInk),
                   ),
                   const Spacer(),
                   Text(
                     indexedRow.$2.$2,
-                    style: AppTypography.labelMono(
-                      color: theme.secondaryInk,
-                      letterSpacing: 1.1,
+                    style: AppTypography.metricInline(
+                      color: theme.ink,
+                      weight: FontWeight.w700,
                     ),
                   ),
                 ],

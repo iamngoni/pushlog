@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
-import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
@@ -53,7 +52,7 @@ void main() {
     await getIt.reset();
   });
 
-  testWidgets('live action opens live session route with workout context', (
+  testWidgets('start action opens live session route with workout context', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(430, 932);
@@ -73,22 +72,19 @@ void main() {
             BlocProvider<AuthCubit>.value(value: authCubit),
             BlocProvider<WorkoutBloc>.value(value: workoutBloc),
           ],
-          child: TodayPage(
-            selectedTab: PushlogTab.today,
-            onTabChanged: (_) {},
-          ),
+          child: TodayPage(onTabChanged: (_) {}),
         ),
       ),
     );
 
     await tester.pump();
-    await tester.tap(find.text('Live'));
+    await tester.tap(find.text('Start a counted session'));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect(find.text('GUIDED LIVE'), findsOneWidget);
     expect(
-      find.text('TIMED SESSION MODE. START HERE, COUNT CLEAN, SAVE ONCE.'),
+      find.text('Timed session mode. Start here, count clean, save once.'),
       findsOneWidget,
     );
   });
@@ -139,21 +135,28 @@ void main() {
             BlocProvider<AuthCubit>.value(value: authCubit),
             BlocProvider<WorkoutBloc>.value(value: workoutBloc),
           ],
-          child: TodayPage(
-            selectedTab: PushlogTab.today,
-            onTabChanged: (_) {},
-          ),
+          child: TodayPage(onTabChanged: (_) {}),
         ),
       ),
     );
     await tester.pump();
 
-    expect(find.text('PLAN COMPLETE'), findsOneWidget);
+    expect(find.text('TARGET COMPLETE'), findsOneWidget);
     expect(
       find.text('Done for today. Extra reps still count.'),
       findsOneWidget,
     );
-    expect(find.text('12 / 8'), findsOneWidget);
+    // Matched on the hero style rather than the string: the week strip
+    // also renders today's count, so a bare text finder is ambiguous.
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.data == '12' &&
+            widget.style?.fontSize == 72,
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 }

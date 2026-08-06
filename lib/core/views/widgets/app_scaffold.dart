@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/motion.dart';
+import 'package:pushlog/core/configs/spacing.dart';
+import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/services/competition_notification_service.dart';
 import 'package:pushlog/friends/views/pages/friends_page.dart';
 import 'package:pushlog/history/views/pages/history_page.dart';
@@ -33,6 +36,8 @@ class _AppScaffoldState extends State<AppScaffold> {
   }
 
   void onTabChanged(PushlogTab tab) {
+    if (tab == selectedTab) return;
+    AppHaptics.tap();
     setState(() => selectedTab = tab);
   }
 
@@ -51,11 +56,9 @@ class _AppScaffoldState extends State<AppScaffold> {
       child: Scaffold(
         backgroundColor: theme.background,
         body: AnimatedSwitcher(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 180),
-          switchInCurve: Curves.easeOutQuart,
-          switchOutCurve: Curves.easeOutQuart,
+          duration: AppMotion.duration(context, AppMotion.fast),
+          switchInCurve: AppMotion.enter,
+          switchOutCurve: AppMotion.exit,
           child: KeyedSubtree(
             key: ValueKey(selectedTab),
             child: _buildBody(),
@@ -71,21 +74,10 @@ class _AppScaffoldState extends State<AppScaffold> {
 
   Widget _buildBody() {
     return switch (selectedTab) {
-      PushlogTab.today => TodayPage(
-        selectedTab: selectedTab,
-        onTabChanged: onTabChanged,
-      ),
-      PushlogTab.history => HistoryPage(
-        selectedTab: selectedTab,
-        onTabChanged: onTabChanged,
-      ),
-      PushlogTab.friends => FriendsPage(
-        onTabChanged: onTabChanged,
-      ),
-      PushlogTab.settings => SettingsPage(
-        selectedTab: selectedTab,
-        onTabChanged: onTabChanged,
-      ),
+      PushlogTab.today => TodayPage(onTabChanged: onTabChanged),
+      PushlogTab.history => const HistoryPage(),
+      PushlogTab.friends => FriendsPage(onTabChanged: onTabChanged),
+      PushlogTab.settings => const SettingsPage(),
     };
   }
 
@@ -103,6 +95,15 @@ class _AppScaffoldState extends State<AppScaffold> {
   }
 }
 
+/// The four destinations.
+///
+/// Every glyph comes from the rounded family. The bar used to mix rounded
+/// and outlined icons, which is invisible in isolation and obvious in a row
+/// of four: the stroke weights and corner treatments do not match.
+///
+/// Selection is carried three ways — ink level, text weight, and the accent
+/// rule underneath — so it survives both colour blindness and a greyscale
+/// screenshot.
 class PushlogNavigationBar extends StatelessWidget {
   const PushlogNavigationBar({
     required this.selectedTab,
@@ -112,6 +113,14 @@ class PushlogNavigationBar extends StatelessWidget {
 
   final PushlogTab selectedTab;
   final ValueChanged<PushlogTab> onTabChanged;
+
+  static const List<({PushlogTab tab, IconData icon, String label})>
+  _destinations = [
+    (tab: PushlogTab.today, icon: Icons.today_rounded, label: 'Today'),
+    (tab: PushlogTab.history, icon: Icons.bar_chart_rounded, label: 'History'),
+    (tab: PushlogTab.friends, icon: Icons.groups_rounded, label: 'Friends'),
+    (tab: PushlogTab.settings, icon: Icons.person_rounded, label: 'You'),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -124,75 +133,84 @@ class PushlogNavigationBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 68,
+          height: 64,
           child: Row(
             children: [
-              _item(theme, PushlogTab.today, Icons.today_outlined, 'Today'),
-              _item(
-                theme,
-                PushlogTab.history,
-                Icons.bar_chart_rounded,
-                'History',
-              ),
-              _item(
-                theme,
-                PushlogTab.friends,
-                Icons.people_outline_rounded,
-                'Friends',
-              ),
-              _item(
-                theme,
-                PushlogTab.settings,
-                Icons.person_outline_rounded,
-                'You',
-              ),
+              for (final destination in _destinations)
+                _NavItem(
+                  theme: theme,
+                  icon: destination.icon,
+                  label: destination.label,
+                  selected: selectedTab == destination.tab,
+                  onTap: () => onTabChanged(destination.tab),
+                ),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _item(
-    AppTheme theme,
-    PushlogTab tab,
-    IconData icon,
-    String label,
-  ) {
-    final selected = selectedTab == tab;
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.theme,
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppTheme theme;
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Solid glyphs cover more pixels than the caption beneath them, so an
+    // unselected icon is softened a step past the unselected text rather
+    // than matching it — otherwise the icons alone read as a second row of
+    // emphasis competing with the selected destination.
+    final iconColor = selected ? theme.ink : theme.tertiaryInk;
+    final textColor = selected ? theme.ink : theme.secondaryInk;
+
     return Expanded(
       child: Semantics(
         selected: selected,
         button: true,
         label: label,
-        child: InkWell(
-          onTap: () => onTabChanged(tab),
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 24,
-                color: selected ? theme.ink : theme.secondaryInk,
+              AnimatedScale(
+                scale: selected ? 1 : 0.94,
+                duration: AppMotion.duration(context, AppMotion.fast),
+                curve: AppMotion.settle,
+                child: Icon(icon, size: 23, color: iconColor),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 label,
-                style: TextStyle(
-                  color: selected ? theme.ink : theme.secondaryInk,
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  height: 1,
+                style: AppTypography.labelSmall(
+                  color: textColor,
+                  weight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: AppSpacing.sm),
               AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                width: selected ? 18 : 0,
+                duration: AppMotion.duration(context, AppMotion.fast),
+                curve: AppMotion.settle,
+                width: selected ? 16 : 0,
                 height: 3,
                 decoration: BoxDecoration(
                   color: theme.accent,
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: AppRadius.all(AppRadius.indicator),
                 ),
               ),
             ],

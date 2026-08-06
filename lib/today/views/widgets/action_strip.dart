@@ -8,69 +8,76 @@
 
 import 'package:flutter/material.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/motion.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 
+/// The persistent logging bar.
+///
+/// Three cells, not four. The fourth used to open a live session, which is
+/// the same destination as the labelled button at the top of the screen —
+/// two entry points to one place, with the duplicate reduced to a four-
+/// character label in the smallest control on the page. Dropping it gives
+/// the remaining cells room to be comfortably tappable, and leaves the strip
+/// doing one job: recording reps that were already done.
 class ActionStrip extends StatelessWidget {
   const ActionStrip({
     required this.theme,
     required this.onAddReps,
-    required this.onLive,
     this.suggestedSet,
     super.key,
   });
 
   final AppTheme theme;
   final void Function(int reps) onAddReps;
-  final VoidCallback onLive;
+
+  /// Reps in one set of today's plan. Null on a recovery day.
   final int? suggestedSet;
 
   @override
   Widget build(BuildContext context) {
+    final planned = suggestedSet ?? 10;
+
     return Container(
-      height: 76,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.gutter,
+        AppSpacing.lg,
+        AppSpacing.gutter,
+        AppSpacing.lg,
+      ),
       decoration: BoxDecoration(
         color: theme.background,
-        border: Border(
-          top: BorderSide(color: theme.divider),
-        ),
+        border: Border(top: BorderSide(color: theme.divider)),
       ),
       child: Row(
         children: [
           Expanded(
             child: ActionCell(
-              title: '+1',
-              emphasized: false,
+              reps: 1,
               theme: theme,
               onTap: () => onAddReps(1),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.lg),
+          // The only Signal Lime on the screen while the target is
+          // outstanding. This is the next action.
           Expanded(
+            flex: 2,
             child: ActionCell(
-              title: '+${suggestedSet ?? 10}',
-              subtitle: suggestedSet == null ? null : 'plan',
+              reps: planned,
+              caption: suggestedSet == null ? null : 'One set',
               emphasized: true,
               theme: theme,
-              onTap: () => onAddReps(suggestedSet ?? 10),
+              onTap: () => onAddReps(planned),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.lg),
           Expanded(
             child: ActionCell(
-              title: '+25',
-              emphasized: false,
+              reps: 25,
               theme: theme,
               onTap: () => onAddReps(25),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ActionCell(
-              title: 'Live',
-              emphasized: false,
-              theme: theme,
-              onTap: onLive,
             ),
           ),
         ],
@@ -81,17 +88,17 @@ class ActionStrip extends StatelessWidget {
 
 class ActionCell extends StatelessWidget {
   const ActionCell({
-    required this.title,
-    required this.emphasized,
+    required this.reps,
     required this.theme,
     required this.onTap,
-    this.subtitle,
+    this.caption,
+    this.emphasized = false,
     this.isEnabled = true,
     super.key,
   });
 
-  final String title;
-  final String? subtitle;
+  final int reps;
+  final String? caption;
   final bool emphasized;
   final bool isEnabled;
   final AppTheme theme;
@@ -99,43 +106,37 @@ class ActionCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isEnabled ? 1.0 : 0.36,
-      child: GestureDetector(
-        onTap: isEnabled ? onTap : null,
-        child: Container(
-          decoration: BoxDecoration(
-            color: emphasized ? theme.accent : theme.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: emphasized ? null : Border.all(color: theme.divider),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+    final ink = emphasized ? theme.onAccent : theme.ink;
+    final subInk = emphasized ? theme.onAccentMuted : theme.secondaryInk;
+
+    return PressFeedback(
+      enabled: isEnabled,
+      onTap: onTap,
+      haptic: AppHaptics.tick,
+      semanticLabel: 'Log $reps reps',
+      child: AnimatedContainer(
+        duration: AppMotion.duration(context, AppMotion.fast),
+        height: AppSpacing.controlHeight,
+        decoration: BoxDecoration(
+          color: emphasized ? theme.accent : theme.surface,
+          borderRadius: AppRadius.all(AppRadius.md),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '+$reps',
+                style: AppTypography.metricCompact(color: ink),
+              ),
+              if (caption != null) ...[
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
-                  title,
-                  style: TextStyle(
-                    color: emphasized ? AppColors.fixedDark : theme.ink,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  caption!,
+                  style: AppTypography.labelSmall(color: subInk),
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    style: AppTypography.labelMono(
-                      size: 9,
-                      color: emphasized
-                          ? AppColors.fixedDark
-                          : theme.secondaryInk,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
       ),

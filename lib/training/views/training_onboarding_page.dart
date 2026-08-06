@@ -3,8 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/core/configs/motion.dart';
+import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/services/competition_notification_service.dart';
+import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/training/models/training_plan.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
@@ -93,14 +96,17 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
             _buildHeader(theme),
             Expanded(
               child: AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
-                switchInCurve: Curves.easeOutQuart,
-                switchOutCurve: Curves.easeOutQuart,
+                duration: AppMotion.duration(context, AppMotion.fast),
+                switchInCurve: AppMotion.enter,
+                switchOutCurve: AppMotion.exit,
                 child: SingleChildScrollView(
                   key: ValueKey(_stepIndex),
-                  padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.gutter,
+                    AppSpacing.section,
+                    AppSpacing.gutter,
+                    AppSpacing.section,
+                  ),
                   child: _buildStep(theme),
                 ),
               ),
@@ -112,42 +118,71 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
     );
   }
 
+  /// What each step is about, shown in the header.
+  ///
+  /// "Step 3 of 9" tells the user how much is left but nothing about where
+  /// they are. Naming the step turns a progress bar into a map.
+  static const List<String> _stepTitles = [
+    'Goal',
+    'Experience',
+    'Baseline',
+    'Outcome',
+    'Schedule',
+    'Consistency',
+    'Coaching',
+    'Reminders',
+    'Your plan',
+  ];
+
   Widget _buildHeader(AppTheme theme) {
-    final progress = (_stepIndex + 1) / _stepCount;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 20, 28, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.gutter,
+        AppSpacing.xxl,
+        AppSpacing.gutter,
+        0,
+      ),
       child: Column(
         children: [
           Row(
             children: [
               Text(
-                'PUSHLOG',
-                style: AppTypography.labelMono(
-                  color: theme.secondaryInk,
-                  letterSpacing: 3,
+                _stepTitles[_stepIndex],
+                style: AppTypography.label(
+                  color: theme.ink,
                   weight: FontWeight.w700,
                 ),
               ),
               const Spacer(),
               Text(
-                'STEP ${_stepIndex + 1} OF $_stepCount',
-                style: AppTypography.labelMono(
-                  size: 10,
-                  color: theme.secondaryInk,
-                  letterSpacing: 1.2,
-                ),
+                '${_stepIndex + 1} of $_stepCount',
+                style: AppTypography.metricInline(color: theme.tertiaryInk),
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              minHeight: 4,
-              value: progress,
-              color: theme.accent,
-              backgroundColor: theme.divider,
-            ),
+          const SizedBox(height: AppSpacing.lg),
+          // Segments rather than one continuous bar: nine discrete
+          // questions are nine discrete marks, and a filled segment reads
+          // as a decision already made.
+          Row(
+            children: [
+              for (var index = 0; index < _stepCount; index++) ...[
+                if (index > 0) const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: AnimatedContainer(
+                    duration: AppMotion.duration(context, AppMotion.fast),
+                    curve: AppMotion.settle,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: index <= _stepIndex
+                          ? theme.accent
+                          : theme.dividerSoft,
+                      borderRadius: AppRadius.all(AppRadius.indicator),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -499,7 +534,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
               child: Container(
                 width: double.infinity,
                 constraints: const BoxConstraints(minHeight: 64),
-                padding: const EdgeInsets.symmetric(horizontal: 18),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                 decoration: BoxDecoration(
                   border: Border.all(color: theme.divider),
                 ),
@@ -507,11 +542,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
                   children: [
                     Text(
                       'REMINDER TIME',
-                      style: AppTypography.labelMono(
-                        size: 10,
-                        color: theme.secondaryInk,
-                        letterSpacing: 1.2,
-                      ),
+                      style: AppTypography.overline(color: theme.tertiaryInk),
                     ),
                     const Spacer(),
                     Text(
@@ -613,7 +644,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
     required VoidCallback onTap,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: _ChoiceTile(
         title: title,
         detail: detail,
@@ -638,19 +669,12 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       onChanged: onChanged,
-      style: AppTypography.headingMedium(color: theme.ink),
+      style: AppTypography.metricMedium(color: theme.ink),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: AppTypography.labelMono(
-          size: 10,
-          color: theme.secondaryInk,
-          letterSpacing: 1.2,
-        ),
+        labelStyle: AppTypography.label(color: theme.secondaryInk),
         suffixText: suffix,
-        suffixStyle: AppTypography.labelMono(
-          color: theme.secondaryInk,
-          letterSpacing: 1.2,
-        ),
+        suffixStyle: AppTypography.body(color: theme.secondaryInk),
         filled: true,
         fillColor: enabled ? theme.surface : theme.background,
         contentPadding: const EdgeInsets.symmetric(
@@ -675,12 +699,8 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
 
   Widget _sectionLabel(AppTheme theme, String label) {
     return Text(
-      label,
-      style: AppTypography.labelMono(
-        size: 10,
-        color: theme.secondaryInk,
-        letterSpacing: 1.3,
-      ),
+      label.toUpperCase(),
+      style: AppTypography.overline(color: theme.tertiaryInk),
     );
   }
 
@@ -688,40 +708,45 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
     final canContinue = _isCurrentStepValid;
     final isLast = _stepIndex == _stepCount - 1;
     return Container(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 20),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.gutter,
+        AppSpacing.xl,
+        AppSpacing.gutter,
+        AppSpacing.xxl,
+      ),
       decoration: BoxDecoration(
         color: theme.background,
         border: Border(top: BorderSide(color: theme.divider)),
       ),
-      child: Row(
-        children: [
-          if (_stepIndex > 0 || widget.isEditing) ...[
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            if (_stepIndex > 0 || widget.isEditing) ...[
+              Expanded(
+                child: PushlogButton(
+                  label: _stepIndex == 0 ? 'Cancel' : 'Back',
+                  variant: PushlogButtonVariant.ghost,
+                  onPressed: _stepIndex == 0
+                      ? () => Navigator.of(context).pop()
+                      : _previous,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.lg),
+            ],
             Expanded(
-              child: _FooterButton(
-                label: _stepIndex == 0 ? 'CANCEL' : 'BACK',
-                theme: theme,
-                onTap: _stepIndex == 0
-                    ? () => Navigator.of(context).pop()
-                    : _previous,
+              flex: 2,
+              child: PushlogButton(
+                label: isLast
+                    ? widget.isEditing
+                          ? 'Save plan'
+                          : 'Start plan'
+                    : 'Continue',
+                onPressed: canContinue ? (isLast ? _finish : _next) : null,
               ),
             ),
-            const SizedBox(width: 10),
           ],
-          Expanded(
-            flex: 2,
-            child: _FooterButton(
-              label: isLast
-                  ? widget.isEditing
-                        ? 'SAVE PLAN'
-                        : 'START PLAN'
-                  : 'CONTINUE',
-              theme: theme,
-              emphasized: true,
-              enabled: canContinue,
-              onTap: isLast ? _finish : _next,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -913,9 +938,20 @@ class _Question extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: AppTypography.headingLarge(color: theme.ink)),
-        const SizedBox(height: 12),
-        Text(detail, style: AppTypography.bodyLarge(color: theme.secondaryInk)),
-        const SizedBox(height: 28),
+        const SizedBox(height: AppSpacing.lg),
+        // Capped rather than allowed to run the full width of a tablet:
+        // past roughly 75 characters a line, the eye loses its place on
+        // the way back to the start of the next one.
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppSpacing.proseMaxWidth,
+          ),
+          child: Text(
+            detail,
+            style: AppTypography.bodyLarge(color: theme.secondaryInk),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.section),
         ...children,
       ],
     );
@@ -939,61 +975,72 @@ class _ChoiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A selectable card rather than a radio dot: a 24pt circle is a poor
+    // touch target and leaves no room for the sentence that explains what
+    // the option actually means.
     return Semantics(
-      button: true,
+      inMutuallyExclusiveGroup: true,
       selected: selected,
-      child: Material(
-        color: selected ? theme.accent.withAlpha(24) : theme.surface,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(minHeight: 76),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: selected ? theme.accent : theme.divider,
-                width: selected ? 2 : 1,
-              ),
-              borderRadius: BorderRadius.circular(18),
+      child: PressFeedback(
+        onTap: onTap,
+        scale: 0.985,
+        semanticLabel: '$title. $detail',
+        child: AnimatedContainer(
+          duration: AppMotion.duration(context, AppMotion.fast),
+          curve: AppMotion.settle,
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 76),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xl,
+            vertical: AppSpacing.xl,
+          ),
+          decoration: BoxDecoration(
+            color: selected ? theme.accentSoft : theme.surface,
+            border: Border.all(
+              color: selected ? theme.accent : Colors.transparent,
+              width: 2,
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(title, style: AppTypography.title(color: theme.ink)),
-                      const SizedBox(height: 4),
-                      Text(
-                        detail,
-                        style: AppTypography.body(color: theme.secondaryInk),
+            borderRadius: AppRadius.all(AppRadius.lg),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(title, style: AppTypography.title(color: theme.ink)),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      detail,
+                      style: AppTypography.bodySmall(
+                        color: theme.secondaryInk,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: selected ? theme.accent : Colors.transparent,
-                    shape: BoxShape.circle,
-                    border: selected ? null : Border.all(color: theme.divider),
-                  ),
-                  child: selected
-                      ? const Icon(
-                          Icons.check_rounded,
-                          size: 16,
-                          color: AppColors.fixedDark,
-                        )
-                      : null,
+              ),
+              const SizedBox(width: AppSpacing.xl),
+              // The tick is the non-colour half of the selected state, so
+              // the choice survives a greyscale screen.
+              AnimatedContainer(
+                duration: AppMotion.duration(context, AppMotion.fast),
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: selected ? theme.accent : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: selected ? null : Border.all(color: theme.divider),
                 ),
-              ],
-            ),
+                child: selected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: AppColors.fixedDark,
+                      )
+                    : null,
+              ),
+            ],
           ),
         ),
       ),
@@ -1017,31 +1064,30 @@ class _CompactChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      button: true,
+      inMutuallyExclusiveGroup: true,
       selected: selected,
-      child: Material(
-        color: selected ? theme.accent : theme.surface,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 48),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: selected ? theme.accent : theme.divider,
-              ),
-              borderRadius: BorderRadius.circular(14),
+      child: PressFeedback(
+        onTap: onTap,
+        semanticLabel: label,
+        child: AnimatedContainer(
+          duration: AppMotion.duration(context, AppMotion.fast),
+          curve: AppMotion.settle,
+          constraints: const BoxConstraints(
+            minHeight: AppSpacing.minTapTarget,
+          ),
+          decoration: BoxDecoration(
+            color: selected ? theme.accent : theme.surface,
+            border: Border.all(
+              color: selected ? theme.accent : theme.divider,
             ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: AppTypography.labelMono(
-                size: 10,
-                color: selected ? AppColors.fixedDark : theme.ink,
-                letterSpacing: 1,
-                weight: FontWeight.w700,
-              ),
+            borderRadius: AppRadius.all(AppRadius.sm),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: AppTypography.labelSmall(
+              color: selected ? AppColors.fixedDark : theme.ink,
+              weight: FontWeight.w700,
             ),
           ),
         ),
@@ -1067,79 +1113,25 @@ class _PreviewRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 18),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.divider)),
+        border: Border(bottom: BorderSide(color: theme.dividerSoft)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
-            style: AppTypography.labelMono(
-              size: 9,
-              color: theme.secondaryInk,
-              letterSpacing: 1.2,
-            ),
+            label.toUpperCase(),
+            style: AppTypography.overline(color: theme.tertiaryInk),
           ),
-          const SizedBox(height: 5),
-          Text(value, style: AppTypography.title(color: theme.ink)),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.md),
+          Text(value, style: AppTypography.headingSmall(color: theme.ink)),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             detail,
-            style: AppTypography.labelMono(
-              size: 10,
-              color: theme.secondaryInk,
-              letterSpacing: 0.8,
-            ),
+            style: AppTypography.bodySmall(color: theme.secondaryInk),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FooterButton extends StatelessWidget {
-  const _FooterButton({
-    required this.label,
-    required this.theme,
-    required this.onTap,
-    this.emphasized = false,
-    this.enabled = true,
-  });
-
-  final String label;
-  final AppTheme theme;
-  final VoidCallback onTap;
-  final bool emphasized;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.35,
-      child: Material(
-        color: emphasized ? theme.accent : theme.surface,
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 56),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: emphasized ? theme.accent : theme.divider,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: AppTypography.labelMono(
-                color: emphasized ? AppColors.fixedDark : theme.ink,
-                letterSpacing: 1.4,
-                weight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
