@@ -37,8 +37,7 @@ class TodayPage extends StatelessWidget {
           return false;
         }
         final incoming = current.pendingUndo?.sessionId;
-        return incoming != null &&
-            incoming != previous.pendingUndo?.sessionId;
+        return incoming != null && incoming != previous.pendingUndo?.sessionId;
       },
       listener: (context, state) {
         if (state is WorkoutLoaded) _announceLog(context, state);

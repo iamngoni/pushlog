@@ -321,7 +321,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
             _setConservativeBaseline();
           }),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.md),
         _numberField(
           theme,
           controller: _baselineController,
@@ -358,9 +358,9 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
           suffix: 'REPS',
           onChanged: (_) => setState(() {}),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: AppSpacing.block),
         _sectionLabel(theme, 'PLAN LENGTH'),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             for (final weeks in const [8, 12, 16]) ...[
@@ -372,7 +372,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
                   onTap: () => setState(() => _durationWeeks = weeks),
                 ),
               ),
-              if (weeks != 16) const SizedBox(width: 8),
+              if (weeks != 16) const SizedBox(width: AppSpacing.md),
             ],
           ],
         ),
@@ -389,7 +389,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
       theme: theme,
       children: [
         _sectionLabel(theme, 'SESSIONS PER WEEK'),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             for (final count in const [2, 3, 4, 5]) ...[
@@ -401,16 +401,16 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
                   onTap: () => _setSessionsPerWeek(count),
                 ),
               ),
-              if (count != 5) const SizedBox(width: 8),
+              if (count != 5) const SizedBox(width: AppSpacing.md),
             ],
           ],
         ),
-        const SizedBox(height: 26),
+        const SizedBox(height: AppSpacing.block),
         _sectionLabel(
           theme,
           'TRAINING DAYS ${_preferredWeekdays.length}/$_sessionsPerWeek',
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.lg),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -526,7 +526,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
           onTap: () => setState(() => _remindersEnabled = false),
         ),
         if (_remindersEnabled) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.lg),
           Material(
             color: theme.surface,
             child: InkWell(
@@ -555,9 +555,9 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
             ),
           ),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.block),
         _sectionLabel(theme, 'FRIEND RACE ALERTS'),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             Expanded(
@@ -569,7 +569,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
                     setState(() => _competitionNotificationsEnabled = true),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _CompactChoice(
                 label: 'OFF',
@@ -581,7 +581,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.md),
         Text(
           'Both friends get an alert when one passes the other.',
           style: AppTypography.body(color: theme.secondaryInk),
@@ -625,7 +625,7 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
           detail: 'ADJUST FROM COMPLETED WORK',
           theme: theme,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.xxl),
         Text(
           'Pushlog starts working sets below your reported maximum and changes '
           'whole repetitions gradually. The target is not a guarantee. '

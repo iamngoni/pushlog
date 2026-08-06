@@ -86,7 +86,7 @@ class HistoryEntryRow extends StatelessWidget {
                 color: entry.isToday ? AppColors.fixedDark : theme.secondaryInk,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: AppSpacing.xl),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,7 +95,7 @@ class HistoryEntryRow extends StatelessWidget {
                     rowTitle(entry.date),
                     style: AppTypography.title(color: theme.ink),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     _date(entry.date),
                     style: AppTypography.body(color: theme.secondaryInk),
@@ -107,9 +107,9 @@ class HistoryEntryRow extends StatelessWidget {
               '${entry.count}',
               style: AppTypography.headingMedium(color: theme.ink),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: AppSpacing.sm),
             Text('reps', style: AppTypography.body(color: theme.secondaryInk)),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.xs),
             Icon(Icons.chevron_right_rounded, color: theme.secondaryInk),
           ],
         ),

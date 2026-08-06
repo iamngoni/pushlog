@@ -95,21 +95,21 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
           _TopBar(theme: theme, trailing: 'GUIDED LIVE'),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.section),
           Text(
             'Live',
             style: AppTypography.headingXLarge(color: theme.ink),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.md),
           Text(
             'Timed session mode. Start here, count clean, save once.',
             style: AppTypography.bodyLarge(color: theme.secondaryInk),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
           Divider(height: 1, color: theme.divider),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
           _SelectorCard(
             title: 'DEVICE',
             detail:
@@ -131,7 +131,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                   );
                 }),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.md),
               _DeviceOption(
                 title: _watchStatus.canUseForWorkout
                     ? 'iPhone + Apple Watch'
@@ -148,7 +148,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.xxl),
           _SelectorCard(
             title: 'FLOW',
             detail: _trackingSnapshot.canUseAutoTracking
@@ -175,7 +175,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               unawaited(_startPreflightOrManual());
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
         ],
       ),
     );
@@ -188,19 +188,19 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
           _TopBar(theme: theme, trailing: 'PRE-FLIGHT'),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.section),
           Text(
             countdown?.toString() ?? _trackingSnapshot.statusLabel,
             style: AppTypography.metricXLarge(color: theme.ink),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.md),
           Text(
             _trackingSnapshot.movementLabel,
             style: AppTypography.bodyLarge(color: theme.secondaryInk),
           ),
-          const SizedBox(height: 26),
+          const SizedBox(height: AppSpacing.block),
           _SelectorCard(
             title: 'CAMERA LOCK',
             detail: _trackingSnapshot.phase.name,
@@ -224,7 +224,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                   }
                 : () {},
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
         ],
       ),
     );
@@ -239,14 +239,14 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
           _TopBar(theme: theme, trailing: 'SESSION'),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
           Text(
             _formatDuration(_elapsed),
             style: AppTypography.metricXLarge(color: theme.ink),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             _usesAutoTracking
                 ? _trackingSnapshot.movementLabel
@@ -257,7 +257,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               color: _isPaused ? theme.accentInk : theme.secondaryInk,
             ),
           ),
-          const SizedBox(height: 26),
+          const SizedBox(height: AppSpacing.block),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.xl),
@@ -272,12 +272,12 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                   'TOTAL REPS',
                   style: AppTypography.overline(color: theme.tertiaryInk),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.xl),
                 Text(
                   '$_reps',
                   style: AppTypography.metricHero(color: theme.ink),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.md),
                 Text(
                   _usesAutoTracking
                       ? _trackingSnapshot.metricsLine
@@ -295,7 +295,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             onEnd: _finishSession,
             isPaused: _isPaused,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
         ],
       ),
     );
@@ -307,19 +307,19 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
           _TopBar(theme: theme, trailing: 'SUMMARY'),
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.section),
           Text(
             '$_reps',
             style: AppTypography.metricHero(color: theme.ink),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.md),
           Text(
             'Live sessions save once, at the end.',
             style: AppTypography.bodyLarge(color: theme.secondaryInk),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
           _SummaryCard(
             theme: theme,
             rows: [
@@ -348,7 +348,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               unawaited(_saveSession(context));
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.block),
         ],
       ),
     );

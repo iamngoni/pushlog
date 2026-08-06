@@ -109,7 +109,6 @@ class AppElevation {
   );
 
   /// The scrim behind a modal surface.
-  static Color scrim(AppTheme theme) => theme.isDark
-      ? const Color(0xCC0F100C)
-      : const Color(0x992A2C23);
+  static Color scrim(AppTheme theme) =>
+      theme.isDark ? const Color(0xCC0F100C) : const Color(0x992A2C23);
 }

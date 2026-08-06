@@ -110,7 +110,7 @@ class FriendsLeaderboard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.md),
             ],
             if (state.isLoading)
               Padding(
@@ -202,7 +202,8 @@ class _LeaderboardRow extends StatelessWidget {
     final score = entry.scoreFor(period);
 
     return Semantics(
-      label: '${entry.isMe ? 'You' : entry.label}, '
+      label:
+          '${entry.isMe ? 'You' : entry.label}, '
           'rank $rank, $score reps',
       excludeSemantics: true,
       child: Container(
@@ -286,7 +287,8 @@ class _EmptyLeaderboard extends StatelessWidget {
       compact: true,
       icon: Icons.groups_rounded,
       title: 'No one to race yet',
-      message: 'Add a friend by username and you will both see who is '
+      message:
+          'Add a friend by username and you will both see who is '
           'ahead today, this week, and all time.',
       actionLabel: 'Find a friend',
       onAction: onInvite,
@@ -357,7 +359,7 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                     ),
                     const SizedBox(height: AppSpacing.block),
                     _sectionTitle('REQUESTS'),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.md),
                     if (state.incomingRequests.isEmpty)
                       _emptyText('No open requests.')
                     else
@@ -381,7 +383,7 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                             ),
                           ),
                         ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSpacing.xxl),
                     TextField(
                       controller: _controller,
                       autocorrect: false,
@@ -409,11 +411,11 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                         query: value.replaceAll('@', ''),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: AppSpacing.xl),
                     _searchResults(state, cubit),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: AppSpacing.block),
                     _sectionTitle('CAN SEE YOUR STATS'),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.md),
                     if (acceptedFriends.isEmpty)
                       _emptyText('No friends added yet.')
                     else
@@ -430,9 +432,9 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                           ),
                         ),
                     if (state.outgoingRequests.isNotEmpty) ...[
-                      const SizedBox(height: 22),
+                      const SizedBox(height: AppSpacing.block),
                       _sectionTitle('SENT'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.md),
                       for (final request in state.outgoingRequests)
                         _requestRow(
                           request,

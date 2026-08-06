@@ -158,29 +158,32 @@ class PushlogButton extends StatelessWidget {
     final theme = AppTheme.of(context);
     final enabled = onPressed != null && !isLoading;
 
-    final (Color background, Color foreground, Color? border) =
-        switch (variant) {
-          PushlogButtonVariant.primary => (
-            theme.accent,
-            theme.onAccent,
-            null,
-          ),
-          PushlogButtonVariant.secondary => (
-            theme.ink,
-            theme.background,
-            null,
-          ),
-          PushlogButtonVariant.ghost => (
-            Colors.transparent,
-            theme.ink,
-            theme.divider,
-          ),
-          PushlogButtonVariant.danger => (
-            theme.dangerSoft,
-            theme.danger,
-            theme.danger,
-          ),
-        };
+    final (
+      Color background,
+      Color foreground,
+      Color? border,
+    ) = switch (variant) {
+      PushlogButtonVariant.primary => (
+        theme.accent,
+        theme.onAccent,
+        null,
+      ),
+      PushlogButtonVariant.secondary => (
+        theme.ink,
+        theme.background,
+        null,
+      ),
+      PushlogButtonVariant.ghost => (
+        Colors.transparent,
+        theme.ink,
+        theme.divider,
+      ),
+      PushlogButtonVariant.danger => (
+        theme.dangerSoft,
+        theme.danger,
+        theme.danger,
+      ),
+    };
 
     final textStyle = size == PushlogButtonSize.small
         ? AppTypography.label(color: foreground, weight: FontWeight.w700)

@@ -125,7 +125,7 @@ class _HistoryPageState extends State<HistoryPage> {
           'reps logged this month',
           style: AppTypography.body(color: theme.secondaryInk),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
             Expanded(
@@ -235,11 +235,17 @@ class _HistoryPageState extends State<HistoryPage> {
     AppTheme theme,
     HistoryEntry entry,
   ) {
+    // Matches the friend sheet: rounded top, drag handle, safe area. Two
+    // sheets in one app should not disagree about what a sheet looks like.
     return showModalBottomSheet<void>(
       context: context,
       backgroundColor: theme.background,
-      shape: const RoundedRectangleBorder(),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.top(AppRadius.xxl),
+      ),
       isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
       builder: (_) => DayDetailSheet(entry: entry, theme: theme),
     );
   }
@@ -248,7 +254,8 @@ class _HistoryPageState extends State<HistoryPage> {
     return const EmptyState(
       icon: Icons.history_rounded,
       title: 'Your log starts today',
-      message: 'Every set you record shows up here — day by day, with your '
+      message:
+          'Every set you record shows up here — day by day, with your '
           'best days and live sessions called out. Log a set from the '
           'Today tab and this fills in.',
     );
@@ -334,7 +341,7 @@ class DayDetailSheet extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.md),
               Container(
                 width: 40,
                 height: 4,
@@ -348,7 +355,7 @@ class DayDetailSheet extends StatelessWidget {
                 rowTitle(entry.date),
                 style: AppTypography.overline(color: theme.tertiaryInk),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xs),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(

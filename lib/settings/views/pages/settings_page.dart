@@ -310,7 +310,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     PushlogToast.warning(
                       context,
                       'Reminders need notification access',
-                      detail: 'Allow notifications for Pushlog in your '
+                      detail:
+                          'Allow notifications for Pushlog in your '
                           'device settings, then switch this back on.',
                     );
                     return;
@@ -372,7 +373,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   PushlogToast.warning(
                     context,
                     'Friend alerts need notification access',
-                    detail: 'Allow notifications for Pushlog in your device '
+                    detail:
+                        'Allow notifications for Pushlog in your device '
                         'settings to hear when a friend passes you.',
                   );
                   return;
@@ -489,7 +491,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     PushlogToast.warning(
                       context,
                       'Health sync is unavailable',
-                      detail: 'Grant Pushlog access to Health, or keep '
+                      detail:
+                          'Grant Pushlog access to Health, or keep '
                           'logging sets by hand — nothing is lost either way.',
                     );
                     return;
@@ -576,7 +579,8 @@ class _SettingsPageState extends State<SettingsPage> {
     return _ConfirmDialog(
       theme: theme,
       title: 'Delete your account?',
-      message: 'This removes your profile, username, friends, requests, '
+      message:
+          'This removes your profile, username, friends, requests, '
           'and cloud backup. It cannot be undone.',
       confirmLabel: 'Delete account',
       onConfirm: () {
@@ -593,7 +597,8 @@ class _SettingsPageState extends State<SettingsPage> {
     return _ConfirmDialog(
       theme: theme,
       title: 'Reset Pushlog?',
-      message: 'This clears your history, live logs, and preferences on '
+      message:
+          'This clears your history, live logs, and preferences on '
           'this device.',
       confirmLabel: 'Reset data',
       onConfirm: () {
@@ -602,7 +607,6 @@ class _SettingsPageState extends State<SettingsPage> {
       },
     );
   }
-
 
   Widget buildTimePickerRow(
     BuildContext context,
@@ -912,7 +916,6 @@ class _SettingsPageState extends State<SettingsPage> {
     return '$day $dd $month · $hh:$mm';
   }
 }
-
 
 /// A confirmation for something that cannot be undone.
 ///

@@ -91,7 +91,8 @@ class _DayBar extends StatelessWidget {
     }
 
     return Semantics(
-      label: '${DateFormat('EEEE').format(day.date)}: '
+      label:
+          '${DateFormat('EEEE').format(day.date)}: '
           '${day.count} ${day.count == 1 ? 'rep' : 'reps'}'
           '${day.isToday ? ', today' : ''}',
       excludeSemantics: true,

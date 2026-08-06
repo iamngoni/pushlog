@@ -462,8 +462,7 @@ class _ToastCard extends StatelessWidget {
                               const SizedBox(width: AppSpacing.lg),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(

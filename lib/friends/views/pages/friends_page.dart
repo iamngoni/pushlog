@@ -75,13 +75,13 @@ class _FriendsPageState extends State<FriendsPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: AppSpacing.section),
               _PeriodSwitch(
                 theme: theme,
                 value: _period,
                 onChanged: (period) => setState(() => _period = period),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.block),
               BlocBuilder<FriendsCubit, FriendsState>(
                 builder: (_, state) => _RaceHeadline(
                   theme: theme,
@@ -93,7 +93,7 @@ class _FriendsPageState extends State<FriendsPage> {
                   totalAllTime: workoutState.totalAllTime,
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: AppSpacing.section),
               FriendsLeaderboard(
                 theme: theme,
                 me: me,
@@ -103,9 +103,9 @@ class _FriendsPageState extends State<FriendsPage> {
                 period: _period,
                 showHeader: false,
               ),
-              const SizedBox(height: 26),
+              const SizedBox(height: AppSpacing.block),
               Divider(color: theme.divider),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.xl),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -114,7 +114,7 @@ class _FriendsPageState extends State<FriendsPage> {
                     size: 18,
                     color: theme.secondaryInk,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: AppSpacing.lg),
                   Expanded(
                     child: Text(
                       'Only accepted friends can see your scores. '
@@ -170,7 +170,7 @@ class _Header extends StatelessWidget {
                 'PUSHLOG',
                 style: AppTypography.overline(color: theme.tertiaryInk),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.lg),
               Text(
                 'Friends',
                 style: AppTypography.headingLarge(color: theme.ink),
@@ -351,7 +351,7 @@ class _RaceHeadline extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: AppSpacing.xl),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,7 +360,7 @@ class _RaceHeadline extends StatelessWidget {
                   title,
                   style: AppTypography.title(color: theme.background),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   detail,
                   style: AppTypography.body(
