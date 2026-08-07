@@ -1,4 +1,4 @@
-platform :ios, '15.0'
+platform :ios, '15.5'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -35,11 +35,20 @@ target 'Runner' do
   end
 end
 
+MIN_IOS_TARGET = '15.5'.freeze
+
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      # Only ever raise a pod's own deployment target, never lower it.
+      # Clamping every pod to a single hardcoded number is how a dependency
+      # that needs a newer SDK — ML Kit's pose detection needs 15.5 — gets
+      # silently built against the wrong one and fails to compile.
+      current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f
+      if current < MIN_IOS_TARGET.to_f
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = MIN_IOS_TARGET
+      end
     end
   end
 end
