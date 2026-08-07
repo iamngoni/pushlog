@@ -86,4 +86,56 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('shows no rank while every score is zero', (tester) async {
+    when(
+      () => profileService.loadFriends(
+        me: me,
+        todayCount: 0,
+        weekCount: 0,
+        totalAllTime: 0,
+      ),
+    ).thenAnswer(
+      (_) async => const [
+        FriendProfile(
+          uid: 'me',
+          label: 'me',
+          username: 'me',
+          todayCount: 0,
+          isMe: true,
+        ),
+        FriendProfile(
+          uid: 'friend',
+          label: 'Friend',
+          username: 'friend',
+          todayCount: 0,
+        ),
+      ],
+    );
+    final cubit = FriendsCubit(profileService);
+    final theme = AppTheme.light();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme.toMaterialTheme(Brightness.light),
+        home: BlocProvider.value(
+          value: cubit,
+          child: Scaffold(
+            body: FriendsLeaderboard(
+              theme: theme,
+              me: me,
+              todayCount: 0,
+              showHeader: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('—'), findsNWidgets(2));
+    expect(find.text('1'), findsNothing);
+    expect(find.text('0'), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
 }

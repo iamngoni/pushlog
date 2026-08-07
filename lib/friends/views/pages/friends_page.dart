@@ -304,27 +304,50 @@ class _RaceHeadline extends StatelessWidget {
       );
     }
     ranked.sort(
-      (left, right) => right.scoreFor(period).compareTo(left.scoreFor(period)),
+      (left, right) => compareLeaderboardEntries(left, right, period),
     );
-    final myRank = ranked.indexWhere((entry) => entry.uid == me.uid);
-    final myScore = ranked[myRank].scoreFor(period);
+    final meEntry = ranked.firstWhere((entry) => entry.uid == me.uid);
+    final myRank = competitionRank(ranked, meEntry, period);
+    final myScore = meEntry.scoreFor(period);
     final hasRivals = ranked.length > 1;
-    final leading = myRank == 0;
-    final comparison = leading && hasRivals ? ranked[1] : ranked.first;
+    final topScore = ranked.first.scoreFor(period);
+    final leaders = ranked
+        .where((entry) => entry.scoreFor(period) == topScore)
+        .toList();
+    final hasUniqueLeader = leaders.length == 1;
+    final isAtTop = myScore == topScore;
+    final allAtZero = hasRivals && topScore == 0;
+    final comparison = isAtTop && hasUniqueLeader && hasRivals
+        ? ranked.firstWhere((entry) => entry.uid != me.uid)
+        : ranked.first;
     final gap = (myScore - comparison.scoreFor(period)).abs();
+    final myScoreIsTied = scoreIsTied(ranked, meEntry, period);
 
     final title = !hasRivals
         ? 'Bring a friend into the race.'
-        : leading
-        ? gap == 0
-              ? 'The lead is tied.'
-              : 'You lead by $gap.'
-        : '$gap reps to catch @${ranked.first.username}.';
+        : allAtZero
+        ? 'No leader yet.'
+        : isAtTop && !hasUniqueLeader
+        ? 'The lead is tied at $topScore.'
+        : isAtTop
+        ? 'You lead by $gap.'
+        : hasUniqueLeader
+        ? '$gap reps to catch @${ranked.first.username}.'
+        : '$gap reps to catch the leaders.';
     final detail = !hasRivals
         ? 'Your score is ready. Add someone worth chasing.'
-        : leading
+        : allAtZero
+        ? 'First rep takes the lead.'
+        : isAtTop && !hasUniqueLeader
+        ? 'One clean rep breaks the tie.'
+        : isAtTop
         ? 'Keep moving. Your friends get an alert when you pass them.'
         : 'Log the next set and the board updates for everyone.';
+    final rankLabel = !hasRivals || allAtZero
+        ? '—'
+        : myScoreIsTied
+        ? 'T$myRank'
+        : '#$myRank';
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xxl),
@@ -344,7 +367,7 @@ class _RaceHeadline extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Text(
-              hasRivals ? '#${myRank + 1}' : '—',
+              rankLabel,
               style: const TextStyle(
                 color: AppColors.fixedDark,
                 fontWeight: FontWeight.w800,

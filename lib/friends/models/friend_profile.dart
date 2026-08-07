@@ -3,6 +3,44 @@ import 'package:pushlog/auth/models/user_profile.dart';
 
 enum LeaderboardPeriod { today, week, allTime }
 
+int compareLeaderboardEntries(
+  FriendProfile left,
+  FriendProfile right,
+  LeaderboardPeriod period,
+) {
+  final scoreComparison = right
+      .scoreFor(period)
+      .compareTo(
+        left.scoreFor(period),
+      );
+  if (scoreComparison != 0) return scoreComparison;
+  return left.username.toLowerCase().compareTo(right.username.toLowerCase());
+}
+
+int competitionRank(
+  Iterable<FriendProfile> entries,
+  FriendProfile entry,
+  LeaderboardPeriod period,
+) {
+  final score = entry.scoreFor(period);
+  return entries
+          .where((candidate) => candidate.scoreFor(period) > score)
+          .length +
+      1;
+}
+
+bool scoreIsTied(
+  Iterable<FriendProfile> entries,
+  FriendProfile entry,
+  LeaderboardPeriod period,
+) {
+  final score = entry.scoreFor(period);
+  return entries
+          .where((candidate) => candidate.scoreFor(period) == score)
+          .length >
+      1;
+}
+
 class FriendProfile extends Equatable {
   const FriendProfile({
     required this.uid,

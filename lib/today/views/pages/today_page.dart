@@ -400,20 +400,48 @@ class _RacePreview extends StatelessWidget {
             ),
           );
         }
-        entries.sort((a, b) => b.todayCount.compareTo(a.todayCount));
-        final myRank = entries.indexWhere((entry) => entry.uid == me.uid);
+        entries.sort(
+          (left, right) => compareLeaderboardEntries(
+            left,
+            right,
+            LeaderboardPeriod.today,
+          ),
+        );
+        final meEntry = entries.firstWhere((entry) => entry.uid == me.uid);
         final hasFriends = entries.length > 1;
         final leader = entries.first;
+        final topScore = leader.todayCount;
+        final leaders = entries
+            .where((entry) => entry.todayCount == topScore)
+            .toList();
+        final hasUniqueLeader = leaders.length == 1;
+        final isAtTop = meEntry.todayCount == topScore;
+        final myRank = competitionRank(
+          entries,
+          meEntry,
+          LeaderboardPeriod.today,
+        );
+        final allAtZero = hasFriends && topScore == 0;
 
         final title = !hasFriends
             ? 'Race a friend'
-            : myRank == 0
+            : allAtZero
+            ? 'No leader yet today'
+            : isAtTop && !hasUniqueLeader
+            ? 'You’re tied for the lead'
+            : isAtTop
             ? 'You’re leading today'
-            : '${leader.todayCount - todayCount} reps behind '
-                  '@${leader.username}';
+            : hasUniqueLeader
+            ? '${topScore - meEntry.todayCount} reps behind '
+                  '@${leader.username}'
+            : '${topScore - meEntry.todayCount} reps behind the leaders';
         final detail = !hasFriends
             ? 'Daily, weekly, and all-time boards live here.'
-            : '#${myRank + 1} of ${entries.length} · updates after every set';
+            : allAtZero
+            ? 'Everyone starts at 0 · first rep takes the lead'
+            : isAtTop && !hasUniqueLeader
+            ? 'Tied at $topScore reps · updates after every set'
+            : '#$myRank of ${entries.length} · updates after every set';
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,7 +461,7 @@ class _RacePreview extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  if (hasFriends)
+                  if (hasFriends && hasUniqueLeader && topScore > 0)
                     AvatarBadge(
                       initials: leader.initials,
                       seed: leader.uid,

@@ -75,12 +75,14 @@ class FriendsLeaderboard extends StatelessWidget {
                         )
                         .toList()
               ..sort(
-                (left, right) =>
-                    right.scoreFor(period).compareTo(left.scoreFor(period)),
+                (left, right) => compareLeaderboardEntries(left, right, period),
               );
         final visibleEntries = limit == null
             ? leaderboard
             : leaderboard.take(limit!).toList();
+        final hasRankedScore = leaderboard.any(
+          (entry) => entry.scoreFor(period) > 0,
+        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,7 +142,18 @@ class FriendsLeaderboard extends StatelessWidget {
                 children: [
                   for (final indexedEntry in visibleEntries.indexed)
                     _LeaderboardRow(
-                      rank: indexedEntry.$1 + 1,
+                      competitionRank: hasRankedScore
+                          ? competitionRank(
+                              leaderboard,
+                              indexedEntry.$2,
+                              period,
+                            )
+                          : null,
+                      isTied: scoreIsTied(
+                        leaderboard,
+                        indexedEntry.$2,
+                        period,
+                      ),
                       entry: indexedEntry.$2,
                       period: period,
                       theme: theme,
@@ -186,13 +199,15 @@ Future<void> showFriendManagerSheet({
 
 class _LeaderboardRow extends StatelessWidget {
   const _LeaderboardRow({
-    required this.rank,
+    required this.competitionRank,
+    required this.isTied,
     required this.entry,
     required this.period,
     required this.theme,
   });
 
-  final int rank;
+  final int? competitionRank;
+  final bool isTied;
   final FriendProfile entry;
   final LeaderboardPeriod period;
   final AppTheme theme;
@@ -200,11 +215,21 @@ class _LeaderboardRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final score = entry.scoreFor(period);
+    final rankLabel = competitionRank == null
+        ? '—'
+        : isTied
+        ? 'T$competitionRank'
+        : '$competitionRank';
+    final rankDescription = competitionRank == null
+        ? 'not ranked yet'
+        : isTied
+        ? 'tied at rank $competitionRank'
+        : 'rank $competitionRank';
 
     return Semantics(
       label:
           '${entry.isMe ? 'You' : entry.label}, '
-          'rank $rank, $score reps',
+          '$rankDescription, $score reps',
       excludeSemantics: true,
       child: Container(
         // The row that is *you* gets a tinted band. On a list where every
@@ -219,10 +244,14 @@ class _LeaderboardRow extends StatelessWidget {
             SizedBox(
               width: 28,
               child: Text(
-                '$rank',
+                rankLabel,
                 style: AppTypography.metricInline(
-                  color: rank <= 3 ? theme.ink : theme.tertiaryInk,
-                  weight: rank <= 3 ? FontWeight.w800 : FontWeight.w600,
+                  color: (competitionRank ?? 4) <= 3
+                      ? theme.ink
+                      : theme.tertiaryInk,
+                  weight: (competitionRank ?? 4) <= 3
+                      ? FontWeight.w800
+                      : FontWeight.w600,
                 ),
               ),
             ),

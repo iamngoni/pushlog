@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
+import 'package:pushlog/friends/models/friend_profile.dart';
+import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
@@ -16,6 +19,8 @@ import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 class _MockAuthCubit extends Mock implements AuthCubit {}
 
 class _MockWorkoutBloc extends Mock implements WorkoutBloc {}
+
+class _MockFriendsCubit extends Mock implements FriendsCubit {}
 
 void main() {
   late AuthCubit authCubit;
@@ -155,6 +160,80 @@ void main() {
             widget.data == '12' &&
             widget.style?.fontSize == 72,
       ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('does not claim a lead when every friend has zero reps', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio();
+    });
+    const me = UserProfile(
+      uid: 'me',
+      username: 'me',
+      usernameLower: 'me',
+    );
+    const zeroState = WorkoutLoaded(
+      dayTotals: {},
+      sessions: [],
+      preferences: WorkoutPreferences(),
+    );
+    final friendsCubit = _MockFriendsCubit();
+    when(() => authCubit.state).thenReturn(const AuthAuthenticated(me));
+    when(() => workoutBloc.state).thenReturn(zeroState);
+    when(
+      () => workoutBloc.stream,
+    ).thenAnswer((_) => const Stream<WorkoutState>.empty());
+    when(() => friendsCubit.state).thenReturn(
+      const FriendsState(
+        leaderboard: [
+          FriendProfile(
+            uid: 'me',
+            label: 'me',
+            username: 'me',
+            todayCount: 0,
+            isMe: true,
+          ),
+          FriendProfile(
+            uid: 'friend',
+            label: 'Friend',
+            username: 'friend',
+            todayCount: 0,
+          ),
+        ],
+      ),
+    );
+    when(
+      () => friendsCubit.stream,
+    ).thenAnswer((_) => const Stream<FriendsState>.empty());
+    final theme = AppTheme.light();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme.toMaterialTheme(Brightness.light),
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<AuthCubit>.value(value: authCubit),
+            BlocProvider<WorkoutBloc>.value(value: workoutBloc),
+            BlocProvider<FriendsCubit>.value(value: friendsCubit),
+          ],
+          child: TodayPage(onTabChanged: (_) {}),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('No leader yet today'), findsOneWidget);
+    expect(find.text('You’re leading today'), findsNothing);
+    expect(
+      find.text('Everyone starts at 0 · first rep takes the lead'),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
