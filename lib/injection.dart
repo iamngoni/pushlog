@@ -16,6 +16,7 @@ import 'package:pushlog/core/services/competition_notification_service.dart';
 import 'package:pushlog/core/services/pushlog_api_client.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/services/storage_service.dart';
+import 'package:pushlog/core/state/theme_mode_cubit.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
@@ -88,6 +89,9 @@ Future<void> configureInjection() async {
         reminderService: getIt<ReminderService>(),
       ),
     )
+    // Singleton, not a factory: the chosen theme has to outlive any
+    // one screen and stay the same instance the MaterialApp listens to.
+    ..registerSingleton<ThemeModeCubit>(ThemeModeCubit(storageService))
     ..registerFactory<FriendsCubit>(
       () => FriendsCubit(getIt<ProfileService>()),
     )

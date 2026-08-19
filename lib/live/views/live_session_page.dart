@@ -7,6 +7,7 @@ import 'package:pushlog/core/configs/motion.dart';
 import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/pushlog_button.dart';
+import 'package:pushlog/core/views/widgets/pushlog_confirm_dialog.dart';
 import 'package:pushlog/core/views/widgets/pushlog_surface.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
@@ -73,18 +74,35 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     super.dispose();
   }
 
+  /// Whether leaving now would throw away counted reps.
+  ///
+  /// Past setup, [dispose] cancels the session outright, and the summary
+  /// step holds reps that only Save commits — so in both cases walking out
+  /// is a discard, whether or not the user meant it as one.
+  bool get _hasUnsavedReps => _reps > 0 && _step != _LiveStep.setup;
+
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
-    return Scaffold(
-      backgroundColor: theme.background,
-      body: SafeArea(
-        child: switch (_step) {
-          _LiveStep.setup => _buildSetup(context, theme),
-          _LiveStep.preflight => _buildPreflight(context, theme),
-          _LiveStep.tracking => _buildTracking(context, theme),
-          _LiveStep.summary => _buildSummary(context, theme),
-        },
+    // A back gesture mid-session used to destroy it silently. The reps are
+    // the one thing here that cannot be recreated, so the gesture has to
+    // pass the same question the Discard button does.
+    return PopScope(
+      canPop: !_hasUnsavedReps,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        unawaited(_confirmLeave(context));
+      },
+      child: Scaffold(
+        backgroundColor: theme.background,
+        body: SafeArea(
+          child: switch (_step) {
+            _LiveStep.setup => _buildSetup(context, theme),
+            _LiveStep.preflight => _buildPreflight(context, theme),
+            _LiveStep.tracking => _buildTracking(context, theme),
+            _LiveStep.summary => _buildSummary(context, theme),
+          },
+        ),
       ),
     );
   }
@@ -341,7 +359,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             theme: theme,
             leading: 'Discard',
             onLeadingTap: () {
-              unawaited(_discardSession(context));
+              unawaited(_confirmDiscard(context));
             },
             trailing: 'Save',
             onTrailingTap: () {
@@ -603,6 +621,43 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     if (context.mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  /// Asks before throwing the session away, naming what is being lost.
+  ///
+  /// A bare count is the honest measure here: the user just did the work,
+  /// and 'your session' does not carry the same weight as the number.
+  Future<bool> _askToDiscard(BuildContext context) {
+    return PushlogConfirmDialog.ask(
+      context,
+      title: 'Discard $_reps ${_reps == 1 ? 'rep' : 'reps'}?',
+      message:
+          'This session will not be saved to your history, and the reps '
+          'cannot be recovered.',
+      confirmLabel: 'Discard',
+    );
+  }
+
+  Future<void> _confirmDiscard(BuildContext context) async {
+    if (_reps > 0) {
+      final confirmed = await _askToDiscard(context);
+      if (!confirmed || !context.mounted) return;
+    }
+    await _discardSession(context);
+  }
+
+  /// The back-gesture path.
+  ///
+  /// Only the summary step needs the stopped workout cleared explicitly —
+  /// before that, [dispose] cancels the live one on the way out.
+  Future<void> _confirmLeave(BuildContext context) async {
+    final confirmed = await _askToDiscard(context);
+    if (!confirmed || !context.mounted) return;
+    if (_step == _LiveStep.summary) {
+      await _discardSession(context);
+      return;
+    }
+    Navigator.of(context).pop();
   }
 
   Future<void> _discardSession(BuildContext context) async {

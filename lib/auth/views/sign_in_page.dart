@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,10 +8,27 @@ import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/views/widgets/about_sheet.dart';
+import 'package:pushlog/core/views/widgets/google_glyph.dart';
+import 'package:pushlog/core/views/widgets/gym_backdrop.dart';
 import 'package:pushlog/core/views/widgets/pushlog_button.dart';
+import 'package:pushlog/core/views/widgets/pushlog_logo.dart';
 
 class SignInPage extends StatelessWidget {
   const SignInPage({super.key});
+
+  /// Whether to offer Sign in with Apple.
+  ///
+  /// On Apple platforms this is a system sheet the user already trusts. On
+  /// Android it would fall back to a web redirect, which is a worse journey
+  /// than the Google button sitting right beside it — and it would strand
+  /// anyone who picked it, because the resulting account cannot be reached
+  /// again from an Android device without that same detour. Offering it
+  /// there advertises parity the platform does not have.
+  static bool get _appleSignInIsOffered => switch (defaultTargetPlatform) {
+    TargetPlatform.iOS || TargetPlatform.macOS => true,
+    _ => false,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -22,72 +40,103 @@ class SignInPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.background,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppSpacing.proseMaxWidth,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.gutter,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: AppSpacing.block),
-                  const _Wordmark(trailing: 'ACCOUNT'),
-                  const Spacer(),
-                  Text(
-                    'Sign in',
-                    style: AppTypography.headingXLarge(color: theme.ink),
+      body: Stack(
+        children: [
+          // Behind everything, and outside the SafeArea so the texture runs
+          // under the status bar rather than stopping at a visible seam.
+          const Positioned.fill(child: GymBackdrop()),
+          SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppSpacing.proseMaxWidth,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.gutter,
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  // A short accent rule instead of a decorative flourish.
-                  // It puts Signal Lime on the screen without colouring a
-                  // provider button, which would imply one sign-in method
-                  // is the recommended one when both are equivalent.
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: theme.accent,
-                      borderRadius: AppRadius.all(AppRadius.indicator),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: AppSpacing.block),
+                      // About is the only header affordance now. The wordmark
+                      // that used to sit opposite it would repeat the name the
+                      // brand block below already states at full size.
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: _AboutButton(),
+                      ),
+                      const Spacer(flex: 2),
+                      const Center(child: PushlogLogo()),
+                      const SizedBox(height: AppSpacing.xxl),
+                      Text(
+                        'Pushlog',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.headingXLarge(color: theme.ink),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      // This screen is a hard gate — there is no guest path
+                      // — so the line has two jobs: say what Pushlog is, and
+                      // say why an account is being asked for at all.
+                      //
+                      // It deliberately leaves out friends and leaderboards.
+                      // Competition is opt-in and, per the product's own
+                      // anti-references, never the pitch; promising a race
+                      // before the user has done a single push-up sells the
+                      // wrong thing. The About sheet covers it instead.
+                      Text(
+                        'Turn a push-up goal into a plan you can keep. '
+                        'Your progress stays with you on any device.',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.bodyLarge(
+                          color: theme.secondaryInk,
+                        ),
+                      ),
+                      // The mark now carries Signal Lime, so the accent rule
+                      // that used to sit under the heading is gone — two lime
+                      // elements stacked would just compete with each other.
+                      //
+                      // The gap under the brand block is deliberately the
+                      // smallest of the three, so the actions stay tied to the
+                      // pitch above them and the slack collects at the bottom
+                      // rather than splitting the screen in half.
+                      const Spacer(),
+                      if (_appleSignInIsOffered) ...[
+                        PushlogButton(
+                          label: 'Continue with Apple',
+                          icon: Icons.apple_rounded,
+                          variant: PushlogButtonVariant.secondary,
+                          onPressed: () =>
+                              context.read<AuthCubit>().signInWithApple(),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                      ],
+                      PushlogButton(
+                        label: 'Continue with Google',
+                        leading: const GoogleGlyph(),
+                        // Ghost only while Apple sits above it holding the
+                        // weight. Alone on the screen it is the one thing to
+                        // do, so it should not also be the quietest control.
+                        variant: _appleSignInIsOffered
+                            ? PushlogButtonVariant.ghost
+                            : PushlogButtonVariant.secondary,
+                        onPressed: () =>
+                            context.read<AuthCubit>().signInWithGoogle(),
+                      ),
+                      if (message != null) ...[
+                        const SizedBox(height: AppSpacing.xxl),
+                        InlineNotice(message: message),
+                      ],
+                      const Spacer(flex: 2),
+                      const _PrivacyNote(),
+                      const SizedBox(height: AppSpacing.block),
+                    ],
                   ),
-                  const SizedBox(height: AppSpacing.xxl),
-                  Text(
-                    'Sync your sessions across devices, claim a username, '
-                    'and race your friends.',
-                    style: AppTypography.bodyLarge(color: theme.secondaryInk),
-                  ),
-                  const SizedBox(height: AppSpacing.sectionLarge),
-                  PushlogButton(
-                    label: 'Continue with Apple',
-                    icon: Icons.apple_rounded,
-                    variant: PushlogButtonVariant.secondary,
-                    onPressed: () =>
-                        context.read<AuthCubit>().signInWithApple(),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  PushlogButton(
-                    label: 'Continue with Google',
-                    variant: PushlogButtonVariant.ghost,
-                    onPressed: () =>
-                        context.read<AuthCubit>().signInWithGoogle(),
-                  ),
-                  if (message != null) ...[
-                    const SizedBox(height: AppSpacing.xxl),
-                    InlineNotice(message: message),
-                  ],
-                  const Spacer(),
-                  const _PrivacyNote(),
-                  const SizedBox(height: AppSpacing.block),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -444,13 +493,49 @@ class _Wordmark extends StatelessWidget {
   }
 }
 
+/// Opens the About sheet from the sign-in header.
+///
+/// The header used to read "ACCOUNT", which only restated the screen the
+/// user was already looking at. Someone who has not signed in yet is more
+/// likely to be asking what Pushlog is, so the slot does that instead.
+class _AboutButton extends StatelessWidget {
+  const _AboutButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    return PressFeedback(
+      semanticLabel: 'About Pushlog',
+      onTap: () => unawaited(showAboutSheet(context, theme)),
+      // The glyph is small, so the touch target is padded out to the
+      // platform minimum rather than left at the icon's own size.
+      child: SizedBox(
+        width: AppSpacing.minTapTarget,
+        height: AppSpacing.minTapTarget,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Icon(
+            Icons.info_outline_rounded,
+            size: 20,
+            color: theme.tertiaryInk,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PrivacyNote extends StatelessWidget {
   const _PrivacyNote();
 
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
+    // Centred to sit under a centred composition. The row hugs its content
+    // rather than filling the width, so the lock stays beside the sentence
+    // instead of drifting to the far edge.
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
@@ -459,9 +544,10 @@ class _PrivacyNote extends StatelessWidget {
           color: theme.tertiaryInk,
         ),
         const SizedBox(width: AppSpacing.lg),
-        Expanded(
+        Flexible(
           child: Text(
             'Your email stays private. Friends find you by username.',
+            textAlign: TextAlign.center,
             style: AppTypography.bodySmall(color: theme.tertiaryInk),
           ),
         ),

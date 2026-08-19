@@ -1,6 +1,7 @@
 import type {Env} from './env';
 import type {AuthenticatedUser} from './env';
 import {HttpError, jsonResponse} from './http';
+import {buildLeadChangeCopy} from './lead_change_copy';
 
 interface FriendScoreRow {
   uid: string;
@@ -134,9 +135,14 @@ export async function notifyFriendsPassed(
     passed.map(async (friend) => {
       const friendCount = friend.today_key === dayKey ? friend.today_count : 0;
       const notificationId = crypto.randomUUID();
-      const title = `@${actorName.replace(/^@/, '')} passed you`;
-      const lead = currentCount - friendCount;
-      const body = `Log ${lead + 1} reps to take the lead back.`;
+      const deficit = currentCount - friendCount;
+      // Varied so a user who gets passed several times in a day is not read
+      // the same sentence each time.
+      const {title, body} = buildLeadChangeCopy({
+        actor: actorName,
+        deficit,
+        repsToRetake: deficit + 1,
+      });
       const now = new Date().toISOString();
       await env.DB.prepare(
         `INSERT INTO notification_events (
