@@ -1,0 +1,23 @@
+name = "pushlog-api-staging"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-08-06"
+
+[vars]
+FIREBASE_PROJECT_ID = "pushlog-app"
+ENVIRONMENT = "staging"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pushlog-staging"
+database_id = "150fa67b-ecf6-4833-a10a-2be0816e7678"
+migrations_dir = "../cloudflare/migrations"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[build]
+command = "cargo install -q worker-build --version 0.8.5 && worker-build --release"
