@@ -37,12 +37,6 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 build/
-functions/lib/
-functions/node_modules/
-cloudflare/node_modules/
-cloudflare/.wrangler/
-cloudflare/.dev.vars
-cloudflare/.env*
 firebase-debug.log
 flutter_*.png
 linked_*.ds

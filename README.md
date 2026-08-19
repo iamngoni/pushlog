@@ -95,14 +95,15 @@ the Workers API in every flavor unless `PUSHLOG_API_URL` overrides it.
 
 ## Run the Backend Locally
 
-The Worker lives in `cloudflare/`.
+The Worker lives in `cloudflare-rs/` (Rust, on Cloudflare Workers over D1).
 
 ```sh
-cd cloudflare
+cd cloudflare-rs
 npm install
 npm run db:migrate:local
-npm run check
-npm test
+cargo fmt --all -- --check
+cargo clippy --lib --all-targets -- -D warnings
+cargo test --lib
 npm run dev
 ```
 
@@ -119,8 +120,8 @@ production was deployed.
 ## Verification
 
 The current source passes `flutter analyze`, Bloc lint across 88 files, 58
-Flutter tests, both Workers TypeScript checks, and 6 Workers tests. Re-run the
-complete gate after changes:
+Flutter tests, the Rust worker's Clippy gate, and its unit test suite. Re-run
+the complete gate after changes:
 
 ```sh
 dart format --set-exit-if-changed .
@@ -128,9 +129,9 @@ flutter analyze
 flutter test --concurrency=1
 dart run bloc_tools:bloc lint .
 flutter build apk --debug --flavor development --target lib/main_development.dart
-cd cloudflare
-npm run check
-npm test
+cd cloudflare-rs
+cargo clippy --lib --all-targets -- -D warnings
+cargo test --lib
 ```
 
 The GitHub Actions workflow runs formatting, analysis, and Flutter tests on a
@@ -183,7 +184,7 @@ the present architecture.
 ```text
 lib/                 Flutter product, state, services, and platform adapters
 test/                Flutter unit and widget tests
-cloudflare/          Workers API, D1 migrations, migration tooling, and tests
+cloudflare-rs/       Rust Workers API, D1 migrations, and tests
 ios/Runner/          Current iOS host and native platform bridges
 android/             Current Android host and flavor configuration
 old_ios/             Legacy native iOS and watchOS parity reference

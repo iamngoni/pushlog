@@ -10,7 +10,7 @@ ENVIRONMENT = "staging"
 binding = "DB"
 database_name = "pushlog-staging"
 database_id = "150fa67b-ecf6-4833-a10a-2be0816e7678"
-migrations_dir = "../cloudflare/migrations"
+migrations_dir = "migrations"
 
 [observability]
 enabled = true

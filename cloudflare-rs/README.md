@@ -1,11 +1,11 @@
 # Pushlog API worker (Rust)
 
 The production implementation of the Pushlog application backend, on
-Cloudflare Workers over D1. Replaces the TypeScript implementation kept at
-`../cloudflare` for reference/rollback; the two are wire-compatible — same
-routes, same JSON shapes, same status codes, same D1 schema and migrations
-(`migrations_dir` points at `../cloudflare/migrations`, so there is exactly
-one copy of the schema, not two drifting ones).
+Cloudflare Workers over D1. Replaced a prior TypeScript implementation
+(same routes, JSON shapes, status codes, and D1 schema — a wire-compatible
+rewrite, not a redesign). The TypeScript source is gone from this repo;
+recover it from git history (`git log --diff-filter=D -- cloudflare/`) if
+ever needed for comparison.
 
 Live staging/internal-testing API (same URL the app has always used):
 <https://pushlog-api-staging.imngonii.workers.dev>

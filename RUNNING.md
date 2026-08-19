@@ -5,7 +5,7 @@ Pushlog has two independently runnable halves:
 | Half | Location | What it is |
 | --- | --- | --- |
 | Flutter client | `lib/`, `ios/`, `android/` | The iOS and Android app |
-| Workers backend | `cloudflare/` | Cloudflare Worker + D1 application API |
+| Workers backend | `cloudflare-rs/` | Rust Cloudflare Worker + D1 application API |
 
 **You do not need the backend to run the app.** The client defaults to the
 deployed staging Worker, so `flutter run` works on its own. Run the backend
@@ -19,8 +19,9 @@ locally only when you are changing the API or the D1 schema.
 | --- | --- | --- | --- |
 | Flutter SDK | **3.44.8** (pinned by CI) | Everything Flutter | See [§3](#3-install-flutter) |
 | Dart | Ships inside Flutter | Everything Flutter | — (bundled) |
-| Node.js | 20+ | Workers backend | `brew install node` |
-| npm | 10+ | Workers backend | Bundled with Node |
+| Node.js | 20+ | Workers backend (wrangler CLI) | `brew install node` |
+| npm | 10+ | Workers backend (wrangler CLI) | Bundled with Node |
+| Rust | stable, `wasm32-unknown-unknown` target | Workers backend | `rustup target add wasm32-unknown-unknown` |
 | Xcode | 16+ | iOS builds & simulators | Mac App Store |
 | CocoaPods | 1.15+ | iOS native dependencies | `brew install cocoapods` |
 | JDK | 17 or 21 | Android Gradle build | `brew install openjdk@21` |
@@ -38,11 +39,11 @@ the version actually pinned in `.github/scripts/setup_flutter.sh` and
   (`lib/firebase_options.dart`, `ios/Runner/GoogleService-Info.plist`,
   `android/app/google-services.json`). You only need these if you are
   regenerating Firebase config.
-- **A global `wrangler` or `tsx`** — both are local devDependencies in
-  `cloudflare/package.json` and run through the npm scripts.
-- **A Cloudflare account or `wrangler login`** — local dev, local migrations,
-  and tests all run offline against Miniflare. Login is required only to
-  deploy or to migrate the remote staging database.
+- **A global `wrangler`** — it is a local devDependency in
+  `cloudflare-rs/package.json` and runs through the npm scripts.
+- **A Cloudflare account or `wrangler login`** — local dev and local
+  migrations run offline against Miniflare. Login is required only to deploy
+  or to migrate the remote staging database.
 
 ---
 
@@ -193,16 +194,17 @@ emulator -avd <avd-name> &
 ## 5. Run the backend locally
 
 ```sh
-cd cloudflare
+cd cloudflare-rs
 npm install
-npm run db:migrate:local   # applies migrations/ to the local D1 in .wrangler/state
-npm run check              # tsc --noEmit, both tsconfigs
-npm test                   # vitest via @cloudflare/vitest-pool-workers
-npm run dev                # wrangler dev, serves on http://localhost:8787
+npm run db:migrate:local              # applies migrations/ to the local D1 in .wrangler/state
+cargo fmt --all -- --check
+cargo clippy --lib --all-targets -- -D warnings
+cargo test --lib                      # host-run unit tests — see cloudflare-rs/README.md
+npm run dev                           # wrangler dev, serves on http://localhost:8787
 ```
 
 `npm run dev` runs fully local — no Cloudflare login, no network calls to
-your account. State persists under `cloudflare/.wrangler/state`.
+your account. State persists under `cloudflare-rs/.wrangler/state`.
 
 `GET /health` is public. Every `/v1/*` route needs a real Firebase ID token in
 `Authorization: Bearer <token>`, and the verified token UID owns the
@@ -211,16 +213,16 @@ operation — a UID in the request body is never trusted. That means exercising
 
 ### Optional environment variables
 
-`FCM_GATEWAY_URL` and `FCM_GATEWAY_SECRET` enable immediate push delivery.
-They are optional: the D1 notification inbox works without them. To set them
-locally, create `cloudflare/.dev.vars` (gitignored):
+`FCM_SERVICE_ACCOUNT_JSON` enables immediate push delivery (FCM HTTP v1,
+which also reaches iOS via APNs on Google's side). It is optional: the D1
+notification inbox works without it — see `cloudflare-rs/README.md` for how
+to obtain it. To set it locally, create `cloudflare-rs/.dev.vars` (gitignored):
 
 ```ini
-FCM_GATEWAY_URL=https://example.com/send
-FCM_GATEWAY_SECRET=local-dev-secret
+FCM_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"pushlog-app",...}
 ```
 
-`FIREBASE_PROJECT_ID` and `ENVIRONMENT` are already set in `wrangler.jsonc`.
+`FIREBASE_PROJECT_ID` and `ENVIRONMENT` are already set in `wrangler.toml`.
 
 ### Deploying (explicit, separate operations)
 
@@ -268,14 +270,14 @@ flutter test --concurrency=1
 dart run bloc_tools:bloc lint .
 flutter build apk --debug --flavor development --target lib/main_development.dart
 
-cd cloudflare
-npm run check
-npm test
+cd cloudflare-rs
+cargo clippy --lib --all-targets -- -D warnings
+cargo test --lib
 ```
 
 GitHub Actions (`.github/workflows/main.yaml`, self-hosted runner) covers
 formatting, analysis, and Flutter tests only. The Android build, the Bloc
-lint, and both Workers checks are local responsibilities.
+lint, and the Workers checks are local responsibilities.
 
 ### Device checks CI cannot cover
 
@@ -335,5 +337,5 @@ If the tests still report passing, the errors are cosmetic.
 
 **Reset the local D1 database**
 ```sh
-cd cloudflare && rm -rf .wrangler/state && npm run db:migrate:local
+cd cloudflare-rs && rm -rf .wrangler/state && npm run db:migrate:local
 ```
