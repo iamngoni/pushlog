@@ -9,6 +9,7 @@ import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/avatar_badge.dart';
 import 'package:pushlog/core/views/widgets/empty_state.dart';
 import 'package:pushlog/core/views/widgets/pushlog_button.dart';
+import 'package:pushlog/core/views/widgets/pushlog_confirm_dialog.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/models/friend_request.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
@@ -405,11 +406,7 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                           ),
                           secondary: 'Decline',
                           onSecondary: () => unawaited(
-                            cubit.declineFriendRequest(
-                              me: widget.me,
-                              todayCount: widget.todayCount,
-                              requesterUid: request.uid,
-                            ),
+                            _confirmDecline(request, cubit),
                           ),
                         ),
                     const SizedBox(height: AppSpacing.xxl),
@@ -453,11 +450,7 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                           friend,
                           action: 'REVOKE',
                           onAction: () => unawaited(
-                            cubit.revokeFriendship(
-                              me: widget.me,
-                              todayCount: widget.todayCount,
-                              friendUid: friend.uid,
-                            ),
+                            _confirmRevoke(friend, cubit),
                           ),
                         ),
                     if (state.outgoingRequests.isNotEmpty) ...[
@@ -469,11 +462,7 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                           request,
                           primary: 'CANCEL',
                           onPrimary: () => unawaited(
-                            cubit.cancelFriendRequest(
-                              me: widget.me,
-                              todayCount: widget.todayCount,
-                              receiverUid: request.uid,
-                            ),
+                            _confirmCancelRequest(request, cubit),
                           ),
                         ),
                     ],
@@ -484,6 +473,71 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Unfriending is one-sided and final. Only a fresh request undoes it,
+  /// and only the other person can accept that — so the tap that starts it
+  /// is worth one question.
+  Future<void> _confirmRevoke(
+    FriendProfile friend,
+    FriendsCubit cubit,
+  ) async {
+    final confirmed = await PushlogConfirmDialog.ask(
+      context,
+      title: 'Remove @${friend.username}?',
+      message:
+          "You will drop off each other's leaderboards. Adding them back "
+          'means sending a new request and waiting for them to accept.',
+      confirmLabel: 'Remove',
+    );
+    if (!confirmed || !mounted) return;
+    await cubit.revokeFriendship(
+      me: widget.me,
+      todayCount: widget.todayCount,
+      friendUid: friend.uid,
+    );
+  }
+
+  /// Decline sits directly beside Accept, so a mis-tap here is an ordinary
+  /// slip with a consequence the user cannot reverse on their own.
+  Future<void> _confirmDecline(
+    FriendRequest request,
+    FriendsCubit cubit,
+  ) async {
+    final confirmed = await PushlogConfirmDialog.ask(
+      context,
+      title: 'Decline @${request.username}?',
+      message: 'The request leaves your list. Only they can send it again.',
+      confirmLabel: 'Decline',
+    );
+    if (!confirmed || !mounted) return;
+    await cubit.declineFriendRequest(
+      me: widget.me,
+      todayCount: widget.todayCount,
+      requesterUid: request.uid,
+    );
+  }
+
+  Future<void> _confirmCancelRequest(
+    FriendRequest request,
+    FriendsCubit cubit,
+  ) async {
+    final confirmed = await PushlogConfirmDialog.ask(
+      context,
+      title: 'Cancel your request to @${request.username}?',
+      message: 'They will stop seeing it. You can send a new one later.',
+      // 'Cancel' would read as both answers here, so the way out says
+      // what keeping the request actually means.
+      cancelLabel: 'Keep it',
+      confirmLabel: 'Cancel request',
+      isDestructive: false,
+    );
+    if (!confirmed || !mounted) return;
+    await cubit.cancelFriendRequest(
+      me: widget.me,
+      todayCount: widget.todayCount,
+      receiverUid: request.uid,
     );
   }
 

@@ -6,12 +6,13 @@
 //  Copyright (c) 2026 Codecraft Solutions. All rights reserved.
 //
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/motion.dart';
 import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
-import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 
 /// The persistent logging bar.
 ///
@@ -86,7 +87,18 @@ class ActionStrip extends StatelessWidget {
   }
 }
 
-class ActionCell extends StatelessWidget {
+/// One hold-to-log cell.
+///
+/// This strip sits permanently under the thumb, directly above the system
+/// navigation bar, so a brush while scrolling or pocketing the phone used to
+/// be enough to write reps the user never did — and a log that cannot be
+/// trusted makes every number downstream of it worthless.
+///
+/// A press therefore has to be sustained for [holdDuration], and the cell
+/// fills as it goes so the wait is visible rather than mysterious. Haptics
+/// mark the whole arc: a light tap on contact, ticks as the fill crosses,
+/// and a commit thump when it lands.
+class ActionCell extends StatefulWidget {
   const ActionCell({
     required this.reps,
     required this.theme,
@@ -97,6 +109,12 @@ class ActionCell extends StatelessWidget {
     super.key,
   });
 
+  /// How long the cell must be held before it logs.
+  static const Duration holdDuration = Duration(seconds: 3);
+
+  /// Haptic ticks spread across the hold, not counting the commit.
+  static const int _tickCount = 3;
+
   final int reps;
   final String? caption;
   final bool emphasized;
@@ -105,38 +123,154 @@ class ActionCell extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final ink = emphasized ? theme.onAccent : theme.ink;
-    final subInk = emphasized ? theme.onAccentMuted : theme.secondaryInk;
+  State<ActionCell> createState() => _ActionCellState();
+}
 
-    return PressFeedback(
-      enabled: isEnabled,
-      onTap: onTap,
-      haptic: AppHaptics.tick,
-      semanticLabel: 'Log $reps reps',
-      child: AnimatedContainer(
-        duration: AppMotion.duration(context, AppMotion.fast),
-        height: AppSpacing.controlHeight,
-        decoration: BoxDecoration(
-          color: emphasized ? theme.accent : theme.surface,
-          borderRadius: AppRadius.all(AppRadius.md),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '+$reps',
-                style: AppTypography.metricCompact(color: ink),
-              ),
-              if (caption != null) ...[
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  caption!,
-                  style: AppTypography.labelSmall(color: subInk),
+class _ActionCellState extends State<ActionCell>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  int _ticksFired = 0;
+  bool _isHolding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(
+            vsync: this,
+            // Not routed through AppMotion: this is a safety delay, not
+            // decoration, so reduced-motion must not shorten it to zero and
+            // hand back the accidental taps it exists to prevent.
+            duration: ActionCell.holdDuration,
+          )
+          ..addListener(_onProgress)
+          ..addStatusListener(_onStatus);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onProgress() {
+    // Ticks at even fractions, so the hold has a felt rhythm instead of
+    // three silent seconds where nothing seems to be happening.
+    final fired = (_controller.value * ActionCell._tickCount).floor();
+    if (fired > _ticksFired && fired < ActionCell._tickCount) {
+      _ticksFired = fired;
+      AppHaptics.tick();
+    }
+  }
+
+  void _onStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    AppHaptics.commit();
+    widget.onTap();
+    // Snap empty rather than draining: the reps are already logged, and a
+    // fill unwinding afterwards would read as the action coming undone.
+    _controller.value = 0;
+    _ticksFired = 0;
+    if (mounted) setState(() => _isHolding = false);
+  }
+
+  void _startHold() {
+    if (!widget.isEnabled) return;
+    _ticksFired = 0;
+    AppHaptics.tap();
+    setState(() => _isHolding = true);
+    unawaited(_controller.forward(from: 0));
+  }
+
+  void _cancelHold() {
+    if (_isHolding) setState(() => _isHolding = false);
+    if (_controller.value == 0) return;
+    _ticksFired = 0;
+    // Drain rather than snap, so letting go early reads as releasing a
+    // control instead of the fill being yanked away.
+    unawaited(_controller.reverse());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final ink = widget.emphasized ? theme.onAccent : theme.ink;
+    final subInk = widget.emphasized ? theme.onAccentMuted : theme.secondaryInk;
+
+    final base = widget.emphasized ? theme.accent : theme.surface;
+    // The lime cell is already the accent, so it darkens as it charges;
+    // the quiet cells fill *with* the accent instead.
+    final fill = widget.emphasized
+        ? theme.onAccent.withValues(alpha: 0.18)
+        : theme.accent;
+
+    return Semantics(
+      button: true,
+      enabled: widget.isEnabled,
+      label: 'Log ${widget.reps} reps',
+      hint: 'Hold to log',
+      // Assistive tech activates with a double tap, not a sustained press,
+      // and a pocket brush is not the failure mode for someone driving the
+      // screen with TalkBack — so the semantic action logs immediately
+      // rather than leaving the control unreachable.
+      onTap: widget.isEnabled ? widget.onTap : null,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _startHold(),
+        onTapUp: (_) => _cancelHold(),
+        onTapCancel: _cancelHold,
+        child: AnimatedOpacity(
+          opacity: widget.isEnabled ? 1 : 0.4,
+          duration: AppMotion.duration(context, AppMotion.fast),
+          child: AnimatedScale(
+            scale: _isHolding ? 0.97 : 1,
+            duration: AppMotion.duration(context, AppMotion.instant),
+            curve: AppMotion.settle,
+            child: SizedBox(
+              height: AppSpacing.controlHeight,
+              child: ClipRRect(
+                borderRadius: AppRadius.all(AppRadius.md),
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: ColoredBox(color: base)),
+                    Positioned.fill(
+                      child: AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, _) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: _controller.value,
+                            heightFactor: 1,
+                            child: ColoredBox(color: fill),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '+${widget.reps}',
+                              style: AppTypography.metricCompact(color: ink),
+                            ),
+                            if (widget.caption != null) ...[
+                              const SizedBox(height: AppSpacing.xxs),
+                              Text(
+                                widget.caption!,
+                                style: AppTypography.labelSmall(color: subInk),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ],
+              ),
+            ),
           ),
         ),
       ),

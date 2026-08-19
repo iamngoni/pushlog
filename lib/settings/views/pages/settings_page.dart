@@ -18,6 +18,7 @@ import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/services/competition_notification_service.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/views/widgets/pushlog_button.dart';
+import 'package:pushlog/core/views/widgets/pushlog_confirm_dialog.dart';
 import 'package:pushlog/core/views/widgets/pushlog_toast.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
@@ -85,22 +86,22 @@ class _SettingsPageState extends State<SettingsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            buildAccountSection(
+                            buildProfileSection(
                               context,
                               theme,
                             ),
-                            const SizedBox(height: AppSpacing.sectionLarge),
-                            buildSyncSection(
-                              context,
-                              theme,
-                              state,
-                            ),
-                            const SizedBox(height: AppSpacing.sectionLarge),
-                            buildTrainingPlanSection(
-                              context,
-                              theme,
-                              state.preferences,
-                            ),
+                            // The plan section collapses when no plan
+                            // exists, so its gap is conditional too.
+                            if (state.preferences.trainingPlan != null) ...[
+                              const SizedBox(
+                                height: AppSpacing.sectionLarge,
+                              ),
+                              buildTrainingPlanSection(
+                                context,
+                                theme,
+                                state.preferences,
+                              ),
+                            ],
                             const SizedBox(height: AppSpacing.sectionLarge),
                             buildRemindersSection(
                               context,
@@ -114,7 +115,18 @@ class _SettingsPageState extends State<SettingsPage> {
                               state.preferences,
                             ),
                             const SizedBox(height: AppSpacing.sectionLarge),
+                            buildSyncSection(
+                              context,
+                              theme,
+                              state,
+                            ),
+                            const SizedBox(height: AppSpacing.sectionLarge),
                             buildDataSection(
+                              context,
+                              theme,
+                            ),
+                            const SizedBox(height: AppSpacing.sectionLarge),
+                            buildAccountSection(
                               context,
                               theme,
                             ),
@@ -173,7 +185,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget buildAccountSection(
+  Widget buildProfileSection(
     BuildContext context,
     AppTheme theme,
   ) {
@@ -183,7 +195,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        buildSectionLabel('Account', theme),
+        buildSectionLabel('Profile', theme),
         buildSettingsCard(
           theme,
           children: [
@@ -200,12 +212,30 @@ class _SettingsPageState extends State<SettingsPage> {
               detail: profile?.email ?? 'Unknown',
               theme: theme,
             ),
-            buildDivider(theme),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Signing out and deleting end the session rather than configure it, so
+  // they close the page instead of sitting above settings still in use.
+  Widget buildAccountSection(
+    BuildContext context,
+    AppTheme theme,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        buildSectionLabel('Account', theme),
+        buildSettingsCard(
+          theme,
+          children: [
             buildActionRow(
               title: 'Sign out',
               detail: 'Disconnect this device',
               theme: theme,
-              onTap: () => unawaited(_signOut(context)),
+              onTap: () => unawaited(confirmSignOut(context)),
             ),
             buildDivider(theme),
             buildActionRow(
@@ -213,13 +243,7 @@ class _SettingsPageState extends State<SettingsPage> {
               detail: 'Removes your profile and sign-in',
               accent: true,
               theme: theme,
-              onTap: () => showDialog<void>(
-                context: context,
-                builder: (_) => buildDeleteAccountDialog(
-                  context,
-                  theme,
-                ),
-              ),
+              onTap: () => unawaited(confirmDeleteAccount(context, theme)),
             ),
           ],
         ),
@@ -558,13 +582,7 @@ class _SettingsPageState extends State<SettingsPage> {
               detail: 'Clears local history and preferences',
               accent: true,
               theme: theme,
-              onTap: () => showDialog<void>(
-                context: context,
-                builder: (_) => buildResetDialog(
-                  context,
-                  theme,
-                ),
-              ),
+              onTap: () => unawaited(confirmResetData(context)),
             ),
           ],
         ),
@@ -572,40 +590,55 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget buildDeleteAccountDialog(
+  /// Signing out is reversible, but not cheaply: the next session needs the
+  /// same provider and password, which is exactly what a mis-tap here
+  /// cannot supply.
+  Future<void> confirmSignOut(BuildContext context) async {
+    final confirmed = await PushlogConfirmDialog.ask(
+      context,
+      title: 'Sign out of Pushlog?',
+      message:
+          'Your history stays backed up in the cloud. You will need to '
+          'sign in again on this device to reach it.',
+      confirmLabel: 'Sign out',
+      isDestructive: false,
+    );
+    if (!confirmed || !context.mounted) return;
+    await _signOut(context);
+  }
+
+  Future<void> confirmDeleteAccount(
     BuildContext context,
     AppTheme theme,
-  ) {
-    return _ConfirmDialog(
-      theme: theme,
+  ) async {
+    final confirmed = await PushlogConfirmDialog.ask(
+      context,
       title: 'Delete your account?',
       message:
           'This removes your profile, username, friends, requests, '
           'and cloud backup. It cannot be undone.',
       confirmLabel: 'Delete account',
-      onConfirm: () {
-        Navigator.of(context).pop();
-        unawaited(deleteAccount(context, theme));
-      },
     );
+    if (!confirmed || !context.mounted) return;
+    await deleteAccount(context, theme);
   }
 
-  Widget buildResetDialog(
-    BuildContext context,
-    AppTheme theme,
-  ) {
-    return _ConfirmDialog(
-      theme: theme,
+  /// The copy names the cloud on purpose.
+  ///
+  /// Reset pushes an empty snapshot through `saveSnapshot`, so a signed-in
+  /// user loses the backup as well — describing this as a device-local
+  /// clear would be asking consent for a smaller thing than it does.
+  Future<void> confirmResetData(BuildContext context) async {
+    final confirmed = await PushlogConfirmDialog.ask(
+      context,
       title: 'Reset Pushlog?',
       message:
-          'This clears your history, live logs, and preferences on '
-          'this device.',
+          'This clears your history, live logs, and preferences — on this '
+          'device and in your cloud backup. It cannot be undone.',
       confirmLabel: 'Reset data',
-      onConfirm: () {
-        context.read<WorkoutBloc>().add(const ResetWorkoutDataEvent());
-        Navigator.of(context).pop();
-      },
     );
+    if (!confirmed || !context.mounted) return;
+    context.read<WorkoutBloc>().add(const ResetWorkoutDataEvent());
   }
 
   Widget buildTimePickerRow(
@@ -914,78 +947,5 @@ class _SettingsPageState extends State<SettingsPage> {
     final hh = date.hour.toString().padLeft(2, '0');
     final mm = date.minute.toString().padLeft(2, '0');
     return '$day $dd $month · $hh:$mm';
-  }
-}
-
-/// A confirmation for something that cannot be undone.
-///
-/// The destructive action is quiet on the settings row that offers it and
-/// loud here, where the user has been told exactly what it does. Reversing
-/// that — a big red button on the list itself — pressures the decision at
-/// the point where the least context is available.
-class _ConfirmDialog extends StatelessWidget {
-  const _ConfirmDialog({
-    required this.theme,
-    required this.title,
-    required this.message,
-    required this.confirmLabel,
-    required this.onConfirm,
-  });
-
-  final AppTheme theme;
-  final String title;
-  final String message;
-  final String confirmLabel;
-  final VoidCallback onConfirm;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: theme.surfaceRaised,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.all(AppRadius.xl),
-      ),
-      titlePadding: const EdgeInsets.fromLTRB(
-        AppSpacing.block,
-        AppSpacing.block,
-        AppSpacing.block,
-        AppSpacing.lg,
-      ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.block,
-      ),
-      actionsPadding: const EdgeInsets.all(AppSpacing.block),
-      title: Text(
-        title,
-        style: AppTypography.headingSmall(color: theme.ink),
-      ),
-      content: Text(
-        message,
-        style: AppTypography.body(color: theme.secondaryInk),
-      ),
-      actions: [
-        Row(
-          children: [
-            Expanded(
-              child: PushlogButton(
-                label: 'Cancel',
-                variant: PushlogButtonVariant.ghost,
-                size: PushlogButtonSize.medium,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(
-              child: PushlogButton(
-                label: confirmLabel,
-                variant: PushlogButtonVariant.danger,
-                size: PushlogButtonSize.medium,
-                onPressed: onConfirm,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
   }
 }

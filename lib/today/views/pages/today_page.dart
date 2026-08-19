@@ -12,8 +12,10 @@ import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/core/views/widgets/avatar_badge.dart';
 import 'package:pushlog/core/views/widgets/pushlog_button.dart';
+import 'package:pushlog/core/views/widgets/pushlog_logo.dart';
 import 'package:pushlog/core/views/widgets/pushlog_surface.dart';
 import 'package:pushlog/core/views/widgets/pushlog_toast.dart';
+import 'package:pushlog/core/views/widgets/theme_toggle.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/live/views/live_session_page.dart';
@@ -176,6 +178,41 @@ class TodayPage extends StatelessWidget {
   }
 }
 
+/// The greeting for a given moment.
+///
+/// Shifts through the day, so opening the app after work does not get the
+/// same line as opening it at breakfast. Top-level rather than a method on
+/// the header so the boundaries can be tested without pumping a widget at a
+/// controlled clock.
+String greetingFor(DateTime now) {
+  if (now.hour < 12) return 'Good morning';
+  if (now.hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/// The name to greet, or null when there is nothing worth using.
+///
+/// Prefers a real first name over the username: "Good evening, George"
+/// reads like a person talking; "Good evening, gtchakama94" does not.
+String? greetingName(UserProfile? profile) {
+  if (profile == null) return null;
+
+  final displayName = profile.displayName?.trim() ?? '';
+  if (displayName.isNotEmpty) {
+    return displayName.split(RegExp(r'\s+')).first;
+  }
+
+  final username = profile.username?.trim() ?? '';
+  return username.isEmpty ? null : username;
+}
+
+/// The brand mark and a greeting.
+///
+/// This used to be the wordmark opposite an initials avatar. The avatar was
+/// not tappable and the You tab already owns the profile, so it spent the
+/// most prominent corner of the screen restating who you are to someone who
+/// has not asked. The mark carries the brand instead, and the line beside it
+/// greets the person who opened the app.
 class _TodayHeader extends StatelessWidget {
   const _TodayHeader({required this.theme, required this.profile});
 
@@ -184,18 +221,23 @@ class _TodayHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final name = greetingName(profile);
+    final greeting = greetingFor(DateTime.now());
+
     return Row(
       children: [
-        Text(
-          'PUSHLOG',
-          style: AppTypography.overline(color: theme.tertiaryInk),
+        const PushlogLogo(height: 30),
+        const SizedBox(width: AppSpacing.lg),
+        Expanded(
+          child: Text(
+            name == null ? greeting : '$greeting, $name',
+            style: AppTypography.headingSmall(color: theme.ink),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        const Spacer(),
-        AvatarBadge(
-          initials: profile?.initials ?? 'P',
-          seed: profile?.uid,
-          size: 36,
-        ),
+        const SizedBox(width: AppSpacing.md),
+        const ThemeToggle(),
       ],
     );
   }
@@ -260,9 +302,29 @@ class _TodayHero extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.lg),
-              Text(
-                DateFormat('EEEE, d MMMM').format(DateTime.now()),
-                style: AppTypography.labelSmall(color: subInk),
+              // A lime pill rather than lime text. Signal Lime is a fill
+              // colour — as type on this white card it sits at 1.3:1 and is
+              // barely there. Behind near-black type it is the same pairing
+              // the +10 cell already uses, and lands at 15:1.
+              //
+              // Inverted once the target is met, because the whole card
+              // turns accent by then and a lime pill would dissolve into it.
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: complete ? theme.onAccent : theme.accent,
+                  borderRadius: AppRadius.all(AppRadius.full),
+                ),
+                child: Text(
+                  DateFormat('EEEE, d MMMM').format(DateTime.now()),
+                  style: AppTypography.labelSmall(
+                    color: complete ? theme.accent : theme.onAccent,
+                    weight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),

@@ -17,6 +17,7 @@ import 'package:pushlog/auth/views/sign_in_page.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/state/theme_mode_cubit.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
@@ -29,35 +30,43 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      lazy: false,
-      create: (_) => getIt<AuthCubit>(),
-      child: MaterialApp(
-        title: 'Pushlog',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light().toMaterialTheme(Brightness.light),
-        darkTheme: AppTheme.dark().toMaterialTheme(Brightness.dark),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [Locale('en')],
-        builder: (context, child) {
-          final media = MediaQuery.of(context);
-          return MediaQuery(
-            // Dynamic Type is honoured, with the top of the range pulled
-            // in. Today's count is set at 72pt; at the largest system
-            // sizes an unclamped scale pushes the logging controls off the
-            // bottom of the screen, which costs more accessibility than
-            // the extra few points gain.
-            data: media.copyWith(
-              textScaler: media.textScaler.clamp(maxScaleFactor: 1.4),
-            ),
-            child: child ?? const SizedBox.shrink(),
-          );
-        },
-        home: const _RootView(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthCubit>(lazy: false, create: (_) => getIt<AuthCubit>()),
+        // Above the MaterialApp so the toggle can rebuild the whole tree,
+        // and so every screen can reach it rather than only the one that
+        // happens to own the control.
+        BlocProvider<ThemeModeCubit>.value(value: getIt<ThemeModeCubit>()),
+      ],
+      child: BlocBuilder<ThemeModeCubit, ThemeMode>(
+        builder: (context, themeMode) => MaterialApp(
+          title: 'Pushlog',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light().toMaterialTheme(Brightness.light),
+          darkTheme: AppTheme.dark().toMaterialTheme(Brightness.dark),
+          themeMode: themeMode,
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en')],
+          builder: (context, child) {
+            final media = MediaQuery.of(context);
+            return MediaQuery(
+              // Dynamic Type is honoured, with the top of the range pulled
+              // in. Today's count is set at 72pt; at the largest system
+              // sizes an unclamped scale pushes the logging controls off the
+              // bottom of the screen, which costs more accessibility than
+              // the extra few points gain.
+              data: media.copyWith(
+                textScaler: media.textScaler.clamp(maxScaleFactor: 1.4),
+              ),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
+          home: const _RootView(),
+        ),
       ),
     );
   }

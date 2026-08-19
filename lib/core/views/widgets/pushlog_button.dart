@@ -120,6 +120,7 @@ class PushlogButton extends StatelessWidget {
     this.variant = PushlogButtonVariant.primary,
     this.size = PushlogButtonSize.large,
     this.icon,
+    this.leading,
     this.trailing,
     this.isLoading = false,
     this.expand = true,
@@ -131,6 +132,11 @@ class PushlogButton extends StatelessWidget {
   final PushlogButtonVariant variant;
   final PushlogButtonSize size;
   final IconData? icon;
+
+  /// Rendered before the label, for a mark that cannot be an [IconData] and
+  /// must keep its own colour — a third-party brand glyph. Takes precedence
+  /// over [icon]; pass one or the other, not both.
+  final Widget? leading;
 
   /// Rendered at the far end of the button — a count, a chevron.
   final Widget? trailing;
@@ -221,6 +227,9 @@ class PushlogButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.lg),
+            ] else if (leading != null) ...[
+              leading!,
+              const SizedBox(width: AppSpacing.md),
             ] else if (icon != null) ...[
               // Solid glyphs carry more visual weight than the text beside
               // them, so the icon runs a step smaller than the label.
