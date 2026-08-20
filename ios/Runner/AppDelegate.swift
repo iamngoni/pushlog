@@ -15,6 +15,29 @@ import UIKit
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  // Firebase's swizzled proxy already forwards this token internally (that
+  // existing mechanism is what getAPNSToken() has always relied on) and is
+  // specifically designed to keep doing so even when the app implements
+  // this method itself. This override exists only to log whether iOS ever
+  // calls it at all — if APNs registration is failing outright,
+  // didFailToRegisterForRemoteNotifications fires instead; if neither ever
+  // fires, iOS never attempted registration in the first place.
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    NSLog("[Pushlog] APNs device token received (%d bytes)", deviceToken.count)
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    NSLog("[Pushlog] APNs registration FAILED: %@", error.localizedDescription)
+    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let messenger = engineBridge.applicationRegistrar.messenger()
