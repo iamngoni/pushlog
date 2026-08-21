@@ -50,7 +50,6 @@ Future<void> bootstrap(
   );
   await FirebaseAppCheck.instance.activate();
 
-
   FlutterError.onError = (details) {
     log(
       details.exceptionAsString(),

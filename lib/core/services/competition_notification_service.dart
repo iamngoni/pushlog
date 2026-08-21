@@ -62,8 +62,7 @@ class CompetitionNotificationService {
       _showForegroundMessage,
     );
 
-    final remoteMessage =
-    await _messaging.getInitialMessage();
+    final remoteMessage = await _messaging.getInitialMessage();
     log('Getting initial firebase message ✅');
 
     if (remoteMessage != null) {
@@ -72,15 +71,13 @@ class CompetitionNotificationService {
     }
 
     if (Platform.isIOS) {
-      await _messaging
-          .setForegroundNotificationPresentationOptions(
+      await _messaging.setForegroundNotificationPresentationOptions(
         alert: true, // Required to display a heads up notification
         badge: true,
         sound: true,
       );
       log('Setting foreground notification presentation options for iOS ✅');
     }
-
 
     _initialized = true;
   }
@@ -217,7 +214,9 @@ class CompetitionNotificationService {
     }
     for (var attempt = 0; attempt < 10; attempt++) {
       final token = await _messaging.getAPNSToken();
-      if (token != null) { return true;}
+      if (token != null) {
+        return true;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 300));
     }
     return false;

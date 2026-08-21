@@ -5,7 +5,6 @@ import UIKit
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let healthStore = HKHealthStore()
-  private let liveTrackingController = PushlogFaceTrackingController()
   private let watchSessionManager = PushlogWatchSessionManager()
 
   override func application(
@@ -42,7 +41,6 @@ import UIKit
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let messenger = engineBridge.applicationRegistrar.messenger()
     registerHealthChannel(messenger)
-    registerLiveTrackingChannels(messenger)
     registerWatchChannels(messenger)
   }
 
@@ -65,22 +63,6 @@ import UIKit
         result(FlutterMethodNotImplemented)
       }
     }
-  }
-
-  private func registerLiveTrackingChannels(_ messenger: FlutterBinaryMessenger) {
-    let methodChannel = FlutterMethodChannel(
-      name: "pushlog/live_tracking",
-      binaryMessenger: messenger
-    )
-    methodChannel.setMethodCallHandler { [weak self] call, result in
-      self?.liveTrackingController.handle(call, result: result)
-    }
-
-    let eventChannel = FlutterEventChannel(
-      name: "pushlog/live_tracking/events",
-      binaryMessenger: messenger
-    )
-    eventChannel.setStreamHandler(liveTrackingController)
   }
 
   private func registerWatchChannels(_ messenger: FlutterBinaryMessenger) {

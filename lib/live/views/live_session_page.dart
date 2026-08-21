@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pushlog/core/configs/colors.dart';
@@ -10,9 +11,8 @@ import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 import 'package:pushlog/core/views/widgets/pushlog_confirm_dialog.dart';
 import 'package:pushlog/core/views/widgets/pushlog_surface.dart';
 import 'package:pushlog/injection.dart';
+import 'package:pushlog/live/services/face_tracking_service.dart';
 import 'package:pushlog/platform/health/health_service.dart';
-import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
-import 'package:pushlog/platform/live_tracking/live_tracking_state.dart';
 import 'package:pushlog/platform/watch/watch_service.dart';
 import 'package:pushlog/platform/watch/watch_state.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
@@ -29,10 +29,10 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   _LiveStep _step = _LiveStep.setup;
   late WorkoutPreferences _preferences;
   Timer? _ticker;
-  StreamSubscription<LiveTrackingSnapshot>? _trackingSubscription;
+  Timer? _countdownTimer;
+  StreamSubscription<FaceTrackingSnapshot>? _faceSubscription;
   StreamSubscription<WatchStatus>? _watchSubscription;
-  LiveTrackingSnapshot _trackingSnapshot =
-      const LiveTrackingSnapshot.unsupported();
+  FaceTrackingSnapshot _faceSnapshot = const FaceTrackingSnapshot();
   WatchStatus _watchStatus = const WatchStatus.unsupported();
   HealthKitWriteOwner _healthKitWriteOwner = HealthKitWriteOwner.phone;
   Duration _elapsed = Duration.zero;
@@ -42,7 +42,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   int _manualAdjustments = 0;
   bool _isPaused = false;
   bool _usesAutoTracking = false;
-  bool _didLoadTrackingStatus = false;
+  int? _countdownValue;
+  bool _didLoadWatchStatus = false;
 
   @override
   void didChangeDependencies() {
@@ -52,9 +53,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       if (workoutState is WorkoutLoaded) {
         _preferences = workoutState.preferences;
       }
-      if (!_didLoadTrackingStatus) {
-        _didLoadTrackingStatus = true;
-        unawaited(_refreshTrackingStatus());
+      if (!_didLoadWatchStatus) {
+        _didLoadWatchStatus = true;
         unawaited(_refreshWatchStatus());
       }
     }
@@ -63,9 +63,12 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   @override
   void dispose() {
     _ticker?.cancel();
-    unawaited(_trackingSubscription?.cancel());
+    _countdownTimer?.cancel();
+    unawaited(_faceSubscription?.cancel());
     unawaited(_watchSubscription?.cancel());
-    unawaited(getIt<LiveTrackingService>().cancel());
+    if (_usesAutoTracking) {
+      unawaited(getIt<FaceTrackingService>().stop());
+    }
     if (_sessionId != null && _step != _LiveStep.summary) {
       unawaited(
         getIt<WatchService>().cancelLiveWorkout(sessionId: _sessionId!),
@@ -169,16 +172,13 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           const SizedBox(height: AppSpacing.xxl),
           _SelectorCard(
             title: 'FLOW',
-            detail: _trackingSnapshot.canUseAutoTracking
-                ? _trackingSnapshot.statusLabel
-                : 'Manual fallback',
+            detail: 'Camera auto-count',
             theme: theme,
             children: [
               Text(
-                _trackingSnapshot.canUseAutoTracking
-                    ? _trackingSnapshot.metricsLine
-                    : 'Android and non-TrueDepth devices count manually. '
-                          'TrueDepth iPhones open camera pre-flight.',
+                'Lay your phone on the floor, screen up, under your chest. '
+                'The front camera watches your face and counts as you go. '
+                'If it is unavailable, add reps manually instead.',
                 style: AppTypography.body(color: theme.secondaryInk),
               ),
             ],
@@ -200,7 +200,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   }
 
   Widget _buildPreflight(BuildContext context, AppTheme theme) {
-    final countdown = _trackingSnapshot.countdownValue;
+    final countdown = _countdownValue;
+    final camera = getIt<FaceTrackingService>().cameraController;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
       child: Column(
@@ -209,43 +210,86 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           const SizedBox(height: AppSpacing.block),
           _TopBar(theme: theme, trailing: 'PRE-FLIGHT'),
           const SizedBox(height: AppSpacing.section),
+          if (camera != null && camera.value.isInitialized) ...[
+            _CameraPreviewFrame(controller: camera, theme: theme),
+            const SizedBox(height: AppSpacing.block),
+          ],
           Text(
-            countdown?.toString() ?? _trackingSnapshot.statusLabel,
+            countdown?.toString() ?? _preflightHeadline(_faceSnapshot),
             style: AppTypography.metricXLarge(color: theme.ink),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            _trackingSnapshot.movementLabel,
+            _faceSnapshot.guidance,
             style: AppTypography.bodyLarge(color: theme.secondaryInk),
           ),
           const SizedBox(height: AppSpacing.block),
           _SelectorCard(
-            title: 'CAMERA LOCK',
-            detail: _trackingSnapshot.phase.name,
+            title: 'RANGE',
+            detail: _faceSnapshot.isReadyToCount ? 'Set' : 'Measuring',
             theme: theme,
             children: [
               Text(
-                _trackingSnapshot.metricsLine,
+                _rangeDetail(_faceSnapshot),
                 style: AppTypography.body(color: theme.secondaryInk),
               ),
+              // Calibration reads whatever position was held, so it can lock
+              // onto the wrong one. Without this the only way out is
+              // abandoning the session.
+              if (_faceSnapshot.isReadyToCount && countdown == null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                PushlogButton(
+                  label: 'Measure again',
+                  variant: PushlogButtonVariant.ghost,
+                  onPressed: () {
+                    setState(() {
+                      _faceSnapshot = getIt<FaceTrackingService>()
+                          .recalibrate();
+                    });
+                  },
+                ),
+              ],
             ],
           ),
           const Spacer(),
           _BottomPair(
             theme: theme,
             leading: 'Manual',
-            onLeadingTap: () => _startSession(usesAutoTracking: false),
-            trailing: _trackingSnapshot.canBeginCountdown ? 'Begin' : 'Hold',
-            onTrailingTap: _trackingSnapshot.canBeginCountdown
-                ? () {
-                    unawaited(_beginCountdown());
-                  }
+            onLeadingTap: _fallbackToManual,
+            // Begin stays inert until the range is set. Starting without a
+            // baseline would run a session that silently counts nothing.
+            trailing: countdown != null
+                ? 'Starting…'
+                : _faceSnapshot.isReadyToCount
+                ? 'Begin'
+                : 'Hold',
+            onTrailingTap: countdown == null && _faceSnapshot.isReadyToCount
+                ? _beginCountdown
                 : () {},
           ),
           const SizedBox(height: AppSpacing.block),
         ],
       ),
     );
+  }
+
+  String _preflightHeadline(FaceTrackingSnapshot snapshot) =>
+      switch (snapshot.phase) {
+        FaceTrackingPhase.ready => 'Ready',
+        FaceTrackingPhase.calibrating => 'Hold still',
+        FaceTrackingPhase.searching => 'Get in position',
+        _ => 'Starting…',
+      };
+
+  String _rangeDetail(FaceTrackingSnapshot snapshot) {
+    if (!snapshot.isReadyToCount) {
+      return 'Get into the top of a push-up over the phone and hold, so '
+          'the camera can learn how far away that is.';
+    }
+    final ratio = snapshot.sizeRatio;
+    if (ratio == null) return 'Top of the rep measured.';
+    return 'Top of the rep measured. You are at '
+        '${(ratio * 100).round()}% of that now.';
   }
 
   Widget _buildTracking(
@@ -267,7 +311,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             _usesAutoTracking
-                ? _trackingSnapshot.movementLabel
+                ? _faceSnapshot.guidance
                 : _isPaused
                 ? 'Paused'
                 : 'Running',
@@ -297,9 +341,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  _usesAutoTracking
-                      ? _trackingSnapshot.metricsLine
-                      : 'Manual adjustments: $_manualAdjustments',
+                  'Manual adjustments: $_manualAdjustments',
                   style: AppTypography.body(color: theme.secondaryInk),
                 ),
               ],
@@ -372,14 +414,6 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     );
   }
 
-  Future<void> _refreshTrackingStatus() async {
-    final status = await getIt<LiveTrackingService>().status();
-    if (!mounted) return;
-    setState(() {
-      _trackingSnapshot = status;
-    });
-  }
-
   Future<void> _refreshWatchStatus() async {
     final service = getIt<WatchService>();
     final status = await service.status();
@@ -402,49 +436,76 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   }
 
   Future<void> _startPreflightOrManual() async {
-    final service = getIt<LiveTrackingService>();
-    final status = await service.status();
+    final service = getIt<FaceTrackingService>();
+    await _faceSubscription?.cancel();
+    _faceSubscription = service.snapshots.listen(_handleFaceSnapshot);
+    final snapshot = await service.start();
     if (!mounted) return;
+    setState(() {
+      _faceSnapshot = snapshot;
+    });
 
-    if (!status.canUseAutoTracking) {
-      setState(() {
-        _trackingSnapshot = status;
-      });
+    if (!snapshot.isUsable) {
+      await _faceSubscription?.cancel();
+      _faceSubscription = null;
       _startSession(usesAutoTracking: false);
       return;
     }
 
-    await _trackingSubscription?.cancel();
-    _trackingSubscription = service.snapshots().listen(_handleTrackingSnapshot);
-    final preflight = await service.startPreflight();
-    if (!mounted) return;
     setState(() {
-      _trackingSnapshot = preflight;
       _step = _LiveStep.preflight;
       _usesAutoTracking = true;
     });
   }
 
-  Future<void> _beginCountdown() async {
-    final snapshot = await getIt<LiveTrackingService>().beginCountdown();
-    if (!mounted) return;
-    setState(() {
-      _trackingSnapshot = snapshot;
+  /// Bails from pre-flight to manual entry, releasing the camera first so it
+  /// is not left running in the background.
+  void _fallbackToManual() {
+    unawaited(_faceSubscription?.cancel());
+    _faceSubscription = null;
+    unawaited(getIt<FaceTrackingService>().stop());
+    _startSession(usesAutoTracking: false);
+  }
+
+  /// A local 3-2-1 between the range being set and reps counting, so the user
+  /// can settle at the top rather than being caught mid-movement. The camera
+  /// keeps running throughout; arming happens at zero, and it discards
+  /// anything counted during setup.
+  void _beginCountdown() {
+    if (_countdownValue != null) return;
+    setState(() => _countdownValue = 3);
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final next = (_countdownValue ?? 1) - 1;
+      if (next <= 0) {
+        timer.cancel();
+        setState(() => _countdownValue = null);
+        getIt<FaceTrackingService>().beginCounting();
+        _startSession(usesAutoTracking: true);
+        return;
+      }
+      setState(() => _countdownValue = next);
     });
   }
 
-  void _handleTrackingSnapshot(LiveTrackingSnapshot snapshot) {
+  void _handleFaceSnapshot(FaceTrackingSnapshot snapshot) {
     if (!mounted) return;
     setState(() {
-      _trackingSnapshot = snapshot;
-      _reps = snapshot.repCount;
-      _manualAdjustments = snapshot.manualAdjustments;
-      _isPaused = snapshot.isPaused;
+      _faceSnapshot = snapshot;
+      // Reps are only mirrored once the session is live. A rep thrown while
+      // the user is still settling into position is discarded by
+      // beginCounting, and surfacing it before then would make backing out
+      // of pre-flight ask about discarding work that was never counted.
+      if (_step == _LiveStep.tracking) {
+        _reps = snapshot.reps;
+        _manualAdjustments = snapshot.manualAdjustments;
+        _isPaused = snapshot.isPaused;
+      }
     });
-
-    if (snapshot.isActive && _step == _LiveStep.preflight) {
-      _startSession(usesAutoTracking: true);
-    }
   }
 
   void _startSession({required bool usesAutoTracking}) {
@@ -514,7 +575,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
         elapsed: _elapsed,
         phase: _step.name.toUpperCase(),
         trackingState: _usesAutoTracking
-            ? _trackingSnapshot.phase.name.toUpperCase()
+            ? _faceSnapshot.phase.name.toUpperCase()
             : 'MANUAL',
         isPaused: _isPaused,
       ),
@@ -523,7 +584,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
 
   void _addReps(int value) {
     if (_usesAutoTracking) {
-      unawaited(getIt<LiveTrackingService>().addManualRep());
+      getIt<FaceTrackingService>().addManualReps(value);
       return;
     }
 
@@ -535,7 +596,12 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
 
   void _togglePause() {
     if (_usesAutoTracking) {
-      unawaited(getIt<LiveTrackingService>().togglePause());
+      final service = getIt<FaceTrackingService>();
+      if (service.snapshot.isPaused) {
+        service.resume();
+      } else {
+        service.pause();
+      }
       return;
     }
 
@@ -554,11 +620,11 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     final endedAt = DateTime.now();
 
     if (_usesAutoTracking) {
-      final finished = await getIt<LiveTrackingService>().finish();
+      final finished = await getIt<FaceTrackingService>().stop();
       if (!mounted) return;
       setState(() {
-        _trackingSnapshot = finished;
-        _reps = finished.repCount;
+        _faceSnapshot = finished;
+        _reps = finished.reps;
         _manualAdjustments = finished.manualAdjustments;
         _isPaused = false;
       });
@@ -582,13 +648,11 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
 
   Future<void> _saveSession(BuildContext context) async {
     final sessionId = _sessionId ?? WorkoutBloc.generateId();
-    final avgRepDuration =
-        _trackingSnapshot.averageRepDuration ??
-        (_reps <= 0
-            ? null
-            : Duration(
-                microseconds: _elapsed.inMicroseconds ~/ _reps,
-              ));
+    final avgRepDuration = _reps <= 0
+        ? null
+        : Duration(
+            microseconds: _elapsed.inMicroseconds ~/ _reps,
+          );
 
     context.read<WorkoutBloc>().add(
       SaveLiveSessionEvent(
@@ -703,6 +767,32 @@ class _TopBar extends StatelessWidget {
           style: AppTypography.overline(color: theme.tertiaryInk),
         ),
       ],
+    );
+  }
+}
+
+/// Lets the user confirm framing before a session starts.
+///
+/// Camera preview sizes are reported in landscape terms even in a portrait
+/// layout, so the aspect ratio is inverted rather than used as-is —
+/// otherwise the feed renders stretched.
+class _CameraPreviewFrame extends StatelessWidget {
+  const _CameraPreviewFrame({required this.controller, required this.theme});
+
+  final CameraController controller;
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: AppRadius.all(AppRadius.sm),
+      child: DecoratedBox(
+        decoration: BoxDecoration(border: Border.all(color: theme.divider)),
+        child: AspectRatio(
+          aspectRatio: 1 / controller.value.aspectRatio,
+          child: CameraPreview(controller),
+        ),
+      ),
     );
   }
 }

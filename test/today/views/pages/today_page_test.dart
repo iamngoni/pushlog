@@ -8,8 +8,8 @@ import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/injection.dart';
+import 'package:pushlog/live/services/face_tracking_service.dart';
 import 'package:pushlog/platform/health/health_service.dart';
-import 'package:pushlog/platform/live_tracking/live_tracking_service.dart';
 import 'package:pushlog/platform/watch/watch_service.dart';
 import 'package:pushlog/today/views/pages/today_page.dart';
 import 'package:pushlog/training/models/training_plan.dart';
@@ -37,7 +37,7 @@ void main() {
   setUp(() async {
     await getIt.reset();
     getIt
-      ..registerSingleton<LiveTrackingService>(const LiveTrackingService())
+      ..registerSingleton<FaceTrackingService>(FaceTrackingService())
       ..registerSingleton<WatchService>(const WatchService())
       ..registerSingleton<HealthService>(const HealthService());
 

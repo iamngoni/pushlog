@@ -47,7 +47,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Pushlog uses the camera to count your push-ups and check your depth during a live session. Video is processed on your device and never leaves it.</string>
+	<string>Pushlog watches your face with the front camera to count your push-ups and measure how deep each one goes. Video is processed on your device and never leaves it.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Pushlog reads workout authorization status to confirm live-session sync.</string>
 	<key>NSHealthUpdateUsageDescription</key>
