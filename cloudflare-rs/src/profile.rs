@@ -8,7 +8,7 @@ use worker::{D1Database, Request};
 
 use crate::db::{now_iso, opt_text};
 use crate::env::AuthenticatedUser;
-use crate::error::{ApiError, ApiResult};
+use crate::error::{json_body, ApiError, ApiResult};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProfileRow {
@@ -159,12 +159,25 @@ pub async fn get_own_profile(
     Ok(serde_json::json!({"profile": profile_json(&row, true)}))
 }
 
-fn is_valid_username(username: &str) -> bool {
-    let len = username.len();
-    (3..=20).contains(&len)
-        && username
-            .bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+struct Username {
+    display: String,
+    normalized: String,
+}
+
+impl Username {
+    fn parse(raw: &str) -> Option<Self> {
+        let display = raw.trim().to_string();
+        let normalized = display.to_lowercase();
+        let len = normalized.len();
+        ((3..=20).contains(&len)
+            && normalized
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'))
+        .then_some(Self {
+            display,
+            normalized,
+        })
+    }
 }
 
 pub async fn claim_username(
@@ -172,25 +185,25 @@ pub async fn claim_username(
     db: &D1Database,
     user: &AuthenticatedUser,
 ) -> ApiResult<serde_json::Value> {
-    let body: serde_json::Value = request.json().await.map_err(|_| ApiError::invalid_json())?;
+    let body: serde_json::Value = json_body(request).await?;
     let raw_username = body
         .get("username")
         .and_then(|v| v.as_str())
         .ok_or_else(|| ApiError::new(422, "invalid_username", "A username is required."))?;
-    let username = raw_username.trim().to_string();
-    let normalized = username.to_lowercase();
-    if !is_valid_username(&normalized) {
-        return Err(ApiError::new(
+    let username = Username::parse(raw_username).ok_or_else(|| {
+        ApiError::new(
             422,
             "invalid_username",
             "Use 3-20 letters, numbers, or underscores.",
-        ));
-    }
+        )
+    })?;
+    let normalized = &username.normalized;
+    let username = &username.display;
 
     let current = ensure_profile(db, user).await?;
     let owner = db
         .prepare("SELECT uid FROM username_claims WHERE username_lower = ?")
-        .bind_refs(&[D1Type::Text(&normalized)])?
+        .bind_refs(&[D1Type::Text(normalized)])?
         .first::<OwnerRow>(None)
         .await?;
     if let Some(owner) = &owner {
@@ -202,7 +215,7 @@ pub async fn claim_username(
     let now = now_iso();
     let display_name = clean_optional(user.name())
         .or_else(|| current.display_name.clone())
-        .unwrap_or_else(|| username.clone());
+        .unwrap_or_else(|| username.to_string());
     let private_json = serde_json::json!({
         "uid": user.uid(), "email": current.email, "displayName": display_name,
         "photoUrl": current.photo_url, "username": username, "usernameLower": normalized,
@@ -236,9 +249,9 @@ pub async fn claim_username(
             ) VALUES (?, ?, ?, ?, ?)",
         )
         .bind_refs(&[
-            D1Type::Text(&normalized),
+            D1Type::Text(normalized),
             D1Type::Text(user.uid()),
-            D1Type::Text(&username),
+            D1Type::Text(username),
             D1Type::Text(&claim_json),
             D1Type::Text(&now),
         ])?
@@ -249,10 +262,10 @@ pub async fn claim_username(
              WHERE username_lower = ? AND uid = ?",
         )
         .bind_refs(&[
-            D1Type::Text(&username),
+            D1Type::Text(username),
             D1Type::Text(&claim_json),
             D1Type::Text(&now),
-            D1Type::Text(&normalized),
+            D1Type::Text(normalized),
             D1Type::Text(user.uid()),
         ])?
     });
@@ -265,8 +278,8 @@ pub async fn claim_username(
         )
         .bind_refs(&[
             D1Type::Text(&display_name),
-            D1Type::Text(&username),
-            D1Type::Text(&normalized),
+            D1Type::Text(username),
+            D1Type::Text(normalized),
             D1Type::Text(&private_json),
             D1Type::Text(&public_json),
             D1Type::Text(&now),
@@ -300,12 +313,22 @@ struct OwnerRow {
     uid: String,
 }
 
-fn is_valid_search_query(query: &str) -> bool {
-    let len = query.len();
-    (2..=20).contains(&len)
-        && query
-            .bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+struct SearchQuery(String);
+
+impl SearchQuery {
+    fn parse(raw: &str) -> Option<Self> {
+        let query = raw.trim().to_lowercase();
+        let len = query.len();
+        ((2..=20).contains(&len)
+            && query
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'))
+        .then_some(Self(query))
+    }
+
+    fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 pub async fn search_profiles(
@@ -317,12 +340,12 @@ pub async fn search_profiles(
     let query = url
         .query_pairs()
         .find(|(key, _)| key == "q")
-        .map(|(_, value)| value.trim().to_lowercase());
-    let Some(query) = query.filter(|q| is_valid_search_query(q)) else {
+        .and_then(|(_, value)| SearchQuery::parse(&value));
+    let Some(query) = query else {
         return Ok(serde_json::json!({"profiles": []}));
     };
 
-    let upper_bound = format!("{query}\u{f8ff}");
+    let upper_bound = format!("{}\u{f8ff}", query.as_str());
     let rows = db
         .prepare(format!(
             "{PROFILE_SELECT}
@@ -332,7 +355,7 @@ pub async fn search_profiles(
         ))
         .bind_refs(&[
             D1Type::Text(user.uid()),
-            D1Type::Text(&query),
+            D1Type::Text(query.as_str()),
             D1Type::Text(&upper_bound),
         ])?
         .all()
@@ -358,19 +381,23 @@ mod tests {
 
     #[test]
     fn username_validity() {
-        assert!(is_valid_username("ana_123"));
-        assert!(!is_valid_username("an")); // too short
-        assert!(!is_valid_username(&"a".repeat(21))); // too long
-        assert!(!is_valid_username("Ana")); // uppercase not allowed
-        assert!(!is_valid_username("ana!"));
+        let username = Username::parse(" Ana_123 ").expect("valid username");
+        assert_eq!(username.display, "Ana_123");
+        assert_eq!(username.normalized, "ana_123");
+        assert!(Username::parse("an").is_none()); // too short
+        assert!(Username::parse(&"a".repeat(21)).is_none()); // too long
+        assert!(Username::parse("ana!").is_none());
     }
 
     #[test]
     fn search_query_validity() {
-        assert!(is_valid_search_query("an"));
-        assert!(!is_valid_search_query("a"));
-        assert!(!is_valid_search_query(&"a".repeat(21)));
-        assert!(!is_valid_search_query("an a"));
+        assert_eq!(
+            SearchQuery::parse(" AN ").map(|query| query.0),
+            Some("an".to_string())
+        );
+        assert!(SearchQuery::parse("a").is_none());
+        assert!(SearchQuery::parse(&"a".repeat(21)).is_none());
+        assert!(SearchQuery::parse("an a").is_none());
     }
 
     #[test]

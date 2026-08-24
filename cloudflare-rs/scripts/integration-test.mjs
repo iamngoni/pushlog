@@ -1,0 +1,340 @@
+/**
+ * Exercises authenticated Worker routes against a disposable local D1.
+ * Production Firebase verification remains untouched; the test-only verifier
+ * exists solely in the feature-gated integration Worker build.
+ */
+
+import assert from "node:assert/strict";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { spawn, spawnSync } from "node:child_process";
+
+const port = 8791;
+const baseUrl = `http://127.0.0.1:${port}`;
+const stateDirectory = ".wrangler/integration-state";
+const config = join(stateDirectory, "wrangler.toml");
+
+function run(command, args) {
+  const result = spawnSync(command, args, { encoding: "utf8", stdio: "pipe" });
+  if (result.status !== 0) {
+    throw new Error(`${command} failed:\n${result.stdout}\n${result.stderr}`);
+  }
+}
+
+async function waitUntilReady(process) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (process.exitCode !== null) {
+      throw new Error(`Wrangler exited before becoming ready (${process.exitCode}).`);
+    }
+    try {
+      const response = await fetch(`${baseUrl}/health`);
+      if (response.ok) return;
+    } catch {
+      // The socket is expected to reject while Wrangler builds the Worker.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error("Wrangler did not become ready within 30 seconds.");
+}
+
+function auth(uid) {
+  return { authorization: `Bearer test:${uid}` };
+}
+
+async function request(path, {
+  uid,
+  method = "GET",
+  body,
+  headers = {},
+  expectedStatus = 200,
+} = {}) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: {
+      ...(uid ? auth(uid) : {}),
+      ...(body ? { "content-type": "application/json" } : {}),
+      ...headers,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  assert.equal(response.status, expectedStatus, `${method} ${path}`);
+  if (expectedStatus === 304) {
+    assert.equal(response.headers.get("cache-control"), "private, no-cache");
+  } else {
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(response.headers.get("cache-control"), "no-store");
+  }
+  const text = await response.text();
+  return {
+    response,
+    body: text ? JSON.parse(text) : null,
+  };
+}
+
+rmSync(stateDirectory, { force: true, recursive: true });
+mkdirSync(stateDirectory, { recursive: true });
+const projectDirectory = process.cwd();
+writeFileSync(config, `
+# Generated local-only configuration. It is kept under ignored disposable state.
+name = "pushlog-api-integration"
+main = "${join(projectDirectory, "build/worker/shim.mjs")}"
+compatibility_date = "2026-08-06"
+
+[vars]
+FIREBASE_PROJECT_ID = "pushlog-app"
+ENVIRONMENT = "integration"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pushlog-integration"
+database_id = "150fa67b-ecf6-4833-a10a-2be0816e7678"
+migrations_dir = "${join(projectDirectory, "migrations")}"
+
+[build]
+command = "cd ${projectDirectory} && cargo install -q worker-build --version 0.8.5 && worker-build --release --features integration-test-auth"
+`);
+run("wrangler", [
+  "d1",
+  "migrations",
+  "apply",
+  "pushlog-integration",
+  "--local",
+  "--persist-to",
+  stateDirectory,
+  "--config",
+  config,
+]);
+
+const wrangler = spawn("wrangler", [
+  "dev",
+  "--local",
+  "--port",
+  String(port),
+  "--persist-to",
+  stateDirectory,
+  "--config",
+  config,
+], { stdio: ["ignore", "pipe", "pipe"] });
+
+let serverOutput = "";
+wrangler.stdout.on("data", (chunk) => { serverOutput += chunk; });
+wrangler.stderr.on("data", (chunk) => { serverOutput += chunk; });
+
+try {
+  await waitUntilReady(wrangler);
+
+  await request("/v1/profile", { expectedStatus: 401 });
+  await request("/health", { method: "POST", expectedStatus: 405 });
+
+  for (const uid of ["alice", "bob", "charlie"]) {
+    const profile = await request("/v1/profile", { uid });
+    assert.equal(profile.body.profile.uid, uid);
+    await request("/v1/profile/username", {
+      uid,
+      method: "PUT",
+      body: { username: uid },
+    });
+  }
+
+  const invalidUsername = await request("/v1/profile/username", {
+    uid: "alice",
+    method: "PUT",
+    body: { username: "!" },
+    expectedStatus: 422,
+  });
+  assert.equal(invalidUsername.body.error.code, "invalid_username");
+  const oversizedBody = await request("/v1/profile/username", {
+    uid: "alice",
+    method: "PUT",
+    body: { username: "a".repeat(1_000_001) },
+    expectedStatus: 413,
+  });
+  assert.equal(oversizedBody.body.error.code, "request_too_large");
+  await request("/v1/friend-requests?direction=sideways", {
+    uid: "alice",
+    expectedStatus: 422,
+  });
+  await request("/v1/workout-snapshot", {
+    uid: "charlie",
+    expectedStatus: 404,
+  });
+
+  const search = await request("/v1/users/search?q=bo", { uid: "alice" });
+  assert.deepEqual(search.body.profiles.map((profile) => profile.uid), ["bob"]);
+
+  await request("/v1/friend-requests", {
+    uid: "alice",
+    method: "POST",
+    body: { receiverUid: "bob" },
+    expectedStatus: 201,
+  });
+  const incoming = await request("/v1/friend-requests?direction=incoming", { uid: "bob" });
+  assert.deepEqual(incoming.body.requests.map((profile) => profile.uid), ["alice"]);
+  await request("/v1/friend-requests/accept", {
+    uid: "bob",
+    method: "POST",
+    body: { requesterUid: "alice" },
+  });
+  const friends = await request("/v1/friends?dayKey=2026-08-06&weekKey=2026-08-03", {
+    uid: "alice",
+  });
+  assert.deepEqual(friends.body.friends.map((profile) => profile.uid), ["bob"]);
+
+  const selfRequest = await request("/v1/friend-requests", {
+    uid: "alice",
+    method: "POST",
+    body: { receiverUid: "alice" },
+    expectedStatus: 422,
+  });
+  assert.equal(selfRequest.body.error.code, "invalid_friend");
+  await request("/v1/friend-requests", {
+    uid: "alice",
+    method: "POST",
+    body: { receiverUid: "charlie" },
+    expectedStatus: 201,
+  });
+  await request("/v1/friend-requests/cancel", {
+    uid: "alice",
+    method: "POST",
+    body: { receiverUid: "charlie" },
+    expectedStatus: 204,
+  });
+  await request("/v1/friend-requests", {
+    uid: "charlie",
+    method: "POST",
+    body: { receiverUid: "alice" },
+    expectedStatus: 201,
+  });
+  await request("/v1/friend-requests/decline", {
+    uid: "alice",
+    method: "POST",
+    body: { requesterUid: "charlie" },
+    expectedStatus: 204,
+  });
+
+  const token = "integration-device-token";
+  await request("/v1/devices", {
+    uid: "alice",
+    method: "PUT",
+    body: { token, platform: "windows" },
+    expectedStatus: 422,
+  });
+  await request("/v1/devices", {
+    uid: "alice",
+    method: "PUT",
+    body: { token, platform: "ios" },
+  });
+  await request("/v1/devices", {
+    uid: "alice",
+    method: "DELETE",
+    body: { token },
+    expectedStatus: 204,
+  });
+
+  const snapshot = {
+    dayTotals: { "2026-08-06": 12 },
+    sessions: [{
+      id: "session-1",
+      date: "2026-08-06T08:00:00.000Z",
+      reps: 12,
+      source: "manual",
+      duration: 1_000_000,
+      averageRepDuration: 83_333,
+      manualAdjustments: 0,
+    }],
+    preferences: {},
+    updatedAt: "2026-08-06T08:00:00.000Z",
+    lastSyncedAt: null,
+  };
+  const bobSnapshot = structuredClone(snapshot);
+  bobSnapshot.dayTotals["2026-08-06"] = 5;
+  bobSnapshot.sessions[0].id = "session-bob-1";
+  bobSnapshot.sessions[0].reps = 5;
+  await request("/v1/workout-snapshot", {
+    uid: "bob",
+    method: "PUT",
+    body: {
+      snapshot: bobSnapshot,
+      clientContext: { dayKey: "2026-08-06", weekKey: "2026-08-03" },
+    },
+    expectedStatus: 202,
+  });
+  await request("/v1/workout-snapshot", {
+    uid: "alice",
+    method: "PUT",
+    body: {
+      snapshot,
+      clientContext: { dayKey: "2026-08-06", weekKey: "2026-08-03" },
+    },
+    expectedStatus: 202,
+  });
+  const unchanged = await request("/v1/workout-snapshot", {
+    uid: "alice",
+    method: "PUT",
+    body: {
+      snapshot,
+      clientContext: { dayKey: "2026-08-06", weekKey: "2026-08-03" },
+    },
+  });
+  assert.equal(unchanged.body.status, "unchanged");
+  const stored = await request("/v1/workout-snapshot", { uid: "alice" });
+  assert.deepEqual(stored.body.snapshot, snapshot);
+  const etag = stored.response.headers.get("etag");
+  assert.ok(etag);
+  await request("/v1/workout-snapshot", {
+    uid: "alice",
+    headers: { "if-none-match": etag },
+    expectedStatus: 304,
+  });
+
+  const malformedSnapshot = await request("/v1/workout-snapshot", {
+    uid: "alice",
+    method: "PUT",
+    body: { snapshot: { dayTotals: [], sessions: [] } },
+    expectedStatus: 422,
+  });
+  assert.equal(malformedSnapshot.body.error.code, "invalid_snapshot");
+
+  let bobNotifications;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    bobNotifications = await request("/v1/notifications", { uid: "bob" });
+    if (bobNotifications.body.notifications.length === 1) break;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.equal(bobNotifications.body.notifications.length, 1);
+  await request("/v1/notifications", { uid: "alice" });
+  await request("/v1/notifications", {
+    uid: "alice",
+    method: "POST",
+    body: { notificationIds: [] },
+    expectedStatus: 422,
+  });
+  await request("/v1/notifications", {
+    uid: "alice",
+    method: "POST",
+    body: { notificationIds: ["missing-but-valid"] },
+  });
+
+  await request("/v1/friends", {
+    uid: "alice",
+    method: "DELETE",
+    body: { friendUid: "bob" },
+    expectedStatus: 204,
+  });
+  await request("/v1/account", {
+    uid: "alice",
+    method: "DELETE",
+    expectedStatus: 204,
+  });
+
+  console.log("Worker integration routes passed.");
+} catch (error) {
+  console.error(serverOutput);
+  throw error;
+} finally {
+  wrangler.kill("SIGTERM");
+  await new Promise((resolve) => {
+    if (wrangler.exitCode !== null) resolve();
+    else wrangler.once("exit", resolve);
+  });
+}

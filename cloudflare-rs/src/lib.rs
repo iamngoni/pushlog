@@ -31,13 +31,21 @@ pub async fn main(req: Request, env: Env, ctx: Context) -> Result<Response> {
     let _ = console_log::init_with_level(log::Level::Info);
 
     let request_id = uuid::Uuid::new_v4().to_string();
-    match route(req, &env, &ctx, &auth::FirebaseAuthVerifier).await {
+    #[cfg(not(feature = "integration-test-auth"))]
+    let routed = route(req, &env, &ctx, &auth::FirebaseAuthVerifier).await;
+    #[cfg(feature = "integration-test-auth")]
+    let routed = if AppConfig::environment(&env).ok().as_deref() == Some("integration") {
+        route(req, &env, &ctx, &auth::IntegrationTestAuthVerifier).await
+    } else {
+        route(req, &env, &ctx, &auth::FirebaseAuthVerifier).await
+    };
+    match routed {
         Ok(response) => Ok(response),
         Err(error) => {
             if error.status == 500 {
                 log::error!(
-                    "unhandled request error request_id={request_id}: {}",
-                    error.message
+                    "unhandled request error request_id={request_id} code={}",
+                    error.code
                 );
             }
             error_response(&error, &request_id)

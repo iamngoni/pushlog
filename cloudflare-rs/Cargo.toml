@@ -27,6 +27,7 @@ url = "2"
 
 [features]
 default = ["console_error_panic_hook"]
+integration-test-auth = []
 
 [profile.release]
 opt-level = "z"

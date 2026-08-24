@@ -5,6 +5,31 @@
 use chrono::{Datelike, Duration, NaiveDate, SecondsFormat, Utc};
 use worker::d1::D1Type;
 
+/// A canonical `YYYY-MM-DD` value proven to name a real calendar date.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CalendarDayKey {
+    value: String,
+    date: NaiveDate,
+}
+
+impl CalendarDayKey {
+    /// Parses a client-supplied day key, preserving the calendar-validity proof.
+    pub(crate) fn parse(value: &str) -> Option<Self> {
+        if value.len() != 10 {
+            return None;
+        }
+        let date = NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()?;
+        Some(Self {
+            value: value.to_string(),
+            date,
+        })
+    }
+
+    pub(crate) fn as_str(&self) -> &str {
+        &self.value
+    }
+}
+
 /// An `Option<String>` (or `Option<&str>`) as a bindable D1 parameter:
 /// `Some` binds as text, `None` binds as SQL `NULL`.
 pub fn opt_text(value: Option<&str>) -> D1Type<'_> {
@@ -20,33 +45,25 @@ pub fn now_iso() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
-/// A `YYYY-MM-DD` string that also names a real calendar date. Used for
-/// values a client fully controls (`clientContext.dayKey`/`weekKey`) where
-/// a calendar-invalid value should be rejected outright, rather than for
-/// `workout_snapshot.dayTotals` keys, which the TypeScript worker (and this
-/// port) accept on shape alone — see `workout::parse_day_totals`.
-pub fn valid_calendar_day_key(value: Option<&str>) -> Option<String> {
-    let value = value?;
-    if value.len() != 10 {
-        return None;
+/// Returns today's UTC date as a calendar-valid key.
+pub fn today_key() -> CalendarDayKey {
+    let date = Utc::now().date_naive();
+    CalendarDayKey {
+        value: date.format("%Y-%m-%d").to_string(),
+        date,
     }
-    NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()?;
-    Some(value.to_string())
-}
-
-pub fn today_key() -> String {
-    Utc::now().format("%Y-%m-%d").to_string()
 }
 
 /// The Monday that starts the week containing `day_key` (ISO week, so
-/// Sunday is the last day of its week rather than the first). `day_key`
-/// must already be a valid calendar date.
-pub fn week_start(day_key: &str) -> String {
-    let date = NaiveDate::parse_from_str(day_key, "%Y-%m-%d").expect("day_key is pre-validated");
-    let weekday_index = date.weekday().num_days_from_monday() as i64; // Mon=0 .. Sun=6
-    (date - Duration::days(weekday_index))
-        .format("%Y-%m-%d")
-        .to_string()
+/// Sunday is the last day of its week rather than the first). Accepting a
+/// `CalendarDayKey` makes the calculation total without reparsing or panicking.
+pub fn week_start(day_key: &CalendarDayKey) -> CalendarDayKey {
+    let weekday_index = day_key.date.weekday().num_days_from_monday() as i64; // Mon=0 .. Sun=6
+    let date = day_key.date - Duration::days(weekday_index);
+    CalendarDayKey {
+        value: date.format("%Y-%m-%d").to_string(),
+        date,
+    }
 }
 
 /// `day_key` shifted by `delta` calendar days. `day_key` is not guaranteed
@@ -67,6 +84,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn optional_text_maps_absence_to_sql_null() {
+        assert!(matches!(opt_text(None), D1Type::Null));
+        assert!(matches!(opt_text(Some("value")), D1Type::Text("value")));
+    }
+
+    #[test]
     fn now_iso_ends_in_z_with_millisecond_precision() {
         let stamp = now_iso();
         assert!(stamp.ends_with('Z'));
@@ -74,28 +97,37 @@ mod tests {
     }
 
     #[test]
-    fn valid_calendar_day_key_accepts_real_dates_only() {
+    fn today_key_is_a_canonical_calendar_day() {
+        let today = today_key();
+        assert_eq!(today.as_str().len(), 10);
+        assert_eq!(CalendarDayKey::parse(today.as_str()), Some(today));
+    }
+
+    #[test]
+    fn calendar_day_key_accepts_real_dates_only() {
         assert_eq!(
-            valid_calendar_day_key(Some("2026-08-06")),
+            CalendarDayKey::parse("2026-08-06").map(|day| day.value),
             Some("2026-08-06".to_string())
         );
-        assert_eq!(valid_calendar_day_key(Some("2026-13-40")), None);
-        assert_eq!(valid_calendar_day_key(Some("2026-8-6")), None);
-        assert_eq!(valid_calendar_day_key(None), None);
+        assert_eq!(CalendarDayKey::parse("2026-13-40"), None);
+        assert_eq!(CalendarDayKey::parse("2026-8-6"), None);
     }
 
     #[test]
     fn week_start_is_the_preceding_or_same_monday() {
+        let thursday = CalendarDayKey::parse("2026-08-06").expect("fixture is a valid date");
+        assert_eq!(thursday.date.weekday().to_string(), "Thu");
+        assert_eq!(week_start(&thursday).as_str(), "2026-08-03");
         assert_eq!(
-            NaiveDate::parse_from_str("2026-08-06", "%Y-%m-%d")
-                .unwrap()
-                .weekday()
-                .to_string(),
-            "Thu"
+            week_start(&CalendarDayKey::parse("2026-08-03").expect("fixture is a valid date"))
+                .as_str(),
+            "2026-08-03"
         );
-        assert_eq!(week_start("2026-08-06"), "2026-08-03");
-        assert_eq!(week_start("2026-08-03"), "2026-08-03");
-        assert_eq!(week_start("2026-08-09"), "2026-08-03");
+        assert_eq!(
+            week_start(&CalendarDayKey::parse("2026-08-09").expect("fixture is a valid date"))
+                .as_str(),
+            "2026-08-03"
+        );
     }
 
     #[test]

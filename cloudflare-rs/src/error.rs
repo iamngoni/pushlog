@@ -5,8 +5,11 @@
 //! carries a machine-readable `code` (stable across releases; existing app
 //! builds pattern-match on these strings) and an HTTP `status`.
 
+use serde::de::DeserializeOwned;
 use serde::Serialize;
-use worker::{Response, Result};
+use worker::{Request, Response, Result};
+
+const MAXIMUM_JSON_BODY_BYTES: usize = 1_000_000;
 
 #[derive(Debug, thiserror::Error)]
 #[error("{message}")]
@@ -38,6 +41,25 @@ impl ApiError {
 /// stable `ApiError`. `lib.rs` maps both branches to a `worker::Response`.
 pub type ApiResult<T> = std::result::Result<T, ApiError>;
 
+/// Reads and parses a bounded JSON body before any domain side effect.
+///
+/// Cloudflare's platform limit is intentionally not our application limit:
+/// one megabyte is sufficient for the largest accepted workout snapshot.
+pub async fn json_body<T: DeserializeOwned>(request: &mut Request) -> ApiResult<T> {
+    let bytes = request
+        .bytes()
+        .await
+        .map_err(|_| ApiError::invalid_json())?;
+    if bytes.len() > MAXIMUM_JSON_BODY_BYTES {
+        return Err(ApiError::new(
+            413,
+            "request_too_large",
+            "The request body is too large.",
+        ));
+    }
+    serde_json::from_slice(&bytes).map_err(|_| ApiError::invalid_json())
+}
+
 /// Bridges a D1 (or other worker-runtime) failure into the stable API error
 /// shape without leaking internal detail to the client. The original
 /// message is logged here, at the point of conversion, since it is the
@@ -66,7 +88,12 @@ pub fn ok_json<T: Serialize>(value: &T) -> Result<Response> {
 }
 
 pub fn no_content() -> Result<Response> {
-    Ok(Response::empty()?.with_status(204))
+    let mut response = Response::empty()?.with_status(204);
+    response.headers_mut().set("cache-control", "no-store")?;
+    response
+        .headers_mut()
+        .set("x-content-type-options", "nosniff")?;
+    Ok(response)
 }
 
 pub fn error_response(error: &ApiError, request_id: &str) -> Result<Response> {
