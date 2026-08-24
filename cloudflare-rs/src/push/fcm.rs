@@ -24,6 +24,8 @@ use worker::{Fetch, Method, Request, RequestInit};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 
+use super::PushNotification;
+
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const MESSAGING_SCOPE: &str = "https://www.googleapis.com/auth/firebase.messaging";
 /// Refresh this many seconds before Google's stated expiry, so a request
@@ -169,27 +171,12 @@ struct FcmErrorDetail {
 pub async fn send(
     account: &ServiceAccount,
     device_token: &str,
-    title: &str,
-    body: &str,
-    data: &[(String, String)],
+    notification: &PushNotification,
 ) -> Result<(), FcmError> {
     let now = chrono::Utc::now().timestamp();
     let access_token = fetch_access_token(account, now).await?;
 
-    let message = serde_json::json!({
-        "message": {
-            "token": device_token,
-            "notification": {"title": title, "body": body},
-            "data": data.iter().cloned().collect::<std::collections::HashMap<_, _>>(),
-            "android": {
-                "priority": "high",
-                "notification": {"channel_id": "pushlog_competition", "sound": "default"},
-            },
-            "apns": {
-                "payload": {"aps": {"sound": "default", "thread-id": "pushlog_competition"}},
-            },
-        }
-    });
+    let message = message_payload(device_token, notification);
 
     let mut init = RequestInit::new();
     init.with_method(Method::Post)
@@ -222,6 +209,41 @@ pub async fn send(
         }
     }
     Err(FcmError::SendFailed)
+}
+
+fn message_payload(device_token: &str, notification: &PushNotification) -> serde_json::Value {
+    let mut android = serde_json::json!({
+        "priority": "high",
+        "notification": {
+            "channel_id": notification.channel_id,
+            "sound": "default"
+        },
+    });
+    let mut apns = serde_json::json!({
+        "payload": {
+            "aps": {
+                "sound": "default",
+                "thread-id": notification.thread_id
+            }
+        },
+    });
+    if let Some(collapse_key) = &notification.collapse_key {
+        android["collapse_key"] = serde_json::Value::String(collapse_key.clone());
+        apns["headers"] = serde_json::json!({"apns-collapse-id": collapse_key});
+    }
+    serde_json::json!({
+        "message": {
+            "token": device_token,
+            "notification": {
+                "title": notification.title,
+                "body": notification.body
+            },
+            "data": notification.data.iter().cloned()
+                .collect::<std::collections::HashMap<_, _>>(),
+            "android": android,
+            "apns": apns,
+        }
+    })
 }
 
 #[cfg(test)]
@@ -285,6 +307,33 @@ mod tests {
             cached_token("b@example.test", 500),
             None,
             "different account is not returned"
+        );
+    }
+
+    #[test]
+    fn message_payload_uses_the_notification_channel_thread_and_collapse_key() {
+        let payload = message_payload(
+            "device-token",
+            &PushNotification {
+                title: "We miss you".to_string(),
+                body: "It has been 3 days.".to_string(),
+                data: vec![("type".to_string(), "engagement_reminder".to_string())],
+                channel_id: "pushlog_daily_reminders",
+                thread_id: "pushlog_reminders",
+                collapse_key: Some("engagement-user-1".to_string()),
+            },
+        );
+        assert_eq!(
+            payload["message"]["android"]["notification"]["channel_id"],
+            "pushlog_daily_reminders"
+        );
+        assert_eq!(
+            payload["message"]["apns"]["payload"]["aps"]["thread-id"],
+            "pushlog_reminders"
+        );
+        assert_eq!(
+            payload["message"]["apns"]["headers"]["apns-collapse-id"],
+            "engagement-user-1"
         );
     }
 }

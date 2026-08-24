@@ -15,6 +15,16 @@ const ALLOWED_PLATFORMS: &[&str] = &["android", "ios", "macos"];
 struct DevicePayload {
     token: String,
     platform: Option<String>,
+    time_zone: Option<String>,
+}
+
+fn valid_time_zone(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 64
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '/' | '_' | '-' | '+')
+        })
+        && value.parse::<chrono_tz::Tz>().is_ok()
 }
 
 async fn device_payload(request: &mut Request, require_platform: bool) -> ApiResult<DevicePayload> {
@@ -40,7 +50,16 @@ async fn device_payload(request: &mut Request, require_platform: bool) -> ApiRes
             "The device platform is invalid.",
         ));
     }
-    Ok(DevicePayload { token, platform })
+    let time_zone = body
+        .get("timeZone")
+        .and_then(|v| v.as_str())
+        .filter(|value| valid_time_zone(value))
+        .map(str::to_string);
+    Ok(DevicePayload {
+        token,
+        platform,
+        time_zone,
+    })
 }
 
 pub async fn register_device(
@@ -65,6 +84,17 @@ pub async fn register_device(
             D1Type::Text(&payload.token),
             opt_text(payload.platform.as_deref()),
             D1Type::Text(&now),
+        ])?,
+        db.prepare(
+            "UPDATE users
+             SET time_zone = COALESCE(?, time_zone),
+                 last_active_at = ?
+             WHERE uid = ?",
+        )
+        .bind_refs(&[
+            opt_text(payload.time_zone.as_deref()),
+            D1Type::Text(&now),
+            D1Type::Text(user.uid()),
         ])?,
     ])
     .await?;
@@ -91,5 +121,13 @@ mod tests {
     #[test]
     fn allowed_platforms_matches_the_documented_set() {
         assert_eq!(ALLOWED_PLATFORMS, ["android", "ios", "macos"]);
+    }
+
+    #[test]
+    fn timezone_validation_accepts_iana_names_only() {
+        assert!(valid_time_zone("Africa/Harare"));
+        assert!(valid_time_zone("Etc/GMT+5"));
+        assert!(!valid_time_zone("Not/AZone"));
+        assert!(!valid_time_zone("../../UTC"));
     }
 }

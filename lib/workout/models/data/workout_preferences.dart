@@ -17,6 +17,8 @@ class WorkoutPreferences extends Equatable {
     this.reminderHour = 19,
     this.reminderMinute = 0,
     this.smartReminderCopyEnabled = true,
+    this.streakRemindersEnabled = false,
+    this.comebackRemindersEnabled = false,
     this.competitionNotificationsEnabled = true,
     this.healthSyncEnabled = false,
     this.liveDevicePreference = LiveDevicePreference.iphoneOnly,
@@ -30,6 +32,10 @@ class WorkoutPreferences extends Equatable {
         reminderMinute: (json['reminderMinute'] as int?) ?? 0,
         smartReminderCopyEnabled:
             (json['smartReminderCopyEnabled'] as bool?) ?? true,
+        streakRemindersEnabled:
+            (json['streakRemindersEnabled'] as bool?) ?? false,
+        comebackRemindersEnabled:
+            (json['comebackRemindersEnabled'] as bool?) ?? false,
         competitionNotificationsEnabled:
             (json['competitionNotificationsEnabled'] as bool?) ?? true,
         healthSyncEnabled: (json['healthSyncEnabled'] as bool?) ?? false,
@@ -48,18 +54,27 @@ class WorkoutPreferences extends Equatable {
   final int reminderHour;
   final int reminderMinute;
   final bool smartReminderCopyEnabled;
+  final bool streakRemindersEnabled;
+  final bool comebackRemindersEnabled;
   final bool competitionNotificationsEnabled;
   final bool healthSyncEnabled;
   final LiveDevicePreference liveDevicePreference;
   final TrainingPlan? trainingPlan;
 
   bool get hasCompletedOnboarding => trainingPlan != null;
+  bool get remoteNotificationsEnabled =>
+      remindersEnabled ||
+      competitionNotificationsEnabled ||
+      streakRemindersEnabled ||
+      comebackRemindersEnabled;
 
   Map<String, dynamic> toJson() => {
     'remindersEnabled': remindersEnabled,
     'reminderHour': reminderHour,
     'reminderMinute': reminderMinute,
     'smartReminderCopyEnabled': smartReminderCopyEnabled,
+    'streakRemindersEnabled': streakRemindersEnabled,
+    'comebackRemindersEnabled': comebackRemindersEnabled,
     'competitionNotificationsEnabled': competitionNotificationsEnabled,
     'healthSyncEnabled': healthSyncEnabled,
     'liveDevicePreference': liveDevicePreference.name,
@@ -71,6 +86,8 @@ class WorkoutPreferences extends Equatable {
     int? reminderHour,
     int? reminderMinute,
     bool? smartReminderCopyEnabled,
+    bool? streakRemindersEnabled,
+    bool? comebackRemindersEnabled,
     bool? competitionNotificationsEnabled,
     bool? healthSyncEnabled,
     LiveDevicePreference? liveDevicePreference,
@@ -81,6 +98,10 @@ class WorkoutPreferences extends Equatable {
     reminderMinute: reminderMinute ?? this.reminderMinute,
     smartReminderCopyEnabled:
         smartReminderCopyEnabled ?? this.smartReminderCopyEnabled,
+    streakRemindersEnabled:
+        streakRemindersEnabled ?? this.streakRemindersEnabled,
+    comebackRemindersEnabled:
+        comebackRemindersEnabled ?? this.comebackRemindersEnabled,
     competitionNotificationsEnabled:
         competitionNotificationsEnabled ?? this.competitionNotificationsEnabled,
     healthSyncEnabled: healthSyncEnabled ?? this.healthSyncEnabled,
@@ -94,6 +115,8 @@ class WorkoutPreferences extends Equatable {
     reminderHour,
     reminderMinute,
     smartReminderCopyEnabled,
+    streakRemindersEnabled,
+    comebackRemindersEnabled,
     competitionNotificationsEnabled,
     healthSyncEnabled,
     liveDevicePreference,

@@ -473,11 +473,14 @@ pub async fn put_workout_snapshot(
             D1Type::Text(&source_json),
             D1Type::Text(&now),
         ])?,
+        db.prepare("UPDATE users SET last_active_at = ? WHERE uid = ?")
+            .bind_refs(&[D1Type::Text(&now), D1Type::Text(user.uid())])?,
     ])
     .await?;
 
     let uid = user.uid().to_string();
     let day_key = payload.day_key.clone();
+    let notification_triggered_at = now.clone();
     let env = env.clone();
     ctx.wait_until(async move {
         if let Err(error) = notify_friends_passed(
@@ -486,6 +489,7 @@ pub async fn put_workout_snapshot(
             previous_today_count,
             stats.today_count,
             &day_key,
+            &notification_triggered_at,
         )
         .await
         {

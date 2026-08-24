@@ -6,6 +6,7 @@
 //! runs from `workout::put_workout_snapshot`'s `ctx.wait_until`, after the
 //! response has already been sent.
 
+use chrono::{DateTime, Duration, SecondsFormat, Utc};
 use serde::Deserialize;
 use worker::d1::D1Type;
 use worker::{D1Database, Env, Request};
@@ -13,8 +14,11 @@ use worker::{D1Database, Env, Request};
 use crate::db::{now_iso, opt_text};
 use crate::env::{AppConfig, AuthenticatedUser};
 use crate::error::{ApiError, ApiResult};
-use crate::lead_change_copy::{build_lead_change_copy, random_variant_index, LeadChangeInput};
+use crate::lead_change_copy::{generate_lead_change_copy, random_variant_index, LeadChangeInput};
 use crate::push;
+
+const LEAD_CHANGE_TTL_SECONDS: i64 = 60;
+const LEAD_CHANGE_COOLDOWN_SECONDS: i64 = 60;
 
 #[derive(Debug, Deserialize)]
 struct FriendScoreRow {
@@ -27,6 +31,15 @@ struct FriendScoreRow {
 struct ActorRow {
     display_name: Option<String>,
     username: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct CurrentLeadState {
+    actor_sync_id: String,
+    actor_count: i64,
+    actor_day_key: Option<String>,
+    friend_count: i64,
+    friend_day_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,6 +62,126 @@ fn clamp_limit(raw: Option<&str>) -> i64 {
         .unwrap_or(25)
 }
 
+fn lead_change_is_expired(triggered_at: &str, now: DateTime<Utc>) -> bool {
+    DateTime::parse_from_rfc3339(triggered_at)
+        .map(|triggered| {
+            now.signed_duration_since(triggered).num_seconds() > LEAD_CHANGE_TTL_SECONDS
+        })
+        .unwrap_or(true)
+}
+
+async fn current_lead_state(
+    db: &D1Database,
+    actor_uid: &str,
+    friend_uid: &str,
+) -> worker::Result<Option<CurrentLeadState>> {
+    db.prepare(
+        "SELECT snapshots.sync_id AS actor_sync_id,
+                actor.today_count AS actor_count,
+                actor.today_key AS actor_day_key,
+                friend.today_count AS friend_count,
+                friend.today_key AS friend_day_key
+         FROM workout_snapshots snapshots
+         JOIN friend_stats actor ON actor.uid = snapshots.uid
+         JOIN friend_stats friend ON friend.uid = ?
+         WHERE snapshots.uid = ?",
+    )
+    .bind_refs(&[D1Type::Text(friend_uid), D1Type::Text(actor_uid)])?
+    .first::<CurrentLeadState>(None)
+    .await
+}
+
+fn current_deficit(state: &CurrentLeadState, day_key: &str) -> Option<i64> {
+    if state.actor_day_key.as_deref() != Some(day_key) {
+        return None;
+    }
+    let friend_count = if state.friend_day_key.as_deref() == Some(day_key) {
+        state.friend_count
+    } else {
+        0
+    };
+    (state.actor_count > friend_count).then_some(state.actor_count - friend_count)
+}
+
+async fn lead_change_cooldown_active(
+    db: &D1Database,
+    friend_uid: &str,
+    actor_uid: &str,
+) -> worker::Result<bool> {
+    let now = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
+    Ok(db
+        .prepare(
+            "SELECT 1 AS active
+             FROM notification_cooldowns
+             WHERE uid = ? AND type = 'lead_change' AND actor_uid = ?
+               AND cooldown_until > ?",
+        )
+        .bind_refs(&[
+            D1Type::Text(friend_uid),
+            D1Type::Text(actor_uid),
+            D1Type::Text(&now),
+        ])?
+        .first::<serde_json::Value>(None)
+        .await?
+        .is_some())
+}
+
+async fn claim_lead_change_cooldown(
+    db: &D1Database,
+    friend_uid: &str,
+    actor_uid: &str,
+) -> worker::Result<Option<String>> {
+    let claimed_at = Utc::now();
+    let now = claimed_at.to_rfc3339_opts(SecondsFormat::Millis, true);
+    let cooldown_until = (claimed_at + Duration::seconds(LEAD_CHANGE_COOLDOWN_SECONDS))
+        .to_rfc3339_opts(SecondsFormat::Millis, true);
+    let result = db
+        .prepare(
+            "INSERT INTO notification_cooldowns (
+               uid, type, actor_uid, cooldown_until, updated_at
+             ) VALUES (?, 'lead_change', ?, ?, ?)
+             ON CONFLICT(uid, type, actor_uid) DO UPDATE SET
+               cooldown_until = excluded.cooldown_until,
+               updated_at = excluded.updated_at
+             WHERE notification_cooldowns.cooldown_until <= ?",
+        )
+        .bind_refs(&[
+            D1Type::Text(friend_uid),
+            D1Type::Text(actor_uid),
+            D1Type::Text(&cooldown_until),
+            D1Type::Text(&now),
+            D1Type::Text(&now),
+        ])?
+        .run()
+        .await?;
+    let claimed = result
+        .meta()?
+        .and_then(|meta| meta.changes.or(meta.rows_written))
+        .is_some_and(|changes| changes > 0);
+    Ok(claimed.then_some(now))
+}
+
+async fn release_lead_change_cooldown(
+    db: &D1Database,
+    friend_uid: &str,
+    actor_uid: &str,
+    claimed_at: &str,
+) -> worker::Result<()> {
+    db.prepare(
+        "DELETE FROM notification_cooldowns
+         WHERE uid = ? AND type = 'lead_change' AND actor_uid = ?
+           AND updated_at = ?",
+    )
+    .bind_refs(&[
+        D1Type::Text(friend_uid),
+        D1Type::Text(actor_uid),
+        D1Type::Text(claimed_at),
+    ])?
+    .run()
+    .await?;
+    Ok(())
+}
+
 pub async fn get_notifications(
     request: &Request,
     db: &D1Database,
@@ -68,6 +201,25 @@ pub async fn get_notifications(
                     day_key, payload_json, created_at
              FROM notification_events
              WHERE uid = ? AND read_at IS NULL
+               AND (
+                 type <> 'lead_change'
+                 OR EXISTS (
+                   SELECT 1
+                   FROM friend_stats actor
+                   JOIN friend_stats recipient ON recipient.uid = notification_events.uid
+                   WHERE actor.uid = notification_events.actor_uid
+                     AND actor.today_key = notification_events.day_key
+                     AND actor.today_count > CASE
+                       WHEN recipient.today_key = notification_events.day_key
+                       THEN recipient.today_count ELSE 0 END
+                     AND actor.today_count =
+                       json_extract(notification_events.payload_json, '$.score')
+                     AND CASE
+                       WHEN recipient.today_key = notification_events.day_key
+                       THEN recipient.today_count ELSE 0 END =
+                       json_extract(notification_events.payload_json, '$.previousLead')
+                 )
+               )
              ORDER BY created_at ASC
              LIMIT ?",
         )
@@ -150,8 +302,9 @@ pub async fn notify_friends_passed(
     previous_count: i64,
     current_count: i64,
     day_key: &str,
+    triggered_at: &str,
 ) -> ApiResult<()> {
-    if current_count <= previous_count {
+    if current_count <= previous_count || lead_change_is_expired(triggered_at, Utc::now()) {
         return Ok(());
     }
     let db = AppConfig::db(env)?;
@@ -192,44 +345,139 @@ pub async fn notify_friends_passed(
         .unwrap_or_else(|| "A friend".to_string());
 
     for friend in passed {
-        let friend_count = if friend.today_key.as_deref() == Some(day_key) {
-            friend.today_count
-        } else {
-            0
+        if lead_change_is_expired(triggered_at, Utc::now()) {
+            log::info!("skipping expired lead-change notification for actor_uid={actor_uid}");
+            break;
+        }
+
+        let Some(before_generation) = current_lead_state(&db, actor_uid, &friend.uid).await? else {
+            continue;
         };
+        let Some(deficit) = current_deficit(&before_generation, day_key) else {
+            continue;
+        };
+        if lead_change_cooldown_active(&db, &friend.uid, actor_uid).await? {
+            log::info!(
+                "suppressing lead-change notification during cooldown actor_uid={actor_uid} friend_uid={}",
+                friend.uid
+            );
+            continue;
+        }
+
         let notification_id = uuid::Uuid::new_v4().to_string();
-        let deficit = current_count - friend_count;
-        let copy = build_lead_change_copy(
+        let generated_copy = generate_lead_change_copy(
+            env,
             &LeadChangeInput {
                 actor: actor_name.clone(),
                 deficit,
                 reps_to_retake: deficit + 1,
             },
             random_variant_index(),
-        );
-        let now = now_iso();
-        let payload_json =
-            serde_json::json!({"score": current_count, "previousLead": friend_count}).to_string();
-
-        db.prepare(
-            "INSERT INTO notification_events (
-              uid, notification_id, type, title, body, actor_uid,
-              competitor_uid, day_key, delivery_status, payload_json, created_at
-            ) VALUES (?, ?, 'lead_change', ?, ?, ?, ?, ?, 'pending', ?, ?)",
         )
-        .bind_refs(&[
-            D1Type::Text(&friend.uid),
-            D1Type::Text(&notification_id),
-            D1Type::Text(&copy.title),
-            D1Type::Text(&copy.body),
-            D1Type::Text(actor_uid),
-            D1Type::Text(actor_uid),
-            D1Type::Text(day_key),
-            D1Type::Text(&payload_json),
-            D1Type::Text(&now),
-        ])?
-        .run()
-        .await?;
+        .await;
+
+        if lead_change_is_expired(triggered_at, Utc::now()) {
+            log::info!("discarding expired lead-change copy for actor_uid={actor_uid}");
+            continue;
+        }
+
+        // Inference adds an external await between detection and delivery.
+        // Re-read both scores afterward so copy generated from an old gap is
+        // never sent. If the lead still exists but changed, use immediate
+        // curated copy rather than paying for a second inference.
+        let Some(after_generation) = current_lead_state(&db, actor_uid, &friend.uid).await? else {
+            continue;
+        };
+        let Some(fresh_deficit) = current_deficit(&after_generation, day_key) else {
+            continue;
+        };
+        let copy = if after_generation == before_generation {
+            generated_copy
+        } else {
+            crate::lead_change_copy::build_lead_change_copy(
+                &LeadChangeInput {
+                    actor: actor_name.clone(),
+                    deficit: fresh_deficit,
+                    reps_to_retake: fresh_deficit + 1,
+                },
+                random_variant_index(),
+            )
+        };
+        let friend_count = after_generation.actor_count - fresh_deficit;
+        let now = now_iso();
+        let payload_json = serde_json::json!({
+            "score": after_generation.actor_count,
+            "previousLead": friend_count,
+            "sourceSyncId": after_generation.actor_sync_id,
+        })
+        .to_string();
+
+        let Some(cooldown_claimed_at) =
+            claim_lead_change_cooldown(&db, &friend.uid, actor_uid).await?
+        else {
+            log::info!(
+                "suppressing concurrent lead-change notification actor_uid={actor_uid} friend_uid={}",
+                friend.uid
+            );
+            continue;
+        };
+
+        let insert = db
+            .prepare(
+                "INSERT OR IGNORE INTO notification_events (
+              uid, notification_id, type, title, body, actor_uid,
+              competitor_uid, day_key, source_sync_id, delivery_status,
+              payload_json, created_at
+            ) VALUES (?, ?, 'lead_change', ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
+            )
+            .bind_refs(&[
+                D1Type::Text(&friend.uid),
+                D1Type::Text(&notification_id),
+                D1Type::Text(&copy.title),
+                D1Type::Text(&copy.body),
+                D1Type::Text(actor_uid),
+                D1Type::Text(actor_uid),
+                D1Type::Text(day_key),
+                D1Type::Text(&after_generation.actor_sync_id),
+                D1Type::Text(&payload_json),
+                D1Type::Text(&now),
+            ])?
+            .run()
+            .await?;
+        let inserted = insert
+            .meta()?
+            .and_then(|meta| meta.changes)
+            .is_some_and(|changes| changes > 0);
+        if !inserted {
+            log::info!(
+                "skipping duplicate lead-change notification actor_uid={actor_uid} friend_uid={}",
+                friend.uid
+            );
+            continue;
+        }
+
+        // Keep the final read as close to FCM delivery as possible. If either
+        // score changed while the event row was being reserved, hide the row
+        // from the inbox and do not put obsolete copy on the lock screen.
+        let final_state = current_lead_state(&db, actor_uid, &friend.uid).await?;
+        if final_state.as_ref() != Some(&after_generation)
+            || lead_change_is_expired(triggered_at, Utc::now())
+        {
+            db.prepare(
+                "UPDATE notification_events
+                 SET delivery_status = 'stale', read_at = COALESCE(read_at, ?)
+                 WHERE uid = ? AND notification_id = ?",
+            )
+            .bind_refs(&[
+                D1Type::Text(&now),
+                D1Type::Text(&friend.uid),
+                D1Type::Text(&notification_id),
+            ])?
+            .run()
+            .await?;
+            release_lead_change_cooldown(&db, &friend.uid, actor_uid, &cooldown_claimed_at).await?;
+            continue;
+        }
 
         let data = [
             ("type", "lead_change".to_string()),
@@ -237,7 +485,8 @@ pub async fn notify_friends_passed(
             ("actorUid", actor_uid.to_string()),
             ("competitorUid", actor_uid.to_string()),
             ("dayKey", day_key.to_string()),
-            ("score", current_count.to_string()),
+            ("score", after_generation.actor_count.to_string()),
+            ("sourceSyncId", after_generation.actor_sync_id),
         ]
         .into_iter()
         .map(|(k, v)| (k.to_string(), v))
@@ -250,6 +499,9 @@ pub async fn notify_friends_passed(
                 title: copy.title,
                 body: copy.body,
                 data,
+                channel_id: "pushlog_competition",
+                thread_id: "pushlog_competition",
+                collapse_key: Some("pushlog-lead-change".to_string()),
             },
         )
         .await;
@@ -284,5 +536,34 @@ mod tests {
         assert_eq!(clamp_limit(Some("0")), 1);
         assert_eq!(clamp_limit(Some("500")), 100);
         assert_eq!(clamp_limit(Some("40")), 40);
+    }
+
+    #[test]
+    fn lead_change_ttl_rejects_old_and_malformed_events() {
+        let now = DateTime::parse_from_rfc3339("2026-01-01T00:01:01.000Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        assert!(lead_change_is_expired("2026-01-01T00:00:00.000Z", now));
+        assert!(!lead_change_is_expired("2026-01-01T00:00:01.000Z", now));
+        assert!(lead_change_is_expired("not-a-timestamp", now));
+    }
+
+    #[test]
+    fn current_deficit_requires_a_current_lead_on_the_same_day() {
+        let state = CurrentLeadState {
+            actor_sync_id: "sync-1".to_string(),
+            actor_count: 12,
+            actor_day_key: Some("2026-01-01".to_string()),
+            friend_count: 8,
+            friend_day_key: Some("2026-01-01".to_string()),
+        };
+        assert_eq!(current_deficit(&state, "2026-01-01"), Some(4));
+
+        let tied = CurrentLeadState {
+            friend_count: 12,
+            ..state
+        };
+        assert_eq!(current_deficit(&tied, "2026-01-01"), None);
+        assert_eq!(current_deficit(&tied, "2026-01-02"), None);
     }
 }

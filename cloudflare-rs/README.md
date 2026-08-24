@@ -40,6 +40,33 @@ old worker did without `FCM_GATEWAY_SECRET` — falling back to the existing
 No other configuration is needed; the worker reads `project_id`,
 `client_email`, and `private_key` out of that one JSON secret.
 
+## Lead-change notification copy
+
+Lead-change pushes use the Wrangler `AI` binding to generate fresh,
+structured title and body copy with Workers AI. Generated copy is validated
+for push length, actor attribution, and the exact reps needed to retake the
+lead. If the binding or model is unavailable, or its output fails validation,
+the worker uses one of the curated variants in `src/lead_change_copy.rs`;
+copy generation can never block notification delivery.
+
+Before delivery, the worker re-reads both competitors' scores after inference
+and drops notifications when the lead no longer exists or the event is over
+60 seconds old. If the gap changed during inference, it uses fresh curated
+copy. A source-snapshot uniqueness constraint prevents background retries from
+sending the same lead change twice. An atomic per-friend/per-actor cooldown
+also limits lead-change pushes to one per 60 seconds, even when several
+snapshot updates or background tasks race.
+
+The worker's 15-minute Cron Trigger also evaluates opt-in engagement
+reminders in each user's current IANA timezone. It sends a streak-at-risk
+warning after 21:00, a next-day missed-session reminder, and comeback nudges
+after 3, 7, and 14 inactive days. Every reminder is deduplicated by its source
+event, revalidated after AI inference and immediately before FCM delivery, and
+collapsed into one reminder thread. Opening the app updates `last_active_at`;
+the 14-day reminder is the final nudge until activity resumes. Streak alerts
+and comeback nudges are separate opt-ins; disabling smart copy keeps these
+reminders on curated fallback text instead of invoking AI.
+
 ## API
 
 `GET /health` is public. Every `/v1/*` route requires a current Firebase ID

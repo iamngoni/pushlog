@@ -24,15 +24,29 @@ class AppScaffold extends StatefulWidget {
   State<AppScaffold> createState() => _AppScaffoldState();
 }
 
-class _AppScaffoldState extends State<AppScaffold> {
+class _AppScaffoldState extends State<AppScaffold> with WidgetsBindingObserver {
   PushlogTab selectedTab = PushlogTab.today;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_syncCompetitionNotifications());
+      if (mounted) unawaited(_syncRemoteNotifications());
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_syncRemoteNotifications());
+    }
   }
 
   void onTabChanged(PushlogTab tab) {
@@ -49,10 +63,10 @@ class _AppScaffoldState extends State<AppScaffold> {
         if (previous is! WorkoutLoaded || current is! WorkoutLoaded) {
           return current is WorkoutLoaded;
         }
-        return previous.preferences.competitionNotificationsEnabled !=
-            current.preferences.competitionNotificationsEnabled;
+        return previous.preferences.remoteNotificationsEnabled !=
+            current.preferences.remoteNotificationsEnabled;
       },
-      listener: (_, _) => unawaited(_syncCompetitionNotifications()),
+      listener: (_, _) => unawaited(_syncRemoteNotifications()),
       child: Scaffold(
         backgroundColor: theme.background,
         body: AnimatedSwitcher(
@@ -81,7 +95,7 @@ class _AppScaffoldState extends State<AppScaffold> {
     };
   }
 
-  Future<void> _syncCompetitionNotifications() async {
+  Future<void> _syncRemoteNotifications() async {
     final authState = context.read<AuthCubit>().state;
     final workoutState = context.read<WorkoutBloc>().state;
     if (authState is! AuthAuthenticated || workoutState is! WorkoutLoaded) {
@@ -89,7 +103,7 @@ class _AppScaffoldState extends State<AppScaffold> {
     }
     await getIt<CompetitionNotificationService>().syncForUser(
       uid: authState.profile.uid,
-      enabled: workoutState.preferences.competitionNotificationsEnabled,
+      enabled: workoutState.preferences.remoteNotificationsEnabled,
       requestPermission: true,
     );
   }

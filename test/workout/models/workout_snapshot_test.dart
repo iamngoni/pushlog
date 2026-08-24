@@ -1,9 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/models/data/workout_session.dart';
 import 'package:pushlog/workout/models/data/workout_snapshot.dart';
 
 void main() {
   group('WorkoutSnapshot', () {
+    test('round trips engagement reminder preferences', () {
+      const preferences = WorkoutPreferences(
+        remindersEnabled: true,
+        streakRemindersEnabled: true,
+        comebackRemindersEnabled: true,
+      );
+
+      final restored = WorkoutSnapshot.fromJson({
+        'preferences': preferences.toJson(),
+      }).preferences;
+
+      expect(restored.streakRemindersEnabled, isTrue);
+      expect(restored.comebackRemindersEnabled, isTrue);
+      expect(restored.remoteNotificationsEnabled, isTrue);
+    });
+
     test('normalizes day totals from sessions', () {
       final snapshot = WorkoutSnapshot(
         dayTotals: const {

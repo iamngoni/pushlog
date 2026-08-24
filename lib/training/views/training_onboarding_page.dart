@@ -866,7 +866,8 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
     );
     context.read<WorkoutBloc>().add(UpdatePreferencesEvent(updatedPreferences));
     final authState = context.read<AuthCubit?>()?.state;
-    if (_competitionNotificationsEnabled && authState is AuthAuthenticated) {
+    if (updatedPreferences.remoteNotificationsEnabled &&
+        authState is AuthAuthenticated) {
       await getIt<CompetitionNotificationService>().syncForUser(
         uid: authState.profile.uid,
         enabled: true,
