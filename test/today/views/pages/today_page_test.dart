@@ -9,6 +9,7 @@ import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/live/services/face_tracking_service.dart';
+import 'package:pushlog/live/views/live_session_page.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/watch/watch_service.dart';
 import 'package:pushlog/today/views/pages/today_page.dart';
@@ -92,6 +93,46 @@ void main() {
       find.text('Timed session mode. Start here, count clean, save once.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('counted session setup scrolls to Start on a short screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio();
+    });
+    final theme = AppTheme.light();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme.toMaterialTheme(Brightness.light),
+        home: BlocProvider<WorkoutBloc>.value(
+          value: workoutBloc,
+          child: const LiveSessionPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final start = find.text('Start');
+    expect(start, findsOneWidget);
+    expect(start.hitTestable(), findsNothing);
+
+    await tester.scrollUntilVisible(
+      start,
+      300,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('live-session-setup-scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+
+    expect(start.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('shows the current plan as the primary daily target', (
