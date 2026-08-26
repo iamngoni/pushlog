@@ -93,18 +93,26 @@ cargo fmt --all -- --check
 cargo clippy --lib --all-targets -- -D warnings
 cargo test --lib
 cargo build --target wasm32-unknown-unknown --release
+npm run test:coverage
+npm run test:integration
 npm run db:migrate:staging
 npm run deploy:staging
 ```
 
-`cargo test --lib` runs on the host target and covers every pure
-domain function: JWT decode/verify/claims validation (against both
+`cargo test --lib` runs on the host target and covers pure domain
+functions: JWT decode/verify/claims validation (against both
 self-signed fixtures and a captured real Google JWKS response), workout
 stats and streak arithmetic, day-key parsing, lead-change copy selection,
 FCM JWT assertion construction, and every request-body validator. It cannot
 exercise the D1-backed route handlers directly — `worker`'s D1/Request/Env
 types only exist inside the actual Workers runtime, and Rust has no
-equivalent of `@cloudflare/vitest-pool-workers` yet. Route-level behavior
-was verified manually against a real local D1 (`npm run dev` after
-`db:migrate:local`) with every endpoint exercised end to end, then against
-the real Cloudflare edge before this worker took over the production name.
+equivalent of `@cloudflare/vitest-pool-workers` yet.
+
+`npm run test:coverage` enforces at least 95% line coverage on the
+runtime-independent security and domain modules. Its explicit exclusions are
+the Worker/D1/AI adapter modules that LLVM cannot execute outside the Workers
+runtime; their pure validators still have unit tests. `npm run test:integration`
+covers the HTTP/D1 boundary instead: it compiles a feature-gated local-only
+verifier, starts workerd with a disposable D1, and exercises authenticated
+success, validation failure, caching, persistence, and deletion routes. The
+production build does not contain the test verifier.

@@ -1,27 +1,18 @@
-//! Verifies Firebase Auth ID tokens (RS256) against Google's public JWKS.
+//! Pure Firebase ID-token parsing, signature verification, and claim validation.
 //!
-//! Only [`fetch_jwks`] and [`cached_public_key`] touch the network or the
-//! isolate-lifetime cache; every other function here is a pure,
-//! unit-testable transformation, so the security-critical parsing and
-//! signature-verification logic can be exercised without a live worker
-//! runtime. This mirrors what `jose`'s `createRemoteJWKSet` did in the
-//! TypeScript worker: a per-isolate in-memory cache, refetched on a
-//! key-id miss, never persisted to KV.
+//! Network retrieval and isolate-lifetime caching live in `auth`; keeping this
+//! module runtime-independent lets host tests exercise the security boundary.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use crypto_bigint::BoxedUint;
 use rsa::pkcs1v15::VerifyingKey;
 use rsa::signature::Verifier;
-use rsa::RsaPublicKey;
+pub(crate) use rsa::RsaPublicKey;
 use serde::Deserialize;
 use sha2::Sha256;
-
-const JWKS_URL: &str =
-    "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum VerifyError {
@@ -69,7 +60,7 @@ struct JwtHeader {
 }
 
 #[derive(Debug, Deserialize)]
-struct RawClaims {
+pub(crate) struct RawClaims {
     sub: Option<String>,
     aud: Option<String>,
     iss: Option<String>,
@@ -80,16 +71,16 @@ struct RawClaims {
 }
 
 #[derive(Debug)]
-struct DecodedJwt {
-    kid: Option<String>,
-    signing_input: Vec<u8>,
-    signature: Vec<u8>,
-    claims: RawClaims,
+pub(crate) struct DecodedJwt {
+    pub(crate) kid: Option<String>,
+    pub(crate) signing_input: Vec<u8>,
+    pub(crate) signature: Vec<u8>,
+    pub(crate) claims: RawClaims,
 }
 
 /// Splits and base64url-decodes a JWT's three segments without verifying
 /// anything yet. Pure and independently testable.
-fn decode_jwt(token: &str) -> Result<DecodedJwt, VerifyError> {
+pub(crate) fn decode_jwt(token: &str) -> Result<DecodedJwt, VerifyError> {
     let mut parts = token.split('.');
     let (Some(header_b64), Some(payload_b64), Some(signature_b64), None) =
         (parts.next(), parts.next(), parts.next(), parts.next())
@@ -125,7 +116,7 @@ fn decode_jwt(token: &str) -> Result<DecodedJwt, VerifyError> {
 }
 
 /// Verifies an RS256 signature over `signing_input` using `public_key`.
-fn verify_signature(
+pub(crate) fn verify_signature(
     public_key: &RsaPublicKey,
     signing_input: &[u8],
     signature: &[u8],
@@ -140,7 +131,7 @@ fn verify_signature(
 
 /// Confirms audience, issuer, subject, and expiry. `now` is injected so
 /// tests can pin the clock instead of racing a live token's expiry.
-fn validate_claims(
+pub(crate) fn validate_claims(
     claims: &RawClaims,
     project_id: &str,
     now_unix: i64,
@@ -201,75 +192,12 @@ fn public_key_from_jwk(jwk: &Jwk) -> Result<RsaPublicKey, VerifyError> {
     .map_err(|_| VerifyError::UnknownKey)
 }
 
-fn parse_jwks(body: &str) -> Result<HashMap<String, RsaPublicKey>, VerifyError> {
+pub(crate) fn parse_jwks(body: &str) -> Result<HashMap<String, RsaPublicKey>, VerifyError> {
     let set: JwkSet = serde_json::from_str(body).map_err(|_| VerifyError::KeySourceUnavailable)?;
     set.keys
         .iter()
         .map(|jwk| Ok((jwk.kid.clone(), public_key_from_jwk(jwk)?)))
         .collect()
-}
-
-/// Isolate-lifetime cache. `worker` isolates are reused across many
-/// requests, so this avoids refetching Google's JWKS on every call; it is
-/// never written to KV or D1, matching the TypeScript worker's in-memory
-/// `createRemoteJWKSet` cache exactly.
-static JWKS_CACHE: Mutex<Option<HashMap<String, RsaPublicKey>>> = Mutex::new(None);
-
-fn cached_key(kid: &str) -> Option<RsaPublicKey> {
-    // Lock is held only for a clone, never across an `.await` — this cache
-    // may be populated redundantly by concurrent cache-misses, which is
-    // safe because refetching Google's JWKS is idempotent.
-    JWKS_CACHE
-        .lock()
-        .expect("jwks cache mutex is never poisoned: no panics occur while holding it")
-        .as_ref()
-        .and_then(|keys| keys.get(kid).cloned())
-}
-
-fn store_keys(keys: HashMap<String, RsaPublicKey>) {
-    *JWKS_CACHE
-        .lock()
-        .expect("jwks cache mutex is never poisoned: no panics occur while holding it") =
-        Some(keys);
-}
-
-async fn fetch_jwks() -> Result<HashMap<String, RsaPublicKey>, VerifyError> {
-    let mut response = worker::Fetch::Url(
-        JWKS_URL
-            .parse()
-            .expect("JWKS_URL is a static, well-formed URL"),
-    )
-    .send()
-    .await
-    .map_err(|_| VerifyError::KeySourceUnavailable)?;
-    let body = response
-        .text()
-        .await
-        .map_err(|_| VerifyError::KeySourceUnavailable)?;
-    parse_jwks(&body)
-}
-
-async fn public_key_for_kid(kid: &str) -> Result<RsaPublicKey, VerifyError> {
-    if let Some(key) = cached_key(kid) {
-        return Ok(key);
-    }
-    let keys = fetch_jwks().await?;
-    let key = keys.get(kid).cloned();
-    store_keys(keys);
-    key.ok_or(VerifyError::UnknownKey)
-}
-
-/// Verifies a Firebase Auth ID token end to end: decode, fetch/consult the
-/// cached signing key, verify the RS256 signature, then validate claims.
-pub async fn verify_firebase_id_token(
-    token: &str,
-    project_id: &str,
-) -> Result<FirebaseClaims, VerifyError> {
-    let decoded = decode_jwt(token)?;
-    let kid = decoded.kid.as_deref().ok_or(VerifyError::UnknownKey)?;
-    let public_key = public_key_for_kid(kid).await?;
-    verify_signature(&public_key, &decoded.signing_input, &decoded.signature)?;
-    validate_claims(&decoded.claims, project_id, chrono::Utc::now().timestamp())
 }
 
 #[cfg(test)]

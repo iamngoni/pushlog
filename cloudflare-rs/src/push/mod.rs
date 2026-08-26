@@ -79,7 +79,7 @@ pub async fn deliver_to_user(
     let devices = match load_devices(db, uid).await {
         Ok(devices) => devices,
         Err(error) => {
-            log::error!("failed to load devices for uid={uid}: {error}");
+            log::error!("failed to load push devices: {error}");
             return DeliveryOutcome::Failed;
         }
     };
@@ -88,7 +88,7 @@ pub async fn deliver_to_user(
     }
 
     let Some(service_account_json) = AppConfig::fcm_service_account_json(env) else {
-        log::warn!("FCM service account is not configured; dropping push for uid={uid}");
+        log::warn!("FCM service account is not configured; dropping push");
         return DeliveryOutcome::NotConfigured;
     };
     let account = match fcm::parse_service_account(&service_account_json) {
@@ -105,11 +105,11 @@ pub async fn deliver_to_user(
             Ok(()) => delivered = true,
             Err(fcm::FcmError::Unregistered) => {
                 if let Err(error) = delete_device(db, uid, &device.token).await {
-                    log::warn!("failed to delete stale device token for uid={uid}: {error}");
+                    log::warn!("failed to delete stale device token: {error}");
                 }
             }
             Err(error) => {
-                log::warn!("FCM send failed for uid={uid}: {error}");
+                log::warn!("FCM send failed: {error}");
             }
         }
     }

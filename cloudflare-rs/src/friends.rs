@@ -6,9 +6,9 @@ use serde::Deserialize;
 use worker::d1::D1Type;
 use worker::{D1Database, Request};
 
-use crate::db::{now_iso, today_key, valid_calendar_day_key, week_start};
+use crate::db::{now_iso, today_key, week_start, CalendarDayKey};
 use crate::env::AuthenticatedUser;
-use crate::error::{ApiError, ApiResult};
+use crate::error::{json_body, ApiError, ApiResult};
 use crate::profile::{ensure_profile, profile_json, profile_row, ProfileRow};
 
 pub async fn get_friends(
@@ -19,9 +19,13 @@ pub async fn get_friends(
     ensure_profile(db, user).await?;
     let url = request.url()?;
     let params: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
-    let day_key =
-        valid_calendar_day_key(params.get("dayKey").map(String::as_str)).unwrap_or_else(today_key);
-    let week_key = valid_calendar_day_key(params.get("weekKey").map(String::as_str))
+    let day_key = params
+        .get("dayKey")
+        .and_then(|value| CalendarDayKey::parse(value))
+        .unwrap_or_else(today_key);
+    let week_key = params
+        .get("weekKey")
+        .and_then(|value| CalendarDayKey::parse(value))
         .unwrap_or_else(|| week_start(&day_key));
 
     let rows = db
@@ -40,8 +44,8 @@ pub async fn get_friends(
             ORDER BY stats.today_count DESC, friend.username_lower ASC",
         )
         .bind_refs(&[
-            D1Type::Text(&day_key),
-            D1Type::Text(&week_key),
+            D1Type::Text(day_key.as_str()),
+            D1Type::Text(week_key.as_str()),
             D1Type::Text(user.uid()),
         ])?
         .all()
@@ -140,7 +144,7 @@ pub async fn get_friend_requests(
 }
 
 async fn uid_from_body(request: &mut Request, key: &str) -> ApiResult<String> {
-    let body: serde_json::Value = request.json().await.map_err(|_| ApiError::invalid_json())?;
+    let body: serde_json::Value = json_body(request).await?;
     if !body.is_object() {
         return Err(ApiError::invalid_json());
     }

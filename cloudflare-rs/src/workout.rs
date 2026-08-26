@@ -17,9 +17,9 @@ use sha2::{Digest, Sha256};
 use worker::d1::D1Type;
 use worker::{Context, D1Database, Env, Request};
 
-use crate::db::{now_iso, opt_text, shift_day_key, today_key, valid_calendar_day_key, week_start};
+use crate::db::{now_iso, opt_text, shift_day_key, today_key, week_start, CalendarDayKey};
 use crate::env::{AppConfig, AuthenticatedUser};
-use crate::error::{ApiError, ApiResult};
+use crate::error::{json_body, ApiError, ApiResult};
 use crate::notifications::notify_friends_passed;
 use crate::profile::ensure_profile;
 
@@ -31,30 +31,54 @@ const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorkoutSessionPayload {
-    pub id: String,
-    pub date: String,
-    pub reps: i64,
-    pub source: String,
-    pub duration: Option<i64>,
-    pub average_rep_duration: Option<i64>,
-    pub manual_adjustments: i64,
+struct WorkoutSessionPayload {
+    id: String,
+    date: String,
+    reps: i64,
+    source: SessionSource,
+    duration: Option<i64>,
+    average_rep_duration: Option<i64>,
+    manual_adjustments: i64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum SessionSource {
+    Manual,
+    Live,
+}
+
+impl SessionSource {
+    fn parse(value: Option<&str>) -> ApiResult<Self> {
+        match value {
+            Some("manual") => Ok(Self::Manual),
+            Some("live") => Ok(Self::Live),
+            _ => Err(invalid_snapshot("A session has an invalid source.")),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Manual => "manual",
+            Self::Live => "live",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WorkoutSnapshotPayload {
-    pub day_totals: BTreeMap<String, i64>,
-    pub sessions: Vec<WorkoutSessionPayload>,
-    pub preferences: serde_json::Value,
-    pub updated_at: Option<String>,
-    pub last_synced_at: Option<String>,
+struct WorkoutSnapshotPayload {
+    day_totals: BTreeMap<String, i64>,
+    sessions: Vec<WorkoutSessionPayload>,
+    preferences: serde_json::Value,
+    updated_at: Option<String>,
+    last_synced_at: Option<String>,
 }
 
 struct WorkoutRequestPayload {
     snapshot: WorkoutSnapshotPayload,
-    day_key: String,
-    week_key: String,
+    day_key: CalendarDayKey,
+    week_key: CalendarDayKey,
 }
 
 #[derive(Debug, Deserialize)]
@@ -182,10 +206,7 @@ fn parse_sessions(value: Option<&serde_json::Value>) -> ApiResult<Vec<WorkoutSes
             .filter(|d| looks_like_a_timestamp(d))
             .ok_or_else(|| invalid_snapshot("A session has an invalid date."))?
             .to_string();
-        let source = item.get("source").and_then(|v| v.as_str());
-        if source != Some("manual") && source != Some("live") {
-            return Err(invalid_snapshot("A session has an invalid source."));
-        }
+        let source = SessionSource::parse(item.get("source").and_then(|v| v.as_str()))?;
         let reps = item
             .get("reps")
             .and_then(is_count)
@@ -203,7 +224,7 @@ fn parse_sessions(value: Option<&serde_json::Value>) -> ApiResult<Vec<WorkoutSes
             id,
             date,
             reps,
-            source: source.unwrap().to_string(),
+            source,
             duration,
             average_rep_duration,
             manual_adjustments,
@@ -213,7 +234,7 @@ fn parse_sessions(value: Option<&serde_json::Value>) -> ApiResult<Vec<WorkoutSes
 }
 
 async fn parse_workout_request(request: &mut Request) -> ApiResult<WorkoutRequestPayload> {
-    let body: serde_json::Value = request.json().await.map_err(|_| ApiError::invalid_json())?;
+    let body: serde_json::Value = json_body(request).await?;
     let snapshot_value = body
         .get("snapshot")
         .filter(|v| v.is_object())
@@ -234,12 +255,12 @@ async fn parse_workout_request(request: &mut Request) -> ApiResult<WorkoutReques
     let day_key = client_context
         .and_then(|c| c.get("dayKey"))
         .and_then(|v| v.as_str())
-        .and_then(|v| valid_calendar_day_key(Some(v)))
+        .and_then(CalendarDayKey::parse)
         .unwrap_or(today);
     let week_key = client_context
         .and_then(|c| c.get("weekKey"))
         .and_then(|v| v.as_str())
-        .and_then(|v| valid_calendar_day_key(Some(v)))
+        .and_then(CalendarDayKey::parse)
         .unwrap_or_else(|| week_start(&day_key));
 
     Ok(WorkoutRequestPayload {
@@ -343,11 +364,7 @@ pub async fn put_workout_snapshot(
         .bind_refs(&[D1Type::Text(user.uid())])?
         .first::<StoredSnapshotIdentity>(None)
         .await?;
-    if existing
-        .as_ref()
-        .is_some_and(|e| e.content_hash == content_hash)
-    {
-        let existing = existing.expect("checked above");
+    if let Some(existing) = existing.filter(|value| value.content_hash == content_hash) {
         return Ok((
             serde_json::json!({
                 "status": "unchanged",
@@ -371,7 +388,11 @@ pub async fn put_workout_snapshot(
         .filter(|s| s.today_key.as_deref() == Some(payload.day_key.as_str()))
         .map(|s| s.today_count)
         .unwrap_or(0);
-    let stats = workout_stats(&snapshot.day_totals, &payload.day_key, &payload.week_key);
+    let stats = workout_stats(
+        &snapshot.day_totals,
+        payload.day_key.as_str(),
+        payload.week_key.as_str(),
+    );
 
     let mut row_statements = Vec::new();
     for session in &snapshot.sessions {
@@ -388,7 +409,7 @@ pub async fn put_workout_snapshot(
                 D1Type::Text(&session.id),
                 D1Type::Text(&session.date),
                 D1Type::Integer(session.reps as i32),
-                D1Type::Text(&session.source),
+                D1Type::Text(session.source.as_str()),
                 safe_integer_param(session.duration),
                 safe_integer_param(session.average_rep_duration),
                 D1Type::Integer(session.manual_adjustments as i32),
@@ -463,13 +484,13 @@ pub async fn put_workout_snapshot(
         )
         .bind_refs(&[
             D1Type::Text(user.uid()),
-            D1Type::Integer(stats.today_count as i32),
-            D1Type::Text(&payload.day_key),
-            D1Type::Integer(stats.week_count as i32),
-            D1Type::Text(&payload.week_key),
-            D1Type::Integer(stats.best_day as i32),
-            D1Type::Integer(stats.total_all_time as i32),
-            D1Type::Integer(stats.streak as i32),
+            safe_integer_param(Some(stats.today_count)),
+            D1Type::Text(payload.day_key.as_str()),
+            safe_integer_param(Some(stats.week_count)),
+            D1Type::Text(payload.week_key.as_str()),
+            safe_integer_param(Some(stats.best_day)),
+            safe_integer_param(Some(stats.total_all_time)),
+            safe_integer_param(Some(stats.streak)),
             D1Type::Text(&source_json),
             D1Type::Text(&now),
         ])?,
@@ -479,7 +500,7 @@ pub async fn put_workout_snapshot(
     .await?;
 
     let uid = user.uid().to_string();
-    let day_key = payload.day_key.clone();
+    let day_key = payload.day_key.as_str().to_string();
     let notification_triggered_at = now.clone();
     let env = env.clone();
     ctx.wait_until(async move {
@@ -493,7 +514,7 @@ pub async fn put_workout_snapshot(
         )
         .await
         {
-            log::error!("lead-change notification processing failed for uid={uid}: {error}");
+            log::error!("lead-change notification processing failed: {error}");
         }
     });
 
@@ -663,7 +684,7 @@ mod tests {
                 id: "s1".into(),
                 date: "2026-08-06T08:00:00.000Z".into(),
                 reps: 12,
-                source: "manual".into(),
+                source: SessionSource::Manual,
                 duration: None,
                 average_rep_duration: None,
                 manual_adjustments: 0,

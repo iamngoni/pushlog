@@ -7,7 +7,7 @@ use worker::{D1Database, Request};
 
 use crate::db::{now_iso, opt_text};
 use crate::env::AuthenticatedUser;
-use crate::error::{ApiError, ApiResult};
+use crate::error::{json_body, ApiError, ApiResult};
 use crate::profile::ensure_profile;
 
 const ALLOWED_PLATFORMS: &[&str] = &["android", "ios", "macos"];
@@ -28,7 +28,7 @@ fn valid_time_zone(value: &str) -> bool {
 }
 
 async fn device_payload(request: &mut Request, require_platform: bool) -> ApiResult<DevicePayload> {
-    let body: serde_json::Value = request.json().await.map_err(|_| ApiError::invalid_json())?;
+    let body: serde_json::Value = json_body(request).await?;
     if !body.is_object() {
         return Err(ApiError::invalid_json());
     }

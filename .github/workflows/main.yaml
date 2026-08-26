@@ -24,3 +24,24 @@ jobs:
       - run: dart format --set-exit-if-changed .
       - run: flutter analyze
       - run: flutter test --concurrency=1
+
+  worker:
+    runs-on: self-hosted
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: cloudflare-rs
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      - run: rustup target add wasm32-unknown-unknown
+      - run: cargo fmt --all -- --check
+      - run: cargo check --all-targets
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo test --all-targets
+      - name: Install cargo-llvm-cov when absent
+        run: command -v cargo-llvm-cov >/dev/null || cargo install cargo-llvm-cov --version 0.8.7 --locked
+      - run: npm run test:coverage
+      - run: npm run test:integration
+      - run: cargo build --target wasm32-unknown-unknown --release
+      - run: npm audit

@@ -13,8 +13,10 @@ use worker::{D1Database, Env, Request};
 
 use crate::db::{now_iso, opt_text};
 use crate::env::{AppConfig, AuthenticatedUser};
-use crate::error::{ApiError, ApiResult};
-use crate::lead_change_copy::{generate_lead_change_copy, random_variant_index, LeadChangeInput};
+use crate::error::{json_body, ApiError, ApiResult};
+use crate::lead_change_copy::{
+    build_lead_change_copy, generate_lead_change_copy, random_variant_index, LeadChangeInput,
+};
 use crate::push;
 
 const LEAD_CHANGE_TTL_SECONDS: i64 = 60;
@@ -54,6 +56,45 @@ struct NotificationRow {
     day_key: Option<String>,
     payload_json: String,
     created_at: Option<String>,
+}
+
+/// A non-empty, bounded collection of notification IDs parsed at the HTTP boundary.
+struct NotificationIds(Vec<String>);
+
+impl NotificationIds {
+    fn parse(body: &serde_json::Value) -> ApiResult<Self> {
+        let raw_ids = body
+            .get("notificationIds")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(invalid_notification_ids)?;
+        if raw_ids.is_empty() || raw_ids.len() > 100 {
+            return Err(invalid_notification_ids());
+        }
+
+        let ids = raw_ids
+            .iter()
+            .map(|value| {
+                value
+                    .as_str()
+                    .filter(|id| !id.is_empty() && id.len() <= 128)
+                    .map(str::to_string)
+                    .ok_or_else(invalid_notification_ids)
+            })
+            .collect::<ApiResult<Vec<_>>>()?;
+        Ok(Self(ids))
+    }
+
+    fn as_slice(&self) -> &[String] {
+        &self.0
+    }
+}
+
+fn invalid_notification_ids() -> ApiError {
+    ApiError::new(
+        422,
+        "invalid_notifications",
+        "notificationIds must contain between 1 and 100 notification IDs.",
+    )
 }
 
 fn clamp_limit(raw: Option<&str>) -> i64 {
@@ -231,7 +272,12 @@ pub async fn get_notifications(
     let notifications = rows
         .iter()
         .map(|row| {
-            serde_json::json!({
+            let payload =
+                serde_json::from_str::<serde_json::Value>(&row.payload_json).map_err(|error| {
+                    log::error!("stored notification payload is invalid: {error}");
+                    ApiError::internal()
+                })?;
+            Ok(serde_json::json!({
                 "notificationId": row.notification_id,
                 "type": row.kind,
                 "title": row.title,
@@ -239,12 +285,11 @@ pub async fn get_notifications(
                 "actorUid": row.actor_uid,
                 "competitorUid": row.competitor_uid,
                 "dayKey": row.day_key,
-                "payload": serde_json::from_str::<serde_json::Value>(&row.payload_json)
-                    .unwrap_or_else(|_| serde_json::json!({})),
+                "payload": payload,
                 "createdAt": row.created_at,
-            })
+            }))
         })
-        .collect::<Vec<_>>();
+        .collect::<ApiResult<Vec<_>>>()?;
     Ok(serde_json::json!({"notifications": notifications}))
 }
 
@@ -253,34 +298,15 @@ pub async fn mark_notifications_read(
     db: &D1Database,
     user: &AuthenticatedUser,
 ) -> ApiResult<serde_json::Value> {
-    let body: serde_json::Value = request.json().await.map_err(|_| ApiError::invalid_json())?;
-    let ids = body
-        .get("notificationIds")
-        .and_then(|v| v.as_array())
-        .filter(|ids| {
-            !ids.is_empty()
-                && ids.len() <= 100
-                && ids
-                    .iter()
-                    .all(|id| id.as_str().is_some_and(|s| !s.is_empty() && s.len() <= 128))
-        })
-        .ok_or_else(|| {
-            ApiError::new(
-                422,
-                "invalid_notifications",
-                "notificationIds must contain between 1 and 100 notification IDs.",
-            )
-        })?
-        .iter()
-        .map(|v| v.as_str().expect("validated above").to_string())
-        .collect::<Vec<_>>();
+    let body: serde_json::Value = json_body(request).await?;
+    let ids = NotificationIds::parse(&body)?;
 
-    let placeholders = std::iter::repeat_n("?", ids.len())
+    let placeholders = std::iter::repeat_n("?", ids.as_slice().len())
         .collect::<Vec<_>>()
         .join(", ");
     let now = now_iso();
     let mut params = vec![D1Type::Text(&now), D1Type::Text(user.uid())];
-    params.extend(ids.iter().map(|id| D1Type::Text(id)));
+    params.extend(ids.as_slice().iter().map(|id| D1Type::Text(id)));
     db.prepare(format!(
         "UPDATE notification_events
          SET read_at = COALESCE(read_at, ?)
@@ -394,7 +420,7 @@ pub async fn notify_friends_passed(
         let copy = if after_generation == before_generation {
             generated_copy
         } else {
-            crate::lead_change_copy::build_lead_change_copy(
+            build_lead_change_copy(
                 &LeadChangeInput {
                     actor: actor_name.clone(),
                     deficit: fresh_deficit,
@@ -565,5 +591,24 @@ mod tests {
         };
         assert_eq!(current_deficit(&tied, "2026-01-01"), None);
         assert_eq!(current_deficit(&tied, "2026-01-02"), None);
+    }
+
+    #[test]
+    fn notification_ids_parse_only_non_empty_bounded_strings() {
+        let parsed = NotificationIds::parse(&serde_json::json!({
+            "notificationIds": ["first", "second"]
+        }))
+        .expect("valid IDs parse");
+        assert_eq!(parsed.as_slice(), ["first", "second"]);
+
+        for invalid in [
+            serde_json::json!({}),
+            serde_json::json!({"notificationIds": []}),
+            serde_json::json!({"notificationIds": [""]}),
+            serde_json::json!({"notificationIds": [7]}),
+            serde_json::json!({"notificationIds": ["x".repeat(129)]}),
+        ] {
+            assert!(NotificationIds::parse(&invalid).is_err());
+        }
     }
 }

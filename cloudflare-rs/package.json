@@ -4,11 +4,13 @@
   "description": "wrangler tooling for the Rust Pushlog API worker",
   "scripts": {
     "dev": "wrangler dev --local --persist-to .wrangler/state",
+    "test:integration": "node scripts/integration-test.mjs",
+    "test:coverage": "sh scripts/coverage.sh",
     "db:migrate:local": "wrangler d1 migrations apply pushlog-staging --local --persist-to .wrangler/state",
     "db:migrate:staging": "wrangler d1 migrations apply pushlog-staging --remote",
     "deploy:staging": "wrangler deploy"
   },
   "devDependencies": {
-    "wrangler": "4.119.0"
+    "wrangler": "4.125.0"
   }
 }

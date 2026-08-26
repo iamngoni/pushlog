@@ -54,7 +54,15 @@ pub struct ServiceAccount {
 }
 
 pub fn parse_service_account(json: &str) -> Result<ServiceAccount, FcmError> {
-    serde_json::from_str(json).map_err(|_| FcmError::InvalidServiceAccount)
+    let account: ServiceAccount =
+        serde_json::from_str(json).map_err(|_| FcmError::InvalidServiceAccount)?;
+    if account.client_email.trim().is_empty()
+        || account.private_key.trim().is_empty()
+        || account.project_id.trim().is_empty()
+    {
+        return Err(FcmError::InvalidServiceAccount);
+    }
+    Ok(account)
 }
 
 struct CachedToken {
@@ -68,7 +76,7 @@ static TOKEN_CACHE: Mutex<Option<CachedToken>> = Mutex::new(None);
 fn cached_token(client_email: &str, now: i64) -> Option<String> {
     let guard = TOKEN_CACHE
         .lock()
-        .expect("fcm token cache mutex is never poisoned: no panics occur while holding it");
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     guard.as_ref().and_then(|cached| {
         (cached.client_email == client_email && cached.expires_at > now)
             .then(|| cached.access_token.clone())
@@ -78,12 +86,11 @@ fn cached_token(client_email: &str, now: i64) -> Option<String> {
 fn store_token(client_email: String, access_token: String, expires_at: i64) {
     *TOKEN_CACHE
         .lock()
-        .expect("fcm token cache mutex is never poisoned: no panics occur while holding it") =
-        Some(CachedToken {
-            client_email,
-            access_token,
-            expires_at,
-        });
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(CachedToken {
+        client_email,
+        access_token,
+        expires_at,
+    });
 }
 
 /// Builds and signs the RS256 JWT assertion Google's token endpoint
@@ -276,6 +283,16 @@ mod tests {
     #[test]
     fn parse_service_account_rejects_malformed_json() {
         assert!(parse_service_account("not json").is_err());
+        let empty = serde_json::json!({
+            "client_email": "",
+            "private_key": "",
+            "project_id": ""
+        })
+        .to_string();
+        assert!(matches!(
+            parse_service_account(&empty),
+            Err(FcmError::InvalidServiceAccount)
+        ));
     }
 
     #[test]
