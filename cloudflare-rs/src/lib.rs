@@ -7,6 +7,8 @@
 mod auth;
 mod db;
 mod devices;
+mod engagement;
+mod engagement_copy;
 mod env;
 mod error;
 mod friends;
@@ -50,6 +52,16 @@ pub async fn main(req: Request, env: Env, ctx: Context) -> Result<Response> {
             }
             error_response(&error, &request_id)
         }
+    }
+}
+
+#[event(scheduled)]
+pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+    #[cfg(feature = "console_error_panic_hook")]
+    console_error_panic_hook::set_once();
+    let _ = console_log::init_with_level(log::Level::Info);
+    if let Err(error) = engagement::deliver_due_reminders(&env).await {
+        log::error!("scheduled engagement reminder run failed: {error}");
     }
 }
 

@@ -357,6 +357,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 theme,
                 prefs,
               ),
+            ],
+            if (prefs.remindersEnabled ||
+                prefs.streakRemindersEnabled ||
+                prefs.comebackRemindersEnabled) ...[
               buildDivider(theme),
               buildToggleRow(
                 title: 'Smart copy',
@@ -377,6 +381,58 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
             buildDivider(theme),
             buildToggleRow(
+              title: 'Streak alerts',
+              detail: prefs.streakRemindersEnabled
+                  ? 'Warns you before an active streak expires'
+                  : 'Streak alerts are off',
+              isOn: prefs.streakRemindersEnabled,
+              theme: theme,
+              onChanged: (value) async {
+                final updated = prefs.copyWith(
+                  streakRemindersEnabled: value,
+                );
+                if (!await _syncRemoteNotificationPreference(
+                  context,
+                  updated,
+                  requestingPermission: value,
+                  warningTitle: 'Streak alerts need notification access',
+                )) {
+                  return;
+                }
+                if (!context.mounted) return;
+                context.read<WorkoutBloc>().add(
+                  UpdatePreferencesEvent(updated),
+                );
+              },
+            ),
+            buildDivider(theme),
+            buildToggleRow(
+              title: 'Comeback nudges',
+              detail: prefs.comebackRemindersEnabled
+                  ? 'A few gentle nudges, then automatic quiet'
+                  : 'Inactivity nudges are off',
+              isOn: prefs.comebackRemindersEnabled,
+              theme: theme,
+              onChanged: (value) async {
+                final updated = prefs.copyWith(
+                  comebackRemindersEnabled: value,
+                );
+                if (!await _syncRemoteNotificationPreference(
+                  context,
+                  updated,
+                  requestingPermission: value,
+                  warningTitle: 'Comeback nudges need notification access',
+                )) {
+                  return;
+                }
+                if (!context.mounted) return;
+                context.read<WorkoutBloc>().add(
+                  UpdatePreferencesEvent(updated),
+                );
+              },
+            ),
+            buildDivider(theme),
+            buildToggleRow(
               title: 'Friend lead changes',
               detail: prefs.competitionNotificationsEnabled
                   ? 'Alerts both friends when the lead changes'
@@ -384,30 +440,20 @@ class _SettingsPageState extends State<SettingsPage> {
               isOn: prefs.competitionNotificationsEnabled,
               theme: theme,
               onChanged: (value) async {
-                final uid = getIt<FirebaseAuth>().currentUser?.uid;
-                if (uid == null) return;
-                final granted = await getIt<CompetitionNotificationService>()
-                    .syncForUser(
-                      uid: uid,
-                      enabled: value,
-                      requestPermission: value,
-                    );
-                if (value && !granted) {
-                  if (!context.mounted) return;
-                  PushlogToast.warning(
-                    context,
-                    'Friend alerts need notification access',
-                    detail:
-                        'Allow notifications for Pushlog in your device '
-                        'settings to hear when a friend passes you.',
-                  );
+                final updated = prefs.copyWith(
+                  competitionNotificationsEnabled: value,
+                );
+                if (!await _syncRemoteNotificationPreference(
+                  context,
+                  updated,
+                  requestingPermission: value,
+                  warningTitle: 'Friend alerts need notification access',
+                )) {
                   return;
                 }
                 if (!context.mounted) return;
                 context.read<WorkoutBloc>().add(
-                  UpdatePreferencesEvent(
-                    prefs.copyWith(competitionNotificationsEnabled: value),
-                  ),
+                  UpdatePreferencesEvent(updated),
                 );
               },
             ),
@@ -415,6 +461,31 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ],
     );
+  }
+
+  Future<bool> _syncRemoteNotificationPreference(
+    BuildContext context,
+    WorkoutPreferences preferences, {
+    required bool requestingPermission,
+    required String warningTitle,
+  }) async {
+    final uid = getIt<FirebaseAuth>().currentUser?.uid;
+    if (uid == null) return false;
+    final ready = await getIt<CompetitionNotificationService>().syncForUser(
+      uid: uid,
+      enabled: preferences.remoteNotificationsEnabled,
+      requestPermission: requestingPermission,
+    );
+    if (requestingPermission && !ready && context.mounted) {
+      PushlogToast.warning(
+        context,
+        warningTitle,
+        detail:
+            'Allow notifications for Pushlog in your device settings, '
+            'then switch this back on.',
+      );
+    }
+    return !requestingPermission || ready;
   }
 
   Widget buildTrainingPlanSection(

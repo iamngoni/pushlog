@@ -13,6 +13,9 @@ pub struct PushNotification {
     pub title: String,
     pub body: String,
     pub data: Vec<(String, String)>,
+    pub channel_id: &'static str,
+    pub thread_id: &'static str,
+    pub collapse_key: Option<String>,
 }
 
 /// The outcome recorded against a `notification_events` row. Variant names
@@ -98,15 +101,7 @@ pub async fn deliver_to_user(
 
     let mut delivered = false;
     for device in &devices {
-        match fcm::send(
-            &account,
-            &device.token,
-            &notification.title,
-            &notification.body,
-            &notification.data,
-        )
-        .await
-        {
+        match fcm::send(&account, &device.token, notification).await {
             Ok(()) => delivered = true,
             Err(fcm::FcmError::Unregistered) => {
                 if let Err(error) = delete_device(db, uid, &device.token).await {

@@ -65,6 +65,17 @@ void main() {
     expect(dates, [DateTime(2026, 8, 5, 19)]);
   });
 
+  test('does not remind for a training day that is already complete', () {
+    final dates = ReminderService().scheduledDatesFor(
+      preferences,
+      now: DateTime(2026, 8, 4, 10),
+      windowDays: 4,
+      completedDayKeys: const {'2026-08-05'},
+    );
+
+    expect(dates, [DateTime(2026, 8, 7, 19)]);
+  });
+
   test('uses the selected coaching style and planned prescription', () {
     final copy = ReminderService().copyFor(
       preferences,

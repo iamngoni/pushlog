@@ -12,6 +12,12 @@ database_name = "pushlog-staging"
 database_id = "150fa67b-ecf6-4833-a10a-2be0816e7678"
 migrations_dir = "migrations"
 
+[ai]
+binding = "AI"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
 [observability]
 enabled = true
 

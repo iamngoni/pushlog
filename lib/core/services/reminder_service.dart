@@ -120,8 +120,9 @@ class ReminderService {
   }
 
   Future<void> syncPreferences(
-    WorkoutPreferences preferences,
-  ) async {
+    WorkoutPreferences preferences, {
+    Map<String, int> dayTotals = const {},
+  }) async {
     await initialize();
     await cancelAllManaged();
 
@@ -136,6 +137,10 @@ class ReminderService {
     final scheduledDates = scheduledDatesFor(
       preferences,
       now: DateTime.now(),
+      completedDayKeys: dayTotals.entries
+          .where((entry) => entry.value > 0)
+          .map((entry) => entry.key)
+          .toSet(),
     );
     for (var index = 0; index < scheduledDates.length; index++) {
       final scheduledAt = scheduledDates[index];
@@ -173,6 +178,7 @@ class ReminderService {
     WorkoutPreferences preferences, {
     required DateTime now,
     int windowDays = _notificationWindowDays,
+    Set<String> completedDayKeys = const {},
   }) {
     final plan = preferences.trainingPlan;
     final dates = <DateTime>[];
@@ -186,6 +192,7 @@ class ReminderService {
       );
       if (!date.isAfter(now.add(const Duration(seconds: 5)))) continue;
       if (plan != null && !plan.isTrainingDay(date)) continue;
+      if (completedDayKeys.contains(_dayKey(date))) continue;
       dates.add(date);
     }
     return dates;
@@ -254,5 +261,12 @@ class ReminderService {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  String _dayKey(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
   }
 }

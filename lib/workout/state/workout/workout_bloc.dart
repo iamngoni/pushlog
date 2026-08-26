@@ -78,7 +78,10 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
       if (loadedState == null) return;
 
       emit(loadedState);
-      await _syncReminders(loadedState.preferences);
+      await _syncReminders(
+        loadedState.preferences,
+        loadedState.dayTotals,
+      );
     } on Exception catch (e, s) {
       dev.log(
         'LoadWorkoutData error',
@@ -342,7 +345,10 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     if (loadedState == null) return;
 
     emit(loadedState);
-    await _syncReminders(loadedState.preferences);
+    await _syncReminders(
+      loadedState.preferences,
+      loadedState.dayTotals,
+    );
   }
 
   WorkoutLoaded _stateFromSnapshot(
@@ -377,7 +383,7 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
     WorkoutLoaded state,
     Emitter<WorkoutState> emit,
   ) async {
-    await _syncReminders(state.preferences);
+    await _syncReminders(state.preferences, state.dayTotals);
     final result = await _repository.saveSnapshot(
       _snapshotFromState(state),
     );
@@ -400,9 +406,13 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
 
   Future<void> _syncReminders(
     WorkoutPreferences preferences,
+    Map<String, int> dayTotals,
   ) async {
     try {
-      await _reminderService.syncPreferences(preferences);
+      await _reminderService.syncPreferences(
+        preferences,
+        dayTotals: dayTotals,
+      );
     } on Exception catch (error, stackTrace) {
       dev.log(
         'Reminder sync error',

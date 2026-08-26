@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:pushlog/core/services/pushlog_api_client.dart';
 
 class CompetitionNotificationService {
@@ -21,6 +22,12 @@ class CompetitionNotificationService {
     'pushlog_competition',
     'Friend competition',
     description: 'Lead changes and friend leaderboard updates.',
+    importance: Importance.high,
+  );
+  static const _dailyRemindersChannel = AndroidNotificationChannel(
+    'pushlog_daily_reminders',
+    'Pushlog Training Reminders',
+    description: 'Reminders for planned Pushlog training days.',
     importance: Importance.high,
   );
 
@@ -52,11 +59,14 @@ class CompetitionNotificationService {
         macOS: darwin,
       ),
     );
-    await _localNotifications
+    final androidNotifications = _localNotifications
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(_channel);
+        >();
+    await androidNotifications?.createNotificationChannel(_channel);
+    await androidNotifications?.createNotificationChannel(
+      _dailyRemindersChannel,
+    );
 
     _messageSubscription = FirebaseMessaging.onMessage.listen(
       _showForegroundMessage,
@@ -225,9 +235,23 @@ class CompetitionNotificationService {
   Future<void> _registerToken(String uid, String token) async {
     _uid = uid;
     _token = token;
+    String? timeZone;
+    try {
+      timeZone = await FlutterTimezone.getLocalTimezone();
+    } on Exception catch (error, stackTrace) {
+      log(
+        'notification timezone lookup failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
     await _api.put(
       '/v1/devices',
-      body: {'token': token, 'platform': _platformName},
+      body: {
+        'token': token,
+        'platform': _platformName,
+        'timeZone': ?timeZone,
+      },
     );
   }
 
@@ -253,7 +277,26 @@ class CompetitionNotificationService {
 
   Future<void> _showForegroundMessage(RemoteMessage message) async {
     final notification = message.notification;
-    if (notification == null || message.data['type'] != 'lead_change') return;
+    final type = message.data['type'];
+    if (notification == null ||
+        (type != 'lead_change' && type != 'engagement_reminder')) {
+      return;
+    }
+    final androidDetails = type == 'engagement_reminder'
+        ? const AndroidNotificationDetails(
+            'pushlog_daily_reminders',
+            'Pushlog Training Reminders',
+            channelDescription: 'Reminders for planned Pushlog training days.',
+            importance: Importance.high,
+            priority: Priority.high,
+          )
+        : const AndroidNotificationDetails(
+            'pushlog_competition',
+            'Friend competition',
+            channelDescription: 'Lead changes and friend leaderboard updates.',
+            importance: Importance.high,
+            priority: Priority.high,
+          );
 
     final displayId =
         (message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch) &
@@ -262,16 +305,10 @@ class CompetitionNotificationService {
       displayId,
       notification.title,
       notification.body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'pushlog_competition',
-          'Friend competition',
-          channelDescription: 'Lead changes and friend leaderboard updates.',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(),
-        macOS: DarwinNotificationDetails(),
+      NotificationDetails(
+        android: androidDetails,
+        iOS: const DarwinNotificationDetails(),
+        macOS: const DarwinNotificationDetails(),
       ),
       payload: message.data['notificationId'] as String?,
     );
