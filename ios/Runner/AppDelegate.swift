@@ -125,25 +125,25 @@ import UIKit
     }
     guard
       let payload = arguments as? [String: Any],
-      let reps = payload["reps"] as? Int,
-      let durationMicroseconds = payload["durationMicroseconds"] as? Int,
-      let manualAdjustments = payload["manualAdjustments"] as? Int,
-      let endedAtRaw = payload["endedAt"] as? String,
+      let repsValue = payload["reps"] as? NSNumber,
+      let durationMicroseconds = payload["durationMicroseconds"] as? NSNumber,
+      let manualAdjustments = payload["manualAdjustments"] as? NSNumber,
+      let endedAtEpochMilliseconds = payload["endedAtEpochMilliseconds"] as? NSNumber,
       let externalId = payload["externalId"] as? String,
-      reps > 0
+      repsValue.intValue > 0
     else {
+      NSLog("[Pushlog] HealthKit export rejected an invalid session payload")
       result(false)
       return
     }
 
-    let formatter = ISO8601DateFormatter()
-    guard let endedAt = formatter.date(from: endedAtRaw) else {
-      result(false)
-      return
-    }
+    let endedAt = Date(
+      timeIntervalSince1970: endedAtEpochMilliseconds.doubleValue / 1_000
+    )
+    let reps = repsValue.intValue
 
     Task {
-      let duration = max(Double(durationMicroseconds) / 1_000_000, 60)
+      let duration = max(durationMicroseconds.doubleValue / 1_000_000, 1)
       let startedAt = endedAt.addingTimeInterval(-duration)
       let configuration = HKWorkoutConfiguration()
       configuration.activityType = .functionalStrengthTraining
@@ -158,7 +158,7 @@ import UIKit
         try await builder.beginCollection(at: startedAt)
         try await builder.addMetadata([
           "PushlogRepCount": reps,
-          "PushlogManualAdjustments": manualAdjustments,
+          "PushlogManualAdjustments": manualAdjustments.intValue,
           "PushlogExternalSessionID": externalId
         ])
         try await builder.endCollection(at: endedAt)
@@ -166,6 +166,7 @@ import UIKit
         result(true)
       } catch {
         builder.discardWorkout()
+        NSLog("[Pushlog] HealthKit export FAILED: %@", error.localizedDescription)
         result(false)
       }
     }

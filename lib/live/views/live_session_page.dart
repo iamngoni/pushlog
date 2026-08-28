@@ -10,6 +10,7 @@ import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 import 'package:pushlog/core/views/widgets/pushlog_confirm_dialog.dart';
 import 'package:pushlog/core/views/widgets/pushlog_surface.dart';
+import 'package:pushlog/core/views/widgets/pushlog_toast.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/live/services/face_tracking_service.dart';
 import 'package:pushlog/platform/health/health_service.dart';
@@ -37,6 +38,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   HealthKitWriteOwner _healthKitWriteOwner = HealthKitWriteOwner.phone;
   Duration _elapsed = Duration.zero;
   DateTime? _startedAt;
+  DateTime? _endedAt;
   String? _sessionId;
   int _reps = 0;
   int _manualAdjustments = 0;
@@ -534,6 +536,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       _isPaused = false;
       _usesAutoTracking = usesAutoTracking;
       _startedAt = DateTime.now();
+      _endedAt = null;
       _sessionId = WorkoutBloc.generateId();
       _healthKitWriteOwner = HealthKitWriteOwner.phone;
     });
@@ -632,6 +635,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   Future<void> _finishSessionAsync() async {
     final sessionId = _sessionId;
     final endedAt = DateTime.now();
+    _endedAt = endedAt;
 
     if (_usesAutoTracking) {
       final finished = await getIt<FaceTrackingService>().stop();
@@ -687,13 +691,20 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     if (_preferences.healthSyncEnabled &&
         _healthKitWriteOwner == HealthKitWriteOwner.phone &&
         _reps > 0) {
-      await getIt<HealthService>().saveLiveSession(
+      final exported = await getIt<HealthService>().saveLiveSession(
         reps: _reps,
         duration: _elapsed,
         manualAdjustments: _manualAdjustments,
-        endedAt: DateTime.now(),
+        endedAt: _endedAt ?? DateTime.now(),
         externalId: sessionId,
       );
+      if (!exported && context.mounted) {
+        PushlogToast.warning(
+          context,
+          'Workout saved, health export failed',
+          detail: 'Check health access in Settings before your next session.',
+        );
+      }
     }
 
     if (context.mounted) {

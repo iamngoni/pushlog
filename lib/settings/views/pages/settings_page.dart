@@ -564,6 +564,12 @@ class _SettingsPageState extends State<SettingsPage> {
     AppTheme theme,
     WorkoutPreferences prefs,
   ) {
+    final syncTitle = switch (Theme.of(context).platform) {
+      TargetPlatform.iOS => 'Apple Health sync',
+      TargetPlatform.android => 'Health Connect sync',
+      _ => 'Health sync',
+    };
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -572,7 +578,7 @@ class _SettingsPageState extends State<SettingsPage> {
           theme,
           children: [
             buildToggleRow(
-              title: 'HealthKit sync',
+              title: syncTitle,
               detail: healthDetail(prefs),
               isOn: prefs.healthSyncEnabled,
               theme: theme,

@@ -35,7 +35,7 @@ void main() {
     expect(status, HealthAuthorizationStatus.authorized);
   });
 
-  test('sends live session payload to native HealthKit bridge', () async {
+  test('sends live session payload to the native health bridge', () async {
     final endedAt = DateTime(2026, 5, 30, 12, 30);
     final calls = <MethodCall>[];
     messenger.setMockMethodCallHandler(channel, (call) async {
@@ -58,7 +58,7 @@ void main() {
       'reps': 42,
       'durationMicroseconds': 200000000,
       'manualAdjustments': 2,
-      'endedAt': endedAt.toIso8601String(),
+      'endedAtEpochMilliseconds': endedAt.millisecondsSinceEpoch,
       'externalId': 'session-42',
     });
   });

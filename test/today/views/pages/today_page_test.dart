@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -12,6 +13,7 @@ import 'package:pushlog/live/services/face_tracking_service.dart';
 import 'package:pushlog/live/views/live_session_page.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/watch/watch_service.dart';
+import 'package:pushlog/platform/watch/watch_state.dart';
 import 'package:pushlog/today/views/pages/today_page.dart';
 import 'package:pushlog/training/models/training_plan.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
@@ -28,6 +30,28 @@ class _ReadyFaceTrackingService extends FaceTrackingService {
   Future<FaceTrackingSnapshot> start() async => const FaceTrackingSnapshot(
     phase: FaceTrackingPhase.ready,
   );
+}
+
+class _PhoneOnlyWatchService extends WatchService {
+  const _PhoneOnlyWatchService();
+
+  @override
+  Future<WatchStatus> status() async => const WatchStatus.unsupported();
+
+  @override
+  Future<WatchStatus> beginLiveWorkout({
+    required String sessionId,
+    required DateTime startedAt,
+    required bool preferWatch,
+  }) async => const WatchStatus.unsupported();
+
+  @override
+  Future<HealthKitWriteOwner> stopLiveWorkout({
+    required String sessionId,
+    required int reps,
+    required Duration duration,
+    required DateTime endedAt,
+  }) async => HealthKitWriteOwner.phone;
 }
 
 void main() {
@@ -194,6 +218,100 @@ void main() {
     );
 
     expect(begin.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('saving a live session exports it to the health bridge', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio();
+    });
+    await getIt.unregister<FaceTrackingService>();
+    getIt.registerSingleton<FaceTrackingService>(
+      _ReadyFaceTrackingService(),
+    );
+    await getIt.unregister<WatchService>();
+    getIt.registerSingleton<WatchService>(const _PhoneOnlyWatchService());
+
+    const healthState = WorkoutLoaded(
+      dayTotals: {},
+      sessions: [],
+      preferences: WorkoutPreferences(healthSyncEnabled: true),
+    );
+    when(() => workoutBloc.state).thenReturn(healthState);
+    when(
+      () => workoutBloc.stream,
+    ).thenAnswer((_) => Stream<WorkoutState>.value(healthState));
+
+    const healthChannel = MethodChannel(HealthService.channelName);
+    final calls = <MethodCall>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          ..setMockMethodCallHandler(healthChannel, (call) async {
+            calls.add(call);
+            return true;
+          });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(healthChannel, null),
+    );
+
+    final theme = AppTheme.light();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme.toMaterialTheme(Brightness.light),
+        home: BlocProvider<WorkoutBloc>.value(
+          value: workoutBloc,
+          child: const LiveSessionPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.scrollUntilVisible(
+      find.text('Start'),
+      600,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('live-session-setup-scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    final start = find.text('Start').hitTestable();
+    expect(start, findsOneWidget);
+    await tester.tap(start);
+    await tester.pumpAndSettle();
+    expect(find.text('PRE-FLIGHT'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Manual'),
+      600,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('live-session-preflight-scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(find.text('Manual').hitTestable());
+    await tester.pump();
+    expect(find.text('SESSION'), findsOneWidget);
+    await tester.tap(find.text('+1').hitTestable());
+    final end = find.text('End').hitTestable();
+    expect(end, findsOneWidget);
+    await tester.tap(end);
+    await tester.pumpAndSettle();
+    expect(find.text('SUMMARY'), findsOneWidget);
+    await tester.tap(find.text('Save').hitTestable());
+    await tester.pumpAndSettle();
+
+    final saveCall = calls.singleWhere(
+      (call) => call.method == 'saveLiveSession',
+    );
+    final payload = Map<Object?, Object?>.from(saveCall.arguments as Map);
+    expect(payload['reps'], 1);
+    expect(payload['endedAtEpochMilliseconds'], isA<int>());
+    expect(payload['externalId'], isNotEmpty);
     expect(tester.takeException(), isNull);
   });
 

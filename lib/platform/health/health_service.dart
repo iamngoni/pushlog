@@ -58,7 +58,9 @@ class HealthService {
               'reps': reps,
               'durationMicroseconds': duration.inMicroseconds,
               'manualAdjustments': manualAdjustments,
-              'endedAt': endedAt.toIso8601String(),
+              // Epoch milliseconds cross the platform channel without any
+              // locale, time-zone, or fractional-second parsing ambiguity.
+              'endedAtEpochMilliseconds': endedAt.millisecondsSinceEpoch,
               'externalId': externalId,
             },
           ) ??
