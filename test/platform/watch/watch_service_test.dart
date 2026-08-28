@@ -34,6 +34,7 @@ void main() {
             'statusLabel': 'WATCH READY',
             'currentHeartRate': 88.5,
             'activeCalories': 14.25,
+            'effortScore': 7,
             'controlAction': 'pause',
             'controlValue': 0,
             'controlSequence': 7,
@@ -46,6 +47,7 @@ void main() {
     expect(status.statusLabel, 'WATCH READY');
     expect(status.currentHeartRate, 88.5);
     expect(status.activeCalories, 14.25);
+    expect(status.effortScore, 7);
     expect(status.controlAction, 'pause');
     expect(status.controlSequence, 7);
   });
@@ -93,5 +95,26 @@ void main() {
     );
 
     expect(owner, HealthKitWriteOwner.watch);
+  });
+
+  test('sends effort when committing a stopped watch workout', () async {
+    MethodCall? captured;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          captured = call;
+          return 'watch';
+        });
+
+    final owner = await service.commitStoppedWorkout(
+      sessionId: 'session-1',
+      effortScore: 8,
+    );
+
+    expect(owner, HealthKitWriteOwner.watch);
+    expect(captured?.method, 'commitStoppedWorkout');
+    expect(captured?.arguments, {
+      'sessionId': 'session-1',
+      'effortScore': 8,
+    });
   });
 }

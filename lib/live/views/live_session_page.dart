@@ -47,6 +47,10 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   int? _countdownValue;
   bool _didLoadWatchStatus = false;
   int _lastWatchControlSequence = 0;
+  int? _effortScore;
+
+  bool get _wantsWatch =>
+      _preferences.liveDevicePreference == LiveDevicePreference.iphoneAndWatch;
 
   @override
   void didChangeDependencies() {
@@ -166,6 +170,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                 theme: theme,
                 onTap: () => setState(() {
                   _preferences = _preferences.copyWith(
+                    healthSyncEnabled: true,
                     liveDevicePreference: LiveDevicePreference.iphoneAndWatch,
                   );
                 }),
@@ -365,9 +370,17 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               ],
             ),
           ),
-          if (_watchStatus.currentHeartRate > 0 ||
-              _watchStatus.activeCalories > 0) ...[
+          if (_wantsWatch) ...[
             const SizedBox(height: AppSpacing.lg),
+            Text(
+              _watchStatus.statusLabel,
+              style: AppTypography.overline(
+                color: _watchStatus.statusLabel.contains('RECORDING')
+                    ? theme.accentInk
+                    : theme.tertiaryInk,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 Expanded(
@@ -451,6 +464,12 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               ('Adjustments', '$_manualAdjustments'),
             ],
           ),
+          const SizedBox(height: AppSpacing.lg),
+          _EffortSelector(
+            value: _effortScore,
+            theme: theme,
+            onChanged: (value) => setState(() => _effortScore = value),
+          ),
           const Spacer(),
           _BottomPair(
             theme: theme,
@@ -475,6 +494,9 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     if (!mounted) return;
     setState(() {
       _watchStatus = status;
+      if (status.effortScore != null) {
+        _effortScore = status.effortScore;
+      }
       _lastWatchControlSequence = status.controlSequence;
     });
 
@@ -487,6 +509,9 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             status.controlSequence > _lastWatchControlSequence;
         setState(() {
           _watchStatus = status;
+          if (status.effortScore != null) {
+            _effortScore = status.effortScore;
+          }
           _lastWatchControlSequence = status.controlSequence;
         });
         if (shouldHandleControl) _handleWatchControl(status);
@@ -583,6 +608,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       _endedAt = null;
       _sessionId = WorkoutBloc.generateId();
       _healthKitWriteOwner = HealthKitWriteOwner.phone;
+      _effortScore = null;
     });
     _beginWatchWorkoutIfNeeded();
     _ticker?.cancel();
@@ -613,9 +639,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             sessionId: sessionId,
             startedAt: startedAt,
             preferWatch:
-                _preferences.healthSyncEnabled &&
                 _preferences.liveDevicePreference ==
-                    LiveDevicePreference.iphoneAndWatch,
+                LiveDevicePreference.iphoneAndWatch,
           )
           .then((status) {
             if (!mounted) return;
@@ -754,12 +779,14 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
         duration: _elapsed,
         avgRepDuration: avgRepDuration,
         manualAdjustments: _manualAdjustments,
+        effortScore: _effortScore,
       ),
     );
 
     if (_healthKitWriteOwner == HealthKitWriteOwner.watch) {
       _healthKitWriteOwner = await getIt<WatchService>().commitStoppedWorkout(
         sessionId: sessionId,
+        effortScore: _effortScore,
       );
     }
 
@@ -772,6 +799,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
         manualAdjustments: _manualAdjustments,
         endedAt: _endedAt ?? DateTime.now(),
         externalId: sessionId,
+        effortScore: _effortScore,
       );
       if (!exported && context.mounted) {
         PushlogToast.warning(
@@ -1054,6 +1082,84 @@ class _LiveMetric extends StatelessWidget {
           Text(label, style: AppTypography.overline(color: theme.tertiaryInk)),
           const SizedBox(height: AppSpacing.sm),
           Text(value, style: AppTypography.title(color: theme.ink)),
+        ],
+      ),
+    );
+  }
+}
+
+class _EffortSelector extends StatelessWidget {
+  const _EffortSelector({
+    required this.value,
+    required this.theme,
+    required this.onChanged,
+  });
+
+  final int? value;
+  final AppTheme theme;
+  final ValueChanged<int> onChanged;
+
+  String get _detail => switch (value) {
+    null => 'Optional · 1–10',
+    <= 2 => '$value · Light',
+    <= 4 => '$value · Easy',
+    <= 6 => '$value · Moderate',
+    <= 8 => '$value · Hard',
+    _ => '$value · All out',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return PushlogCard(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const OverlineLabel('SESSION EFFORT'),
+          const SizedBox(height: AppSpacing.md),
+          Text(_detail, style: AppTypography.title(color: theme.ink)),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'How hard did that session feel?',
+            style: AppTypography.body(color: theme.secondaryInk),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              for (var score = 1; score <= 10; score++)
+                Semantics(
+                  button: true,
+                  selected: value == score,
+                  label: 'Effort $score of 10',
+                  child: PressFeedback(
+                    key: ValueKey('effort-$score'),
+                    onTap: () => onChanged(score),
+                    haptic: AppHaptics.tick,
+                    child: AnimatedContainer(
+                      duration: AppMotion.duration(context, AppMotion.fast),
+                      width: AppSpacing.minTapTarget,
+                      height: AppSpacing.minTapTarget,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: value == score
+                            ? theme.accent
+                            : theme.surfaceSunken,
+                        borderRadius: AppRadius.all(AppRadius.sm),
+                      ),
+                      child: Text(
+                        '$score',
+                        style: AppTypography.metricInline(
+                          color: value == score ? theme.accentInk : theme.ink,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );

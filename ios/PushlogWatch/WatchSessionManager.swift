@@ -21,6 +21,8 @@ final class WatchSessionManager: NSObject, ObservableObject {
     @Published var isLiveActive: Bool = false
     @Published var isPaused: Bool = false
     @Published var currentHeartRate: Double = 0
+    @Published var isAwaitingEffort: Bool = false
+    @Published var effortScore: Int?
 
     weak var workoutManager: WatchWorkoutManager? {
         didSet {
@@ -101,6 +103,19 @@ final class WatchSessionManager: NSObject, ObservableObject {
 
     func requestEndFromWatch() {
         sendWatchControl("end")
+    }
+
+    func setEffort(_ score: Int) {
+        guard let activeSessionID, (1...10).contains(score) else { return }
+        effortScore = score
+        sendToPhone(
+            [
+                "type": "effort",
+                "sessionID": activeSessionID.uuidString,
+                "effortScore": score
+            ],
+            queued: true
+        )
     }
 
     func notifyWorkoutStopped(sessionID: UUID) {
@@ -199,6 +214,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
             liveElapsed = duration
             isLiveActive = false
             isPaused = false
+            isAwaitingEffort = true
             workoutManager?.stopWorkout(
                 sessionID: sessionID,
                 reps: reps,
@@ -213,11 +229,13 @@ final class WatchSessionManager: NSObject, ObservableObject {
             let endedAt = (message["endedAt"] as? Double).map {
                 Date(timeIntervalSinceReferenceDate: $0)
             } ?? Date()
+            let savedEffort = (message["effortScore"] as? NSNumber)?.intValue ?? effortScore
             workoutManager?.saveStoppedWorkout(
                 sessionID: sessionID,
                 reps: reps,
                 duration: duration,
-                endedAt: endedAt
+                endedAt: endedAt,
+                effortScore: savedEffort
             )
             clearLiveState()
 
@@ -279,6 +297,8 @@ final class WatchSessionManager: NSObject, ObservableObject {
         livePhase = "READY"
         trackingState = "LOCKED"
         isPaused = false
+        isAwaitingEffort = false
+        effortScore = nil
 
         let accepted = workoutManager.startWorkout(sessionID: sessionID, startDate: startedAt)
         isLiveActive = accepted
@@ -363,6 +383,8 @@ final class WatchSessionManager: NSObject, ObservableObject {
         livePhase = "READY"
         trackingState = "READY"
         currentHeartRate = 0
+        isAwaitingEffort = false
+        effortScore = nil
     }
 }
 

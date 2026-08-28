@@ -48,6 +48,7 @@ class HealthService {
     required int manualAdjustments,
     required DateTime endedAt,
     required String externalId,
+    int? effortScore,
   }) async {
     if (reps <= 0) return false;
 
@@ -62,6 +63,7 @@ class HealthService {
               // locale, time-zone, or fractional-second parsing ambiguity.
               'endedAtEpochMilliseconds': endedAt.millisecondsSinceEpoch,
               'externalId': externalId,
+              'effortScore': effortScore,
             },
           ) ??
           false;

@@ -22,6 +22,7 @@ class WorkoutSession extends Equatable {
     this.duration,
     this.averageRepDuration,
     this.manualAdjustments = 0,
+    this.effortScore,
   });
 
   factory WorkoutSession.fromJson(
@@ -46,6 +47,7 @@ class WorkoutSession extends Equatable {
             )
           : null,
       manualAdjustments: (json['manualAdjustments'] as int?) ?? 0,
+      effortScore: (json['effortScore'] as num?)?.toInt(),
     );
   }
 
@@ -56,6 +58,7 @@ class WorkoutSession extends Equatable {
   final Duration? duration;
   final Duration? averageRepDuration;
   final int manualAdjustments;
+  final int? effortScore;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -65,6 +68,7 @@ class WorkoutSession extends Equatable {
     'duration': duration?.inMicroseconds,
     'averageRepDuration': averageRepDuration?.inMicroseconds,
     'manualAdjustments': manualAdjustments,
+    'effortScore': effortScore,
   };
 
   WorkoutSession copyWith({
@@ -75,6 +79,7 @@ class WorkoutSession extends Equatable {
     Duration? duration,
     Duration? averageRepDuration,
     int? manualAdjustments,
+    int? Function()? effortScore,
   }) => WorkoutSession(
     id: id ?? this.id,
     date: date ?? this.date,
@@ -83,6 +88,7 @@ class WorkoutSession extends Equatable {
     duration: duration ?? this.duration,
     averageRepDuration: averageRepDuration ?? this.averageRepDuration,
     manualAdjustments: manualAdjustments ?? this.manualAdjustments,
+    effortScore: effortScore == null ? this.effortScore : effortScore(),
   );
 
   @override
@@ -94,5 +100,6 @@ class WorkoutSession extends Equatable {
     duration,
     averageRepDuration,
     manualAdjustments,
+    effortScore,
   ];
 }

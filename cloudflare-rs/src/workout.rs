@@ -39,6 +39,7 @@ struct WorkoutSessionPayload {
     duration: Option<i64>,
     average_rep_duration: Option<i64>,
     manual_adjustments: i64,
+    effort_score: Option<i64>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -218,6 +219,10 @@ fn parse_sessions(value: Option<&serde_json::Value>) -> ApiResult<Vec<WorkoutSes
             None => 0,
             Some(value) => bounded_integer(value, -100_000, 100_000, "manualAdjustments")?,
         };
+        let effort_score = match item.get("effortScore").filter(|value| !value.is_null()) {
+            None => None,
+            Some(value) => Some(bounded_integer(value, 1, 10, "effortScore")?),
+        };
 
         ids.insert(id.clone());
         sessions.push(WorkoutSessionPayload {
@@ -228,6 +233,7 @@ fn parse_sessions(value: Option<&serde_json::Value>) -> ApiResult<Vec<WorkoutSes
             duration,
             average_rep_duration,
             manual_adjustments,
+            effort_score,
         });
     }
     Ok(sessions)
@@ -688,6 +694,7 @@ mod tests {
                 duration: None,
                 average_rep_duration: None,
                 manual_adjustments: 0,
+                effort_score: Some(7),
             }],
             preferences: serde_json::json!({}),
             updated_at: Some("2026-08-06T08:01:00.000Z".into()),
@@ -699,6 +706,7 @@ mod tests {
             json["sessions"][0]["averageRepDuration"],
             serde_json::Value::Null
         );
+        assert_eq!(json["sessions"][0]["effortScore"], 7);
         assert_eq!(json["updatedAt"], "2026-08-06T08:01:00.000Z");
         assert_eq!(json["lastSyncedAt"], serde_json::Value::Null);
     }

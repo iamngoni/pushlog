@@ -104,8 +104,14 @@ import UIKit
       return
     }
 
+    var shareTypes: Set<HKSampleType> = [HKObjectType.workoutType()]
+    if #available(iOS 18.0, *),
+       let effortType = HKObjectType.quantityType(forIdentifier: .workoutEffortScore) {
+      shareTypes.insert(effortType)
+    }
+
     healthStore.requestAuthorization(
-      toShare: [HKObjectType.workoutType()],
+      toShare: shareTypes,
       read: [HKObjectType.workoutType()]
     ) { [weak self] success, _ in
       DispatchQueue.main.async {
@@ -141,6 +147,7 @@ import UIKit
       timeIntervalSince1970: endedAtEpochMilliseconds.doubleValue / 1_000
     )
     let reps = repsValue.intValue
+    let effortScore = (payload["effortScore"] as? NSNumber)?.intValue
 
     Task {
       let duration = max(durationMicroseconds.doubleValue / 1_000_000, 1)
@@ -162,7 +169,19 @@ import UIKit
           "PushlogExternalSessionID": externalId
         ])
         try await builder.endCollection(at: endedAt)
-        _ = try await finish(builder)
+        let workout = try await finish(builder)
+        if #available(iOS 18.0, *),
+           let effortScore,
+           (1...10).contains(effortScore) {
+          do {
+            try await saveEffortScore(effortScore, for: workout)
+          } catch {
+            NSLog(
+              "[Pushlog] Workout saved without effort score: %@",
+              error.localizedDescription
+            )
+          }
+        }
         result(true)
       } catch {
         builder.discardWorkout()
@@ -188,5 +207,24 @@ import UIKit
         )
       }
     }
+  }
+
+  @available(iOS 18.0, *)
+  private func saveEffortScore(_ score: Int, for workout: HKWorkout) async throws {
+    guard let effortType = HKObjectType.quantityType(forIdentifier: .workoutEffortScore) else {
+      return
+    }
+    let sample = HKQuantitySample(
+      type: effortType,
+      quantity: HKQuantity(unit: .appleEffortScore(), doubleValue: Double(score)),
+      start: workout.startDate,
+      end: workout.endDate
+    )
+    try await healthStore.save(sample)
+    _ = try await healthStore.relateWorkoutEffortSample(
+      sample,
+      with: workout,
+      activity: nil
+    )
   }
 }

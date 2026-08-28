@@ -14,6 +14,7 @@ class WatchStatus extends Equatable {
     required this.statusLabel,
     this.currentHeartRate = 0,
     this.activeCalories = 0,
+    this.effortScore,
     this.controlAction = '',
     this.controlValue = 0,
     this.controlSequence = 0,
@@ -37,6 +38,7 @@ class WatchStatus extends Equatable {
       statusLabel: map['statusLabel'] as String? ?? 'IPHONE ONLY',
       currentHeartRate: (map['currentHeartRate'] as num?)?.toDouble() ?? 0,
       activeCalories: (map['activeCalories'] as num?)?.toDouble() ?? 0,
+      effortScore: (map['effortScore'] as num?)?.toInt(),
       controlAction: map['controlAction'] as String? ?? '',
       controlValue: (map['controlValue'] as num?)?.toInt() ?? 0,
       controlSequence: (map['controlSequence'] as num?)?.toInt() ?? 0,
@@ -50,6 +52,7 @@ class WatchStatus extends Equatable {
   final String statusLabel;
   final double currentHeartRate;
   final double activeCalories;
+  final int? effortScore;
   final String controlAction;
   final int controlValue;
   final int controlSequence;
@@ -65,6 +68,7 @@ class WatchStatus extends Equatable {
     statusLabel,
     currentHeartRate,
     activeCalories,
+    effortScore,
     controlAction,
     controlValue,
     controlSequence,

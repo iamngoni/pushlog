@@ -54,6 +54,38 @@ class _PhoneOnlyWatchService extends WatchService {
   }) async => HealthKitWriteOwner.phone;
 }
 
+class _ReadyWatchService extends WatchService {
+  bool? preferWatch;
+
+  @override
+  Future<WatchStatus> status() async => const WatchStatus(
+    isSupported: true,
+    isPaired: true,
+    isAppInstalled: true,
+    isReachable: true,
+    statusLabel: 'WATCH READY',
+  );
+
+  @override
+  Stream<WatchStatus> statuses() => const Stream<WatchStatus>.empty();
+
+  @override
+  Future<WatchStatus> beginLiveWorkout({
+    required String sessionId,
+    required DateTime startedAt,
+    required bool preferWatch,
+  }) async {
+    this.preferWatch = preferWatch;
+    return const WatchStatus(
+      isSupported: true,
+      isPaired: true,
+      isAppInstalled: true,
+      isReachable: true,
+      statusLabel: 'WATCH RECORDING',
+    );
+  }
+}
+
 void main() {
   late AuthCubit authCubit;
   late WorkoutBloc workoutBloc;
@@ -302,6 +334,21 @@ void main() {
     await tester.tap(end);
     await tester.pumpAndSettle();
     expect(find.text('SUMMARY'), findsOneWidget);
+    final summaryScrollable = find.descendant(
+      of: find.byKey(const ValueKey('live-session-summary-scroll')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('effort-7')),
+      400,
+      scrollable: summaryScrollable,
+    );
+    await tester.tap(find.byKey(const ValueKey('effort-7')).hitTestable());
+    await tester.scrollUntilVisible(
+      find.text('Save'),
+      400,
+      scrollable: summaryScrollable,
+    );
     await tester.tap(find.text('Save').hitTestable());
     await tester.pumpAndSettle();
 
@@ -312,8 +359,85 @@ void main() {
     expect(payload['reps'], 1);
     expect(payload['endedAtEpochMilliseconds'], isA<int>());
     expect(payload['externalId'], isNotEmpty);
+    expect(payload['effortScore'], 7);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'watch selection launches tracking and shows pending health metrics',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view
+          ..resetPhysicalSize()
+          ..resetDevicePixelRatio();
+      });
+      await getIt.unregister<FaceTrackingService>();
+      getIt.registerSingleton<FaceTrackingService>(
+        _ReadyFaceTrackingService(),
+      );
+      await getIt.unregister<WatchService>();
+      final watchService = _ReadyWatchService();
+      getIt.registerSingleton<WatchService>(watchService);
+
+      const watchState = WorkoutLoaded(
+        dayTotals: {},
+        sessions: [],
+        preferences: WorkoutPreferences(),
+      );
+      when(() => workoutBloc.state).thenReturn(watchState);
+      when(
+        () => workoutBloc.stream,
+      ).thenAnswer((_) => const Stream<WorkoutState>.empty());
+
+      final theme = AppTheme.light();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme.toMaterialTheme(Brightness.light),
+          home: BlocProvider<WorkoutBloc>.value(
+            value: workoutBloc,
+            child: const LiveSessionPage(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final setupScrollable = find.descendant(
+        of: find.byKey(const ValueKey('live-session-setup-scroll')),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('iPhone + Apple Watch'),
+        300,
+        scrollable: setupScrollable,
+      );
+      await tester.tap(find.text('iPhone + Apple Watch').hitTestable());
+      await tester.scrollUntilVisible(
+        find.text('Start'),
+        600,
+        scrollable: setupScrollable,
+      );
+      await tester.tap(find.text('Start').hitTestable());
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Manual'),
+        600,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('live-session-preflight-scroll')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.tap(find.text('Manual').hitTestable());
+      await tester.pumpAndSettle();
+
+      expect(watchService.preferWatch, isTrue);
+      expect(find.text('WATCH RECORDING'), findsOneWidget);
+      expect(find.text('-- BPM'), findsOneWidget);
+      expect(find.text('-- KCAL'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('shows the current plan as the primary daily target', (
     tester,

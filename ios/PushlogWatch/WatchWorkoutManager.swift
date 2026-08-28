@@ -20,6 +20,7 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
         var reps: Int
         var duration: TimeInterval
         var endedAt: Date
+        var effortScore: Int?
     }
 
     private let healthStore = HKHealthStore()
@@ -33,9 +34,13 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
     func requestAuthorization() {
         guard HKHealthStore.isHealthDataAvailable() else { return }
 
-        let typesToShare: Set<HKSampleType> = [
+        var typesToShare: Set<HKSampleType> = [
             HKObjectType.workoutType()
         ]
+        if #available(watchOS 11.0, *),
+           let effortType = HKObjectType.quantityType(forIdentifier: .workoutEffortScore) {
+            typesToShare.insert(effortType)
+        }
         let typesToRead: Set<HKObjectType> = [
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
             HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
@@ -118,7 +123,8 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
             sessionID: sessionID,
             reps: reps,
             duration: duration,
-            endedAt: endedAt
+            endedAt: endedAt,
+            effortScore: nil
         )
         isSessionActive = false
         isPaused = false
@@ -138,19 +144,25 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
         }
     }
 
-    func saveStoppedWorkout(sessionID: UUID, reps: Int, duration: TimeInterval, endedAt: Date) {
+    func saveStoppedWorkout(
+        sessionID: UUID,
+        reps: Int,
+        duration: TimeInterval,
+        endedAt: Date,
+        effortScore: Int?
+    ) {
         guard activeSessionID == sessionID else { return }
 
         if pendingWorkout == nil {
             stopWorkout(sessionID: sessionID, reps: reps, duration: duration, endedAt: endedAt)
-        } else {
-            pendingWorkout = PendingWorkout(
-                sessionID: sessionID,
-                reps: reps,
-                duration: duration,
-                endedAt: endedAt
-            )
         }
+        pendingWorkout = PendingWorkout(
+            sessionID: sessionID,
+            reps: reps,
+            duration: duration,
+            endedAt: endedAt,
+            effortScore: effortScore
+        )
 
         guard collectionEndedSessionID == sessionID else {
             saveAfterCollectionEnds = true
@@ -212,7 +224,7 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
                 return
             }
 
-            builder.finishWorkout { [weak self] _, finishError in
+            builder.finishWorkout { [weak self] workout, finishError in
                 Task { @MainActor in
                     if let finishError {
                         self?.watchSessionManager?.notifyWorkoutFailed(
@@ -221,12 +233,45 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
                         )
                         self?.builder?.discardWorkout()
                     } else {
+                        if #available(watchOS 11.0, *),
+                           let score = pendingWorkout.effortScore,
+                           let workout {
+                            do {
+                                try await self?.saveEffortScore(score, for: workout)
+                            } catch {
+                                NSLog(
+                                    "[Pushlog] Workout saved without effort score: %@",
+                                    error.localizedDescription
+                                )
+                            }
+                        }
                         self?.watchSessionManager?.notifyWorkoutSaved(sessionID: pendingWorkout.sessionID)
                     }
                     self?.resetWorkoutState()
                 }
             }
         }
+    }
+
+    @available(watchOS 11.0, *)
+    private func saveEffortScore(_ score: Int, for workout: HKWorkout) async throws {
+        guard (1...10).contains(score) else { return }
+        guard let effortType = HKObjectType.quantityType(forIdentifier: .workoutEffortScore) else {
+            return
+        }
+
+        let sample = HKQuantitySample(
+            type: effortType,
+            quantity: HKQuantity(unit: .appleEffortScore(), doubleValue: Double(score)),
+            start: workout.startDate,
+            end: workout.endDate
+        )
+        try await healthStore.save(sample)
+        _ = try await healthStore.relateWorkoutEffortSample(
+            sample,
+            with: workout,
+            activity: nil
+        )
     }
 
     private func resetWorkoutState() {

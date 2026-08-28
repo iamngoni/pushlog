@@ -21,6 +21,7 @@ final class PushlogWatchSessionManager: NSObject {
     var lastReps: Int
     var lastDuration: TimeInterval
     var endedAt: Date?
+    var effortScore: Int?
   }
 
   private let healthStore = HKHealthStore()
@@ -103,7 +104,8 @@ final class PushlogWatchSessionManager: NSObject {
       ownership: shouldUseWatch ? .requested : .phone,
       lastReps: 0,
       lastDuration: 0,
-      endedAt: nil
+      endedAt: nil,
+      effortScore: nil
     )
     lastLiveUpdateSent = nil
     currentHeartRate = 0
@@ -206,18 +208,22 @@ final class PushlogWatchSessionManager: NSObject {
     guard matches(workout, arguments: arguments) else { return "phone" }
 
     if workout.ownership == .stopped {
+      if let score = effortScore(from: arguments) {
+        workout.effortScore = score
+      }
       workout.ownership = .committed
       activeWorkout = workout
-      sendToWatch(
-        [
-          "type": "sessionSave",
-          "sessionID": workout.id,
-          "reps": workout.lastReps,
-          "duration": workout.lastDuration,
-          "endedAt": workout.endedAt?.timeIntervalSinceReferenceDate ?? Date().timeIntervalSinceReferenceDate
-        ],
-        queued: true
-      )
+      var message: [String: Any] = [
+        "type": "sessionSave",
+        "sessionID": workout.id,
+        "reps": workout.lastReps,
+        "duration": workout.lastDuration,
+        "endedAt": workout.endedAt?.timeIntervalSinceReferenceDate ?? Date().timeIntervalSinceReferenceDate
+      ]
+      if let score = workout.effortScore {
+        message["effortScore"] = score
+      }
+      sendToWatch(message, queued: true)
       clearActiveWorkout()
       return "watch"
     }
@@ -341,6 +347,8 @@ final class PushlogWatchSessionManager: NSObject {
       handleSessionAck(message)
     case "watchControl":
       handleWatchControl(message)
+    case "effort":
+      handleEffort(message)
     case "addReps":
       handleAddReps(message)
     case "requestSync":
@@ -396,6 +404,17 @@ final class PushlogWatchSessionManager: NSObject {
     controlSequence += 1
   }
 
+  private func handleEffort(_ message: [String: Any]) {
+    guard
+      var workout = activeWorkout,
+      matches(workout, arguments: message),
+      let score = effortScore(from: message)
+    else { return }
+
+    workout.effortScore = score
+    activeWorkout = workout
+  }
+
   private func clearActiveWorkout() {
     activeWorkout = nil
     currentHeartRate = 0
@@ -426,6 +445,14 @@ final class PushlogWatchSessionManager: NSObject {
     return nil
   }
 
+  private func effortScore(from arguments: Any?) -> Int? {
+    guard let payload = arguments as? [String: Any] else { return nil }
+    guard let score = (payload["effortScore"] as? NSNumber)?.intValue,
+          (1...10).contains(score)
+    else { return nil }
+    return score
+  }
+
   private func snapshot() -> [String: Any] {
     if WCSession.isSupported() {
       let session = WCSession.default
@@ -449,6 +476,9 @@ final class PushlogWatchSessionManager: NSObject {
         payload["reps"] = workout.lastReps
         payload["elapsed"] = workout.lastDuration
         payload["ownership"] = workout.ownership.rawValue
+        if let score = workout.effortScore {
+          payload["effortScore"] = score
+        }
       } else {
         payload["activeSession"] = false
       }

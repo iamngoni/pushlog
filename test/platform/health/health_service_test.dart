@@ -50,6 +50,7 @@ void main() {
       manualAdjustments: 2,
       endedAt: endedAt,
       externalId: 'session-42',
+      effortScore: 7,
     );
 
     expect(saved, isTrue);
@@ -60,6 +61,7 @@ void main() {
       'manualAdjustments': 2,
       'endedAtEpochMilliseconds': endedAt.millisecondsSinceEpoch,
       'externalId': 'session-42',
+      'effortScore': 7,
     });
   });
 }

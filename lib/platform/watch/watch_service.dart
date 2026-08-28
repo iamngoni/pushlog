@@ -90,11 +90,15 @@ class WatchService {
 
   Future<HealthKitWriteOwner> commitStoppedWorkout({
     required String sessionId,
+    int? effortScore,
   }) async {
     try {
       final owner = await _methodChannel.invokeMethod<String>(
         'commitStoppedWorkout',
-        <String, Object?>{'sessionId': sessionId},
+        <String, Object?>{
+          'sessionId': sessionId,
+          'effortScore': effortScore,
+        },
       );
       return owner == 'watch'
           ? HealthKitWriteOwner.watch

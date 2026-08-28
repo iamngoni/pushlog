@@ -222,6 +222,7 @@ class PushlogWearSessionManager(
                         ?: System.currentTimeMillis(),
                     heartRateSamples = current.heartRateSamples,
                     activeCalories = current.activeCalories,
+                    effortScore = call.argument<Number>("effortScore")?.toInt(),
                 )
             }.onFailure { Log.e(LOG_TAG, "Wear workout export failed", it) }
                 .getOrDefault(false)

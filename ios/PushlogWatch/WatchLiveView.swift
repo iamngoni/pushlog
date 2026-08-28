@@ -130,6 +130,55 @@ private struct MetricPill: View {
     }
 }
 
+struct WatchEffortView: View {
+    @EnvironmentObject private var session: WatchSessionManager
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 5)
+    private let ink = Color(hex: 0xF8F5F0)
+    private let secondary = Color(hex: 0x706D68)
+    private let accent = Color(hex: 0xD7FF1F)
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 8) {
+                Text("SESSION EFFORT")
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .tracking(1.1)
+                    .foregroundStyle(secondary)
+
+                Text(session.effortScore.map { "\($0) / 10" } ?? "HOW HARD?")
+                    .font(.system(size: 26, weight: .black, design: .rounded))
+                    .foregroundStyle(ink)
+
+                LazyVGrid(columns: columns, spacing: 5) {
+                    ForEach(1...10, id: \.self) { score in
+                        Button {
+                            session.setEffort(score)
+                        } label: {
+                            Text("\(score)")
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                .frame(maxWidth: .infinity, minHeight: 28)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(session.effortScore == score ? Color.black : ink)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(session.effortScore == score ? accent : Color.white.opacity(0.09))
+                        )
+                    }
+                }
+
+                Text("Finish saving on iPhone")
+                    .font(.system(size: 8, weight: .medium, design: .monospaced))
+                    .foregroundStyle(secondary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 10)
+        }
+        .background(Color(hex: 0x0A0908))
+    }
+}
+
 private struct PauseEndControl: View {
     @EnvironmentObject private var session: WatchSessionManager
     @EnvironmentObject private var workout: WatchWorkoutManager

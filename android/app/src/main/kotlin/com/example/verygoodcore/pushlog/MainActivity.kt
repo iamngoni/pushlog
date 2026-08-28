@@ -134,6 +134,7 @@ class MainActivity : FlutterActivity() {
         val endedAtEpochMilliseconds =
             call.argument<Number>("endedAtEpochMilliseconds")?.toLong()
         val externalId = call.argument<String>("externalId")
+        val effortScore = call.argument<Number>("effortScore")?.toInt()
 
         if (
             reps == null || reps <= 0 ||
@@ -181,7 +182,12 @@ class MainActivity : FlutterActivity() {
                     metadata = metadata,
                     exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS,
                     title = "Push-ups",
-                    notes = "$reps push-ups · $manualAdjustments manual adjustments",
+                    notes = buildString {
+                        append("$reps push-ups · $manualAdjustments manual adjustments")
+                        if (effortScore != null && effortScore in 1..10) {
+                            append(" · effort $effortScore/10")
+                        }
+                    },
                     segments = listOf(pushUps),
                 )
 

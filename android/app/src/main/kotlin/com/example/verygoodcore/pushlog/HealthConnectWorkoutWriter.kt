@@ -37,6 +37,7 @@ class HealthConnectWorkoutWriter(private val context: Context) {
         endedAtEpochMilliseconds: Long,
         heartRateSamples: List<HeartRateSample>,
         activeCalories: Double,
+        effortScore: Int?,
     ): Boolean {
         if (reps <= 0 || externalId.isBlank() || !hasPermissions()) return false
 
@@ -69,7 +70,12 @@ class HealthConnectWorkoutWriter(private val context: Context) {
                 metadata = sessionMetadata,
                 exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_CALISTHENICS,
                 title = "Push-ups",
-                notes = "$reps push-ups · Wear OS",
+                notes = buildString {
+                    append("$reps push-ups · Wear OS")
+                    if (effortScore != null && effortScore in 1..10) {
+                        append(" · effort $effortScore/10")
+                    }
+                },
                 segments = listOf(pushUps),
             ),
         )

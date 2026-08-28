@@ -9,6 +9,8 @@ struct WatchRootView: View {
         Group {
             if session.isLiveActive {
                 WatchLiveView()
+            } else if session.isAwaitingEffort {
+                WatchEffortView()
             } else {
                 WatchTodayView()
             }

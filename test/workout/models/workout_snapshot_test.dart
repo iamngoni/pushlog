@@ -5,6 +5,21 @@ import 'package:pushlog/workout/models/data/workout_snapshot.dart';
 
 void main() {
   group('WorkoutSnapshot', () {
+    test('round trips a live session effort score', () {
+      final session = WorkoutSession(
+        id: 'effort-session',
+        date: DateTime(2026, 8, 28, 12),
+        reps: 25,
+        source: WorkoutSource.live,
+        effortScore: 8,
+      );
+
+      final restored = WorkoutSession.fromJson(session.toJson());
+
+      expect(restored, session);
+      expect(restored.effortScore, 8);
+    });
+
     test('round trips engagement reminder preferences', () {
       const preferences = WorkoutPreferences(
         remindersEnabled: true,
