@@ -4,6 +4,7 @@
 //
 //  Created by Ngonidzashe Mangudya on 2026/04/16.
 //  Copyright (c) 2026 Codecraft Solutions. All rights reserved.
+//  https://codecraftsolutions.co.za/
 //
 
 import 'dart:async';
@@ -15,13 +16,16 @@ import 'package:pushlog/auth/state/auth_cubit.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/services/app_info_service.dart';
 import 'package:pushlog/core/services/competition_notification_service.dart';
+import 'package:pushlog/core/services/external_links.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
 import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 import 'package:pushlog/core/views/widgets/pushlog_confirm_dialog.dart';
 import 'package:pushlog/core/views/widgets/pushlog_toast.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
+import 'package:pushlog/settings/views/widgets/app_version_label.dart';
 import 'package:pushlog/training/models/training_plan.dart';
 import 'package:pushlog/training/views/training_onboarding_page.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
@@ -126,9 +130,18 @@ class _SettingsPageState extends State<SettingsPage> {
                               theme,
                             ),
                             const SizedBox(height: AppSpacing.sectionLarge),
+                            buildLegalSection(
+                              context,
+                              theme,
+                            ),
+                            const SizedBox(height: AppSpacing.sectionLarge),
                             buildAccountSection(
                               context,
                               theme,
+                            ),
+                            const SizedBox(height: AppSpacing.sectionLarge),
+                            AppVersionLabel(
+                              appInfoService: getIt<AppInfoService>(),
                             ),
                             const SizedBox(height: AppSpacing.hero),
                           ],
@@ -244,6 +257,49 @@ class _SettingsPageState extends State<SettingsPage> {
               accent: true,
               theme: theme,
               onTap: () => unawaited(confirmDeleteAccount(context, theme)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget buildLegalSection(
+    BuildContext context,
+    AppTheme theme,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        buildSectionLabel('Legal & support', theme),
+        buildSettingsCard(
+          theme,
+          children: [
+            buildActionRow(
+              title: 'Privacy policy',
+              detail: 'How Pushlog handles your data',
+              theme: theme,
+              onTap: () => unawaited(
+                _openExternalLink(context, PushlogLinks.privacy),
+              ),
+            ),
+            buildDivider(theme),
+            buildActionRow(
+              title: 'Terms & conditions',
+              detail: 'The rules for using Pushlog',
+              theme: theme,
+              onTap: () => unawaited(
+                _openExternalLink(context, PushlogLinks.terms),
+              ),
+            ),
+            buildDivider(theme),
+            buildActionRow(
+              title: 'Account deletion help',
+              detail: 'Delete in-app or request deletion online',
+              theme: theme,
+              onTap: () => unawaited(
+                _openExternalLink(context, PushlogLinks.deleteAccount),
+              ),
             ),
           ],
         ),
@@ -948,6 +1004,16 @@ class _SettingsPageState extends State<SettingsPage> {
         text: json,
         subject: 'pushlog-export.json',
       ),
+    );
+  }
+
+  Future<void> _openExternalLink(BuildContext context, Uri uri) async {
+    final opened = await openPushlogLink(uri);
+    if (opened || !context.mounted) return;
+    PushlogToast.warning(
+      context,
+      'Could not open that page',
+      detail: 'Visit pushlog.iamngoni.dev in your browser.',
     );
   }
 

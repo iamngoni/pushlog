@@ -796,7 +796,9 @@ class _TrainingOnboardingPageState extends State<TrainingOnboardingPage> {
   void _setSessionsPerWeek(int count) {
     setState(() {
       _sessionsPerWeek = count;
-      _preferredWeekdays = TrainingProfile.defaultWeekdays(count);
+      if (_preferredWeekdays.length > count) {
+        _preferredWeekdays = _preferredWeekdays.take(count).toList();
+      }
     });
   }
 

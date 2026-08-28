@@ -46,6 +46,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   bool _usesAutoTracking = false;
   int? _countdownValue;
   bool _didLoadWatchStatus = false;
+  int _lastWatchControlSequence = 0;
 
   @override
   void didChangeDependencies() {
@@ -180,7 +181,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               Text(
                 'Lay your phone on the floor, screen up, under your '
                 'chest. The front camera watches your face and counts '
-                'as you go. '
+                'as you go. Frames are processed only on this device and '
+                'are never saved or uploaded. '
                 'If it is unavailable, add reps manually instead.',
                 style: AppTypography.body(color: theme.secondaryInk),
               ),
@@ -312,8 +314,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     BuildContext context,
     AppTheme theme,
   ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+    return _buildScrollableStep(
+      key: const ValueKey('live-session-tracking-scroll'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -363,6 +365,33 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
               ],
             ),
           ),
+          if (_watchStatus.currentHeartRate > 0 ||
+              _watchStatus.activeCalories > 0) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              children: [
+                Expanded(
+                  child: _LiveMetric(
+                    label: 'HEART RATE',
+                    value: _watchStatus.currentHeartRate > 0
+                        ? '${_watchStatus.currentHeartRate.round()} BPM'
+                        : '-- BPM',
+                    theme: theme,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _LiveMetric(
+                    label: 'ACTIVE ENERGY',
+                    value: _watchStatus.activeCalories > 0
+                        ? '${_watchStatus.activeCalories.round()} KCAL'
+                        : '-- KCAL',
+                    theme: theme,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const Spacer(),
           _LiveAdjustStrip(
             theme: theme,
@@ -378,8 +407,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   }
 
   Widget _buildSummary(BuildContext context, AppTheme theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+    return _buildScrollableStep(
+      key: const ValueKey('live-session-summary-scroll'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -409,6 +438,16 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                     : _watchStatus.statusLabel,
               ),
               ('Health owner', _healthKitWriteOwner.name),
+              if (_watchStatus.currentHeartRate > 0)
+                (
+                  'Latest heart rate',
+                  '${_watchStatus.currentHeartRate.round()} BPM',
+                ),
+              if (_watchStatus.activeCalories > 0)
+                (
+                  'Active energy',
+                  '${_watchStatus.activeCalories.toStringAsFixed(1)} kcal',
+                ),
               ('Adjustments', '$_manualAdjustments'),
             ],
           ),
@@ -436,6 +475,7 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     if (!mounted) return;
     setState(() {
       _watchStatus = status;
+      _lastWatchControlSequence = status.controlSequence;
     });
 
     await _watchSubscription?.cancel();
@@ -443,9 +483,13 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     _watchSubscription = service.statuses().listen(
       (status) {
         if (!mounted) return;
+        final shouldHandleControl =
+            status.controlSequence > _lastWatchControlSequence;
         setState(() {
           _watchStatus = status;
+          _lastWatchControlSequence = status.controlSequence;
         });
+        if (shouldHandleControl) _handleWatchControl(status);
       },
       onError: (_) {},
     );
@@ -569,13 +613,15 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
             sessionId: sessionId,
             startedAt: startedAt,
             preferWatch:
+                _preferences.healthSyncEnabled &&
                 _preferences.liveDevicePreference ==
-                LiveDevicePreference.iphoneAndWatch,
+                    LiveDevicePreference.iphoneAndWatch,
           )
           .then((status) {
             if (!mounted) return;
             setState(() {
               _watchStatus = status;
+              _lastWatchControlSequence = status.controlSequence;
             });
           }),
     );
@@ -625,6 +671,35 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     setState(() {
       _isPaused = !_isPaused;
     });
+  }
+
+  void _handleWatchControl(WatchStatus status) {
+    if (_step != _LiveStep.tracking) return;
+    switch (status.controlAction) {
+      case 'pause':
+        _setPausedFromWatch(true);
+      case 'resume':
+        _setPausedFromWatch(false);
+      case 'end':
+        _finishSession();
+      case 'addReps':
+        if (status.controlValue > 0) _addReps(status.controlValue);
+    }
+  }
+
+  void _setPausedFromWatch(bool paused) {
+    if (_isPaused == paused) return;
+    if (_usesAutoTracking) {
+      final service = getIt<FaceTrackingService>();
+      if (paused) {
+        service.pause();
+      } else {
+        service.resume();
+      }
+    } else {
+      setState(() => _isPaused = paused);
+    }
+    _sendWatchLiveUpdate();
   }
 
   void _finishSession() {
@@ -948,6 +1023,37 @@ class _BottomPair extends StatelessWidget {
               onPressed: onTrailingTap,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveMetric extends StatelessWidget {
+  const _LiveMetric({
+    required this.label,
+    required this.value,
+    required this.theme,
+  });
+
+  final String label;
+  final String value;
+  final AppTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.divider),
+        color: theme.surface,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: AppTypography.overline(color: theme.tertiaryInk)),
+          const SizedBox(height: AppSpacing.sm),
+          Text(value, style: AppTypography.title(color: theme.ink)),
         ],
       ),
     );

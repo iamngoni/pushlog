@@ -181,4 +181,13 @@ class FriendsCubit extends Cubit<FriendsState> {
       friendUid: friendUid,
     );
   }
+
+  Future<void> reportAndBlock({
+    required UserProfile me,
+    required int todayCount,
+    required String reportedUid,
+  }) async {
+    await _profileService.reportAndBlockUser(reportedUid: reportedUid);
+    await load(me: me, todayCount: todayCount);
+  }
 }

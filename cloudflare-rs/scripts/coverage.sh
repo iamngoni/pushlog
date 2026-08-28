@@ -9,4 +9,4 @@ cargo llvm-cov \
   --all-features \
   --lib \
   --fail-under-lines 95 \
-  --ignore-filename-regex 'src/(auth|devices|engagement|engagement_copy|env|error|friends|lead_change_copy|lib|notifications|profile|workout)\.rs|src/push/'
+  --ignore-filename-regex 'src/(auth|devices|engagement|engagement_copy|env|error|friends|lead_change_copy|lib|notifications|profile|safety|workout)\.rs|src/push/'

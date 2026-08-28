@@ -22,7 +22,7 @@ function run(command, args) {
 }
 
 async function waitUntilReady(process) {
-  for (let attempt = 0; attempt < 60; attempt += 1) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     if (process.exitCode !== null) {
       throw new Error(`Wrangler exited before becoming ready (${process.exitCode}).`);
     }
@@ -34,7 +34,7 @@ async function waitUntilReady(process) {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error("Wrangler did not become ready within 30 seconds.");
+  throw new Error("Wrangler did not become ready within 60 seconds.");
 }
 
 function auth(uid) {
@@ -314,6 +314,28 @@ try {
     method: "POST",
     body: { notificationIds: ["missing-but-valid"] },
   });
+
+  const report = await request("/v1/reports", {
+    uid: "alice",
+    method: "POST",
+    body: { reportedUid: "bob", reason: "safety_concern" },
+    expectedStatus: 201,
+  });
+  assert.equal(report.body.status, "reported_and_blocked");
+  const friendsAfterBlock = await request(
+    "/v1/friends?dayKey=2026-08-06&weekKey=2026-08-03",
+    { uid: "alice" },
+  );
+  assert.deepEqual(friendsAfterBlock.body.friends, []);
+  const searchAfterBlock = await request("/v1/users/search?q=bo", { uid: "alice" });
+  assert.deepEqual(searchAfterBlock.body.profiles, []);
+  const blockedRequest = await request("/v1/friend-requests", {
+    uid: "bob",
+    method: "POST",
+    body: { receiverUid: "alice" },
+    expectedStatus: 403,
+  });
+  assert.equal(blockedRequest.body.error.code, "connection_blocked");
 
   await request("/v1/friends", {
     uid: "alice",

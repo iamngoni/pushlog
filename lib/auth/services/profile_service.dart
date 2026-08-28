@@ -193,6 +193,16 @@ class ProfileService {
     await revokeFriendship(ownerUid: ownerUid, friendUid: friendUid);
   }
 
+  Future<void> reportAndBlockUser({required String reportedUid}) async {
+    await _api.post(
+      '/v1/reports',
+      body: {
+        'reportedUid': reportedUid,
+        'reason': 'safety_concern',
+      },
+    );
+  }
+
   Future<void> deleteAccountData({required String uid}) async {
     await _api.delete('/v1/account');
     _cachedProfile = null;

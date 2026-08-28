@@ -37,6 +37,10 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 build/
+.wrangler/
+.playwright-cli/
+output/playwright/
+website/dist/
 firebase-debug.log
 flutter_*.png
 linked_*.ds

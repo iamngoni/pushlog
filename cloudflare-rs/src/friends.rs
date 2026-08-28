@@ -176,6 +176,13 @@ pub async fn send_friend_request(
             "That profile no longer exists.",
         ));
     }
+    if connection_is_blocked(db, user.uid(), &receiver_uid).await? {
+        return Err(ApiError::new(
+            403,
+            "connection_blocked",
+            "That account cannot receive this request.",
+        ));
+    }
 
     let already_friends = db
         .prepare("SELECT 1 AS found FROM friend_links WHERE owner_uid = ? AND friend_uid = ?")
@@ -240,6 +247,13 @@ pub async fn accept_friend_request(
             404,
             "request_not_found",
             "That friend request is no longer open.",
+        ));
+    }
+    if connection_is_blocked(db, user.uid(), &requester_uid).await? {
+        return Err(ApiError::new(
+            403,
+            "connection_blocked",
+            "That account cannot be added.",
         ));
     }
     accept(db, user.uid(), &requester_uid).await?;
@@ -364,4 +378,26 @@ async fn accept(db: &D1Database, receiver_uid: &str, requester_uid: &str) -> Api
     ])
     .await?;
     Ok(())
+}
+
+async fn connection_is_blocked(
+    db: &D1Database,
+    left_uid: &str,
+    right_uid: &str,
+) -> ApiResult<bool> {
+    Ok(db
+        .prepare(
+            "SELECT 1 AS found FROM user_blocks
+             WHERE (blocker_uid = ? AND blocked_uid = ?)
+                OR (blocker_uid = ? AND blocked_uid = ?)",
+        )
+        .bind_refs(&[
+            D1Type::Text(left_uid),
+            D1Type::Text(right_uid),
+            D1Type::Text(right_uid),
+            D1Type::Text(left_uid),
+        ])?
+        .first::<serde_json::Value>(None)
+        .await?
+        .is_some())
 }

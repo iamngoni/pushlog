@@ -29,6 +29,10 @@ final class PushlogWatchSessionManager: NSObject {
   private var lastLiveUpdateSent: Date?
   private var statusLabel = "IPHONE ONLY"
   private var currentHeartRate = 0.0
+  private var currentActiveCalories = 0.0
+  private var controlAction = ""
+  private var controlValue = 0
+  private var controlSequence = 0
 
   override init() {
     super.init()
@@ -103,6 +107,9 @@ final class PushlogWatchSessionManager: NSObject {
     )
     lastLiveUpdateSent = nil
     currentHeartRate = 0
+    currentActiveCalories = 0
+    controlAction = ""
+    controlValue = 0
     statusLabel = shouldUseWatch ? "WATCH REQUESTED" : "IPHONE ONLY"
 
     guard shouldUseWatch else {
@@ -326,10 +333,18 @@ final class PushlogWatchSessionManager: NSObject {
     guard let type = message["type"] as? String else { return }
 
     switch type {
-    case "heartRate":
-      currentHeartRate = message["bpm"] as? Double ?? currentHeartRate
+    case "metrics", "heartRate":
+      currentHeartRate = (message["bpm"] as? NSNumber)?.doubleValue ?? currentHeartRate
+      currentActiveCalories =
+        (message["activeCalories"] as? NSNumber)?.doubleValue ?? currentActiveCalories
     case "sessionAck":
       handleSessionAck(message)
+    case "watchControl":
+      handleWatchControl(message)
+    case "addReps":
+      handleAddReps(message)
+    case "requestSync":
+      break
     case "workoutStopped":
       statusLabel = "WATCH STOPPED"
     case "workoutSaved":
@@ -360,9 +375,31 @@ final class PushlogWatchSessionManager: NSObject {
     statusLabel = accepted ? "WATCH RECORDING" : "PHONE FALLBACK"
   }
 
+  private func handleWatchControl(_ message: [String: Any]) {
+    guard
+      let workout = activeWorkout,
+      matches(workout, arguments: message),
+      let action = message["action"] as? String,
+      ["pause", "resume", "end"].contains(action)
+    else { return }
+
+    controlAction = action
+    controlValue = 0
+    controlSequence += 1
+  }
+
+  private func handleAddReps(_ message: [String: Any]) {
+    let count = (message["count"] as? NSNumber)?.intValue ?? 0
+    guard count > 0 else { return }
+    controlAction = "addReps"
+    controlValue = count
+    controlSequence += 1
+  }
+
   private func clearActiveWorkout() {
     activeWorkout = nil
     currentHeartRate = 0
+    currentActiveCalories = 0
     lastLiveUpdateSent = nil
     refreshWatchState()
     emit()
@@ -370,7 +407,9 @@ final class PushlogWatchSessionManager: NSObject {
 
   private func matches(_ workout: ActiveWorkout, arguments: Any?) -> Bool {
     guard let payload = arguments as? [String: Any] else { return true }
-    guard let sessionId = payload["sessionId"] as? String else { return true }
+    guard let sessionId = (payload["sessionId"] ?? payload["sessionID"]) as? String else {
+      return true
+    }
     return workout.id == sessionId
   }
 
@@ -390,23 +429,44 @@ final class PushlogWatchSessionManager: NSObject {
   private func snapshot() -> [String: Any] {
     if WCSession.isSupported() {
       let session = WCSession.default
-      return [
+      var payload: [String: Any] = [
+        "type": "snapshot",
         "isSupported": true,
         "isPaired": session.isPaired,
         "isAppInstalled": session.isWatchAppInstalled,
         "isReachable": session.isReachable,
         "statusLabel": statusLabel,
-        "currentHeartRate": currentHeartRate
+        "currentHeartRate": currentHeartRate,
+        "activeCalories": currentActiveCalories,
+        "controlAction": controlAction,
+        "controlValue": controlValue,
+        "controlSequence": controlSequence
       ]
+      if let workout = activeWorkout {
+        payload["activeSession"] = true
+        payload["sessionID"] = workout.id
+        payload["startedAt"] = workout.startedAt.timeIntervalSinceReferenceDate
+        payload["reps"] = workout.lastReps
+        payload["elapsed"] = workout.lastDuration
+        payload["ownership"] = workout.ownership.rawValue
+      } else {
+        payload["activeSession"] = false
+      }
+      return payload
     }
 
     return [
+      "type": "snapshot",
       "isSupported": false,
       "isPaired": false,
       "isAppInstalled": false,
       "isReachable": false,
       "statusLabel": "IPHONE ONLY",
-      "currentHeartRate": 0
+      "currentHeartRate": 0,
+      "activeCalories": 0,
+      "controlAction": "",
+      "controlValue": 0,
+      "controlSequence": controlSequence
     ]
   }
 
@@ -453,6 +513,21 @@ extension PushlogWatchSessionManager: WCSessionDelegate {
   func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
     DispatchQueue.main.async {
       self.handleMessage(message)
+    }
+  }
+
+  func session(
+    _ session: WCSession,
+    didReceiveApplicationContext applicationContext: [String: Any]
+  ) {
+    DispatchQueue.main.async {
+      self.handleMessage(applicationContext)
+    }
+  }
+
+  func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+    DispatchQueue.main.async {
+      self.handleMessage(userInfo)
     }
   }
 

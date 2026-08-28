@@ -8,7 +8,9 @@
     "test:coverage": "sh scripts/coverage.sh",
     "db:migrate:local": "wrangler d1 migrations apply pushlog-staging --local --persist-to .wrangler/state",
     "db:migrate:staging": "wrangler d1 migrations apply pushlog-staging --remote",
-    "deploy:staging": "wrangler deploy"
+    "db:migrate:production": "wrangler d1 migrations apply pushlog-production --remote --config wrangler.production.toml",
+    "deploy:staging": "wrangler deploy",
+    "deploy:production": "wrangler deploy --config wrangler.production.toml"
   },
   "devDependencies": {
     "wrangler": "4.125.0"

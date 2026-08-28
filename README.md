@@ -12,10 +12,10 @@ and native messaging.
 
 | Area | Current state |
 | --- | --- |
-| Flutter client | Active primary client at `1.1.0+16`, with development, staging, and production flavors. |
+| Flutter client | Active primary client at `1.1.0+22`, with development, staging, and production flavors. |
 | Product flows | Training-plan onboarding, Today, History, Friends, You, reminders, export, reset, manual logging, and counted sessions are implemented. |
 | Application data | The client reads and writes profiles, workouts, friends, leaderboards, devices, and notifications through the Workers API backed by D1. It does not use Firestore at runtime. |
-| Backend environment | `pushlog-api-staging` and the `pushlog-staging` D1 database are the current internal-testing resources. Production promotion is a separate release step. |
+| Backend environment | Internal testing uses `pushlog-api-staging` / `pushlog-staging`. Production uses the isolated `pushlog-api` / `pushlog-production` resources. |
 | Firebase | Firebase Auth issues identity tokens. Firebase Messaging remains available for native push delivery; Firestore is retained only as a historical migration source. |
 | iOS platform work | Flutter-to-native bridges exist for HealthKit workout export, ARKit/TrueDepth rep tracking, and WatchConnectivity. These capabilities still require real-device acceptance after relevant changes. |
 | Android platform work | Manual logging and manual counted sessions are supported. The app reports iOS-only camera, HealthKit, and watch capabilities as unavailable instead of presenting false parity. |
@@ -58,10 +58,16 @@ Signed-in data is merged with the remote snapshot through the Workers API.
 Every `/v1/*` request uses the verified Firebase token UID as its owner. The
 Worker does not trust a UID supplied in a request body.
 
-The default internal endpoint is:
+Development and staging use:
 
 ```text
 https://pushlog-api-staging.imngonii.workers.dev
+```
+
+Production uses:
+
+```text
+https://pushlog-api.imngonii.workers.dev
 ```
 
 Override it for another environment with:
@@ -90,8 +96,8 @@ flutter run --flavor production --target lib/main_production.dart
 ```
 
 Firebase Auth and Messaging are configured through `firebase.json`, the
-platform service files, and `lib/firebase_options.dart`. Application data uses
-the Workers API in every flavor unless `PUSHLOG_API_URL` overrides it.
+platform service files, and `lib/firebase_options.dart`. Each entry point picks
+its matching Workers environment unless `PUSHLOG_API_URL` overrides it.
 
 ## Run the Backend Locally
 

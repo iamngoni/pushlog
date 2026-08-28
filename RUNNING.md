@@ -7,9 +7,10 @@ Pushlog has two independently runnable halves:
 | Flutter client | `lib/`, `ios/`, `android/` | The iOS and Android app |
 | Workers backend | `cloudflare-rs/` | Rust Cloudflare Worker + D1 application API |
 
-**You do not need the backend to run the app.** The client defaults to the
-deployed staging Worker, so `flutter run` works on its own. Run the backend
-locally only when you are changing the API or the D1 schema.
+**You do not need the backend to run the app.** Development and staging use the
+deployed staging Worker; the production entry point uses the isolated
+production Worker. Run the backend locally only when changing the API or D1
+schema.
 
 ---
 

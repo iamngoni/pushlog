@@ -80,6 +80,9 @@ void main() {
     // Asserted on the sheet's own overline rather than "Pushlog", which now
     // also appears in the brand block on the page behind it.
     expect(find.text('ABOUT'), findsOneWidget);
+    expect(find.text('Privacy policy'), findsOneWidget);
+    expect(find.text('Terms'), findsOneWidget);
+    expect(find.text('Account deletion'), findsOneWidget);
   });
 
   testWidgets('leads with the brand mark and app name', (tester) async {

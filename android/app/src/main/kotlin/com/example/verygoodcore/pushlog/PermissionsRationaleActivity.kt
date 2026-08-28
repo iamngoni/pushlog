@@ -27,7 +27,9 @@ class PermissionsRationaleActivity : Activity() {
             text =
                 "When Health Connect sync is enabled, Pushlog writes only " +
                 "the live workouts you choose to save. Each record includes " +
-                "the workout time, push-up count, and exercise type.\n\n" +
+                "the workout time, push-up count, and exercise type. When a " +
+                "paired watch records a session, the saved record can also " +
+                "include its heart-rate samples and calories burned.\n\n" +
                 "Pushlog does not read your Health Connect data, use it for " +
                 "advertising, or sell it. You can revoke access or delete " +
                 "Pushlog records at any time in Health Connect settings."

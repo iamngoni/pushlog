@@ -33,6 +33,10 @@ void main() {
             'isReachable': false,
             'statusLabel': 'WATCH READY',
             'currentHeartRate': 88.5,
+            'activeCalories': 14.25,
+            'controlAction': 'pause',
+            'controlValue': 0,
+            'controlSequence': 7,
           };
         });
 
@@ -41,6 +45,9 @@ void main() {
     expect(status.canUseForWorkout, isTrue);
     expect(status.statusLabel, 'WATCH READY');
     expect(status.currentHeartRate, 88.5);
+    expect(status.activeCalories, 14.25);
+    expect(status.controlAction, 'pause');
+    expect(status.controlSequence, 7);
   });
 
   test('sends live workout start payload', () async {

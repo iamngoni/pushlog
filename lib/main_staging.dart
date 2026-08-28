@@ -8,7 +8,11 @@
 
 import 'package:pushlog/app.dart';
 import 'package:pushlog/bootstrap.dart';
+import 'package:pushlog/core/configs/app_environment.dart';
 
 Future<void> main() async {
-  await bootstrap(() => const App());
+  await bootstrap(
+    () => const App(),
+    environment: AppEnvironment.staging,
+  );
 }

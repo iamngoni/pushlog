@@ -4,6 +4,7 @@
 //
 //  Created by Ngonidzashe Mangudya on 2026/04/16.
 //  Copyright (c) 2026 Codecraft Solutions. All rights reserved.
+//  https://codecraftsolutions.co.za/
 //
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,6 +13,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pushlog/auth/services/auth_service.dart';
 import 'package:pushlog/auth/services/profile_service.dart';
 import 'package:pushlog/auth/state/auth_cubit.dart';
+import 'package:pushlog/core/configs/app_environment.dart';
+import 'package:pushlog/core/services/app_info_service.dart';
 import 'package:pushlog/core/services/competition_notification_service.dart';
 import 'package:pushlog/core/services/pushlog_api_client.dart';
 import 'package:pushlog/core/services/reminder_service.dart';
@@ -29,7 +32,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 final GetIt getIt = GetIt.instance;
 
-Future<void> configureInjection() async {
+Future<void> configureInjection({required AppEnvironment environment}) async {
   if (getIt.isRegistered<SharedPreferences>()) {
     await getIt.reset();
   }
@@ -37,7 +40,10 @@ Future<void> configureInjection() async {
   final prefs = await SharedPreferences.getInstance();
   final firebaseAuth = FirebaseAuth.instance;
   final googleSignIn = GoogleSignIn.instance;
-  final api = PushlogApiClient(auth: firebaseAuth);
+  final api = PushlogApiClient(
+    auth: firebaseAuth,
+    baseUrl: apiBaseUrlFor(environment),
+  );
   final reminderService = ReminderService();
   await reminderService.initialize();
   final competitionNotificationService = CompetitionNotificationService(
@@ -50,6 +56,7 @@ Future<void> configureInjection() async {
     scopeResolver: () => firebaseAuth.currentUser?.uid ?? 'guest',
   );
   final profileService = ProfileService(api);
+  const appInfoService = AppInfoService();
   const healthService = HealthService();
   final faceTrackingService = FaceTrackingService();
   const watchService = WatchService();
@@ -73,6 +80,7 @@ Future<void> configureInjection() async {
       competitionNotificationService,
     )
     ..registerSingleton<StorageService>(storageService)
+    ..registerSingleton<AppInfoService>(appInfoService)
     ..registerSingleton<AuthService>(authService)
     ..registerSingleton<ProfileService>(profileService)
     ..registerSingleton<HealthService>(healthService)

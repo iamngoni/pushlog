@@ -1,0 +1,7 @@
+<resources>
+    <style name="PushlogWearTheme" parent="android:style/Theme.DeviceDefault">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">#0A0908</item>
+        <item name="android:colorAccent">#D7FF1F</item>
+    </style>
+</resources>

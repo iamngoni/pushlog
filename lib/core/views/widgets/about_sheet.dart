@@ -5,10 +5,13 @@
 //  Copyright (c) 2026 Codecraft Solutions. All rights reserved.
 //
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
+import 'package:pushlog/core/services/external_links.dart';
 
 /// Opens the About sheet.
 ///
@@ -120,10 +123,39 @@ class AboutSheet extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xxl),
               ],
               const _AboutFootnote(),
+              const SizedBox(height: AppSpacing.xl),
+              const _AboutLegalLinks(),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AboutLegalLinks extends StatelessWidget {
+  const _AboutLegalLinks();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.xs,
+      children: [
+        TextButton(
+          onPressed: () => unawaited(openPushlogLink(PushlogLinks.privacy)),
+          child: const Text('Privacy policy'),
+        ),
+        TextButton(
+          onPressed: () => unawaited(openPushlogLink(PushlogLinks.terms)),
+          child: const Text('Terms'),
+        ),
+        TextButton(
+          onPressed: () =>
+              unawaited(openPushlogLink(PushlogLinks.deleteAccount)),
+          child: const Text('Account deletion'),
+        ),
+      ],
     );
   }
 }

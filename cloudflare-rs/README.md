@@ -10,6 +10,9 @@ ever needed for comparison.
 Live staging/internal-testing API (same URL the app has always used):
 <https://pushlog-api-staging.imngonii.workers.dev>
 
+Production API (isolated Worker and D1 database):
+<https://pushlog-api.imngonii.workers.dev>
+
 ## Why Rust, and why this changed push delivery
 
 The rewrite is a straight port with one real behavior change: push
@@ -82,6 +85,7 @@ UID supplied in the request body — owns the operation.
 - `GET|PUT /v1/workout-snapshot`
 - `PUT|DELETE /v1/devices`
 - `GET|POST /v1/notifications`
+- `POST /v1/reports` (reports and immediately blocks the account)
 - `DELETE /v1/account`
 
 ## Verification and deployment
@@ -97,6 +101,10 @@ npm run test:coverage
 npm run test:integration
 npm run db:migrate:staging
 npm run deploy:staging
+
+# Production promotion uses the isolated config and database.
+npm run db:migrate:production
+npm run deploy:production
 ```
 
 `cargo test --lib` runs on the host target and covers pure domain

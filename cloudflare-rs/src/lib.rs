@@ -17,6 +17,8 @@ mod lead_change_copy;
 mod notifications;
 mod profile;
 mod push;
+mod safety;
+mod safety_validation;
 mod workout;
 
 use worker::*;
@@ -258,6 +260,18 @@ async fn route<A: AuthVerifier>(
                 &notifications::mark_notifications_read(&mut request, &db, &user).await?,
             )?),
             _ => Ok(method_not_allowed(&["GET", "POST"])?),
+        };
+    }
+
+    if path == "/v1/reports" {
+        let user = verify_auth.verify(&request, env).await?;
+        return match method {
+            Method::Post => {
+                let db = AppConfig::db(env)?;
+                let value = safety::report_and_block(&mut request, &db, &user).await?;
+                Ok(json_response(&value, 201)?)
+            }
+            _ => Ok(method_not_allowed(&["POST"])?),
         };
     }
 

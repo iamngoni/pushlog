@@ -1,0 +1,29 @@
+name = "pushlog-api"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-08-06"
+
+[vars]
+FIREBASE_PROJECT_ID = "pushlog-app"
+ENVIRONMENT = "production"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pushlog-production"
+database_id = "56eed904-fbc9-41d5-a7c8-f89d7378a48b"
+migrations_dir = "migrations"
+
+[ai]
+binding = "AI"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[build]
+command = "cargo install -q worker-build --version 0.8.5 && worker-build --release"

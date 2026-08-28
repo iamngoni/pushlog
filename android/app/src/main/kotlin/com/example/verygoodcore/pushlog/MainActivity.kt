@@ -8,6 +8,8 @@ import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSegment
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.metadata.Device
 import androidx.health.connect.client.records.metadata.Metadata
 import io.flutter.embedding.android.FlutterActivity
@@ -26,10 +28,13 @@ class MainActivity : FlutterActivity() {
     private val healthScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val healthPermissions = setOf(
         HealthPermission.getWritePermission(ExerciseSessionRecord::class),
+        HealthPermission.getWritePermission(HeartRateRecord::class),
+        HealthPermission.getWritePermission(TotalCaloriesBurnedRecord::class),
     )
     private val healthPermissionContract =
         PermissionController.createRequestPermissionResultContract()
     private var pendingPermissionResult: MethodChannel.Result? = null
+    private var wearSessionManager: PushlogWearSessionManager? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -37,6 +42,10 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             HEALTH_CHANNEL,
         ).setMethodCallHandler(::handleHealthCall)
+        wearSessionManager = PushlogWearSessionManager(
+            context = this,
+            messenger = flutterEngine.dartExecutor.binaryMessenger,
+        )
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -50,6 +59,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        wearSessionManager?.close()
+        wearSessionManager = null
         healthScope.cancel()
         pendingPermissionResult?.success(false)
         pendingPermissionResult = null

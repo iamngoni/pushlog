@@ -128,4 +128,81 @@ void main() {
     expect(updatedPlan.startDate, originalPlan.startDate);
     expect(updatedPlan.createdAt, originalPlan.createdAt);
   });
+
+  testWidgets('increasing sessions leaves training days selectable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio();
+    });
+
+    final bloc = _MockWorkoutBloc();
+    when(() => bloc.state).thenReturn(
+      const WorkoutLoaded(
+        dayTotals: {},
+        sessions: [],
+        preferences: WorkoutPreferences(),
+      ),
+    );
+    when(() => bloc.stream).thenAnswer(
+      (_) => const Stream<WorkoutState>.empty(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light().toMaterialTheme(Brightness.light),
+        home: BlocProvider<WorkoutBloc>.value(
+          value: bloc,
+          child: const TrainingOnboardingPage(
+            preferences: WorkoutPreferences(),
+          ),
+        ),
+      ),
+    );
+
+    for (var step = 0; step < 4; step++) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('5'));
+    await tester.pumpAndSettle();
+    expect(find.text('TRAINING DAYS 2/5'), findsOneWidget);
+
+    for (final day in ['TUE', 'WED', 'FRI']) {
+      await tester.tap(find.text(day));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('TRAINING DAYS 5/5'), findsOneWidget);
+
+    await tester.tap(find.text('FRI'));
+    await tester.pumpAndSettle();
+    expect(find.text('TRAINING DAYS 4/5'), findsOneWidget);
+
+    await tester.tap(find.text('SUN'));
+    await tester.pumpAndSettle();
+    expect(find.text('TRAINING DAYS 5/5'), findsOneWidget);
+
+    for (var step = 4; step < 8; step++) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(find.text('Start plan'));
+    await tester.pump();
+
+    final captured = verify(() => bloc.add(captureAny())).captured.single;
+    final plan = (captured as UpdatePreferencesEvent).preferences.trainingPlan!;
+    expect(plan.profile.sessionsPerWeek, 5);
+    expect(plan.profile.preferredWeekdays, const [
+      DateTime.monday,
+      DateTime.tuesday,
+      DateTime.wednesday,
+      DateTime.thursday,
+      DateTime.sunday,
+    ]);
+  });
 }

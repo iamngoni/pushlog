@@ -73,11 +73,10 @@ class CompetitionNotificationService {
     );
 
     final remoteMessage = await _messaging.getInitialMessage();
-    log('Getting initial firebase message ✅');
+    _log('initial Firebase message checked');
 
     if (remoteMessage != null) {
-      log('Handling message from clicked notification');
-      log('Handling message: $remoteMessage');
+      _log('handling a message from a tapped notification');
     }
 
     if (Platform.isIOS) {
@@ -86,20 +85,20 @@ class CompetitionNotificationService {
         badge: true,
         sound: true,
       );
-      log('Setting foreground notification presentation options for iOS ✅');
+      _log('foreground notification presentation configured for iOS');
     }
 
     _initialized = true;
   }
 
-  // print(), not log() — log() goes through the VM service/DevTools logging
-  // stream and doesn't reliably show up in a bare `flutter run` terminal.
-  // This is the only path that's actually visible while debugging this on
-  // a device from the terminal, so keep it as print().
-  void _log(String message) =>
-      // Deliberate: this is the debug path described above, not leftover.
-      // ignore: avoid_print
-      print('[CompetitionNotificationService] $message');
+  // Notification diagnostics are useful during device development but may
+  // include account-specific state. Keep them out of production system logs.
+  void _log(String message) {
+    if (!kDebugMode) return;
+    // This is deliberately terminal-visible and is unreachable in release.
+    // ignore: avoid_print
+    print('[CompetitionNotificationService] $message');
+  }
 
   Future<bool> syncForUser({
     required String uid,
@@ -176,10 +175,10 @@ class CompetitionNotificationService {
 
     _log('getting messaging token');
     final token = await _messaging.getToken();
-    _log('messaging token: $token');
+    _log('messaging token acquired: ${token != null && token.isNotEmpty}');
     if (token == null || token.isEmpty) return false;
     await _registerToken(uid, token);
-    _log('token registration successful for $uid');
+    _log('token registration successful');
     await _pollNotifications();
     _notificationPoller?.cancel();
     _notificationPoller = Timer.periodic(

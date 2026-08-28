@@ -12,7 +12,9 @@ import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:pushlog/core/configs/app_environment.dart';
 import 'package:pushlog/firebase_options.dart';
 import 'package:pushlog/injection.dart';
 
@@ -25,6 +27,7 @@ class AppBlocObserver extends BlocObserver {
     Change<dynamic> change,
   ) {
     super.onChange(bloc, change);
+    if (!kDebugMode) return;
     log('onChange(${bloc.runtimeType}, $change)');
   }
 
@@ -34,16 +37,19 @@ class AppBlocObserver extends BlocObserver {
     Object error,
     StackTrace stackTrace,
   ) {
-    log(
-      'onError(${bloc.runtimeType}, $error, $stackTrace)',
-    );
+    if (kDebugMode) {
+      log(
+        'onError(${bloc.runtimeType}, $error, $stackTrace)',
+      );
+    }
     super.onError(bloc, error, stackTrace);
   }
 }
 
 Future<void> bootstrap(
-  FutureOr<Widget> Function() builder,
-) async {
+  FutureOr<Widget> Function() builder, {
+  required AppEnvironment environment,
+}) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -51,14 +57,15 @@ Future<void> bootstrap(
   await FirebaseAppCheck.instance.activate();
 
   FlutterError.onError = (details) {
+    if (!kDebugMode) return;
     log(
       details.exceptionAsString(),
       stackTrace: details.stack,
     );
   };
 
-  await configureInjection();
-  log('Injection configured');
+  await configureInjection(environment: environment);
+  if (kDebugMode) log('Injection configured');
 
   Bloc.observer = const AppBlocObserver();
 

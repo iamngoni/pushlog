@@ -349,7 +349,13 @@ pub async fn search_profiles(
     let rows = db
         .prepare(format!(
             "{PROFILE_SELECT}
-             WHERE u.uid <> ? AND u.username_lower >= ? AND u.username_lower < ?
+             WHERE u.uid <> ?
+               AND u.username_lower >= ? AND u.username_lower < ?
+               AND NOT EXISTS (
+                 SELECT 1 FROM user_blocks blocks
+                 WHERE (blocks.blocker_uid = ? AND blocks.blocked_uid = u.uid)
+                    OR (blocks.blocker_uid = u.uid AND blocks.blocked_uid = ?)
+               )
              ORDER BY u.username_lower ASC
              LIMIT 8"
         ))
@@ -357,6 +363,8 @@ pub async fn search_profiles(
             D1Type::Text(user.uid()),
             D1Type::Text(query.as_str()),
             D1Type::Text(&upper_bound),
+            D1Type::Text(user.uid()),
+            D1Type::Text(user.uid()),
         ])?
         .all()
         .await?

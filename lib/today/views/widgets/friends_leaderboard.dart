@@ -10,6 +10,7 @@ import 'package:pushlog/core/views/widgets/avatar_badge.dart';
 import 'package:pushlog/core/views/widgets/empty_state.dart';
 import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 import 'package:pushlog/core/views/widgets/pushlog_confirm_dialog.dart';
+import 'package:pushlog/core/views/widgets/pushlog_toast.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/models/friend_request.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
@@ -452,6 +453,10 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
                           onAction: () => unawaited(
                             _confirmRevoke(friend, cubit),
                           ),
+                          secondaryAction: 'REPORT',
+                          onSecondaryAction: () => unawaited(
+                            _confirmReportAndBlock(friend, cubit),
+                          ),
                         ),
                     if (state.outgoingRequests.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.block),
@@ -517,6 +522,41 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
       todayCount: widget.todayCount,
       requesterUid: request.uid,
     );
+  }
+
+  Future<void> _confirmReportAndBlock(
+    FriendProfile friend,
+    FriendsCubit cubit,
+  ) async {
+    final confirmed = await PushlogConfirmDialog.ask(
+      context,
+      title: 'Report and block @${friend.username}?',
+      message:
+          'Pushlog will record a safety report, remove this friendship, '
+          'and prevent either account from finding or adding the other.',
+      confirmLabel: 'Report & block',
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await cubit.reportAndBlock(
+        me: widget.me,
+        todayCount: widget.todayCount,
+        reportedUid: friend.uid,
+      );
+      if (!mounted) return;
+      PushlogToast.success(
+        context,
+        'Account reported and blocked',
+        detail: 'They can no longer find or add you in Pushlog.',
+      );
+    } on Exception {
+      if (!mounted) return;
+      PushlogToast.danger(
+        context,
+        'Could not send the report',
+        detail: 'Try again, or contact support from You.',
+      );
+    }
   }
 
   Future<void> _confirmCancelRequest(
@@ -628,12 +668,16 @@ class _FriendSearchSheetState extends State<_FriendSearchSheet> {
     FriendProfile friend, {
     required String action,
     VoidCallback? onAction,
+    String? secondaryAction,
+    VoidCallback? onSecondaryAction,
   }) {
     return _personRow(
       label: friend.label,
       username: friend.username,
       action: action,
       onAction: onAction,
+      secondaryAction: secondaryAction,
+      onSecondaryAction: onSecondaryAction,
     );
   }
 
