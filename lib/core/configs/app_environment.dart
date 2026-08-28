@@ -4,15 +4,14 @@ enum AppEnvironment {
   production,
 }
 
-const stagingApiBaseUrl = 'https://pushlog-api-staging.imngonii.workers.dev';
-const productionApiBaseUrl = 'https://pushlog-api.imngonii.workers.dev';
+// The staging-named Worker contains Pushlog's canonical user and workout data.
+// Keep every app flavor on this backend until a deliberate data migration is
+// completed; changing flavors must never silently switch a user's dataset.
+const primaryApiBaseUrl = 'https://pushlog-api-staging.imngonii.workers.dev';
 
-String apiBaseUrlFor(AppEnvironment environment) {
+String apiBaseUrlFor(AppEnvironment _) {
   const override = String.fromEnvironment('PUSHLOG_API_URL');
   if (override.isNotEmpty) return override;
 
-  return switch (environment) {
-    AppEnvironment.development || AppEnvironment.staging => stagingApiBaseUrl,
-    AppEnvironment.production => productionApiBaseUrl,
-  };
+  return primaryApiBaseUrl;
 }

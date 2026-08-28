@@ -58,17 +58,15 @@ Signed-in data is merged with the remote snapshot through the Workers API.
 Every `/v1/*` request uses the verified Firebase token UID as its owner. The
 Worker does not trust a UID supplied in a request body.
 
-Development and staging use:
+Every app flavor currently uses the canonical Pushlog backend:
 
 ```text
 https://pushlog-api-staging.imngonii.workers.dev
 ```
 
-Production uses:
-
-```text
-https://pushlog-api.imngonii.workers.dev
-```
+The `staging` segment in this legacy Worker name does not indicate a separate
+test dataset. It contains the production user, friendship, and workout data.
+Do not switch the production flavor to another Worker without migrating D1.
 
 Override it for another environment with:
 

@@ -29,7 +29,7 @@ android {
         applicationId = "za.co.codecraftsolutions.pushlog"
         minSdk = 30
         targetSdk = 36
-        versionCode = 360110023
+        versionCode = 360110024
         versionName = "1.1.0"
     }
 
