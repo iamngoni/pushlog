@@ -23,6 +23,13 @@ class _MockWorkoutBloc extends Mock implements WorkoutBloc {}
 
 class _MockFriendsCubit extends Mock implements FriendsCubit {}
 
+class _ReadyFaceTrackingService extends FaceTrackingService {
+  @override
+  Future<FaceTrackingSnapshot> start() async => const FaceTrackingSnapshot(
+    phase: FaceTrackingPhase.ready,
+  );
+}
+
 void main() {
   late AuthCubit authCubit;
   late WorkoutBloc workoutBloc;
@@ -132,6 +139,61 @@ void main() {
     );
 
     expect(start.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('counted session pre-flight scrolls to Begin', (tester) async {
+    tester.view.physicalSize = const Size(320, 320);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view
+        ..resetPhysicalSize()
+        ..resetDevicePixelRatio();
+    });
+    await getIt.unregister<FaceTrackingService>();
+    getIt.registerSingleton<FaceTrackingService>(
+      _ReadyFaceTrackingService(),
+    );
+    final theme = AppTheme.light();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme.toMaterialTheme(Brightness.light),
+        home: BlocProvider<WorkoutBloc>.value(
+          value: workoutBloc,
+          child: const LiveSessionPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final setupScrollable = find.descendant(
+      of: find.byKey(const ValueKey('live-session-setup-scroll')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.text('Start'),
+      300,
+      scrollable: setupScrollable,
+    );
+    await tester.tap(find.text('Start'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PRE-FLIGHT'), findsOneWidget);
+    final begin = find.text('Begin');
+    expect(begin, findsOneWidget);
+    expect(begin.hitTestable(), findsNothing);
+
+    await tester.scrollUntilVisible(
+      begin,
+      300,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey('live-session-preflight-scroll')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+
+    expect(begin.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

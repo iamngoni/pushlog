@@ -1,6 +1,6 @@
 name: pushlog
 description: A Very Good Project created by Very Good CLI.
-version: 1.1.0+20
+version: 1.1.0+21
 publish_to: none
 
 environment:

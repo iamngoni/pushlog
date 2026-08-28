@@ -111,100 +111,91 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   }
 
   Widget _buildSetup(BuildContext context, AppTheme theme) {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        key: const ValueKey('live-session-setup-scroll'),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: IntrinsicHeight(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: AppSpacing.block),
-                _TopBar(theme: theme, trailing: 'GUIDED LIVE'),
-                const SizedBox(height: AppSpacing.section),
-                Text(
-                  'Live',
-                  style: AppTypography.headingXLarge(color: theme.ink),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  'Timed session mode. Start here, count clean, save once.',
-                  style: AppTypography.bodyLarge(color: theme.secondaryInk),
-                ),
-                const SizedBox(height: AppSpacing.block),
-                Divider(height: 1, color: theme.divider),
-                const SizedBox(height: AppSpacing.block),
-                _SelectorCard(
-                  title: 'DEVICE',
-                  detail:
-                      _preferences.liveDevicePreference ==
-                          LiveDevicePreference.iphoneOnly
-                      ? 'iPhone only'
-                      : _watchStatus.statusLabel,
-                  theme: theme,
-                  children: [
-                    _DeviceOption(
-                      title: 'iPhone only',
-                      isSelected:
-                          _preferences.liveDevicePreference ==
-                          LiveDevicePreference.iphoneOnly,
-                      theme: theme,
-                      onTap: () => setState(() {
-                        _preferences = _preferences.copyWith(
-                          liveDevicePreference: LiveDevicePreference.iphoneOnly,
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    _DeviceOption(
-                      title: _watchStatus.canUseForWorkout
-                          ? 'iPhone + Apple Watch'
-                          : 'iPhone + Watch fallback',
-                      isSelected:
-                          _preferences.liveDevicePreference ==
-                          LiveDevicePreference.iphoneAndWatch,
-                      theme: theme,
-                      onTap: () => setState(() {
-                        _preferences = _preferences.copyWith(
-                          liveDevicePreference:
-                              LiveDevicePreference.iphoneAndWatch,
-                        );
-                      }),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                _SelectorCard(
-                  title: 'FLOW',
-                  detail: 'Camera auto-count',
-                  theme: theme,
-                  children: [
-                    Text(
-                      'Lay your phone on the floor, screen up, under your '
-                      'chest. The front camera watches your face and counts '
-                      'as you go. '
-                      'If it is unavailable, add reps manually instead.',
-                      style: AppTypography.body(color: theme.secondaryInk),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                _BottomPair(
-                  theme: theme,
-                  leading: 'Exit',
-                  onLeadingTap: () => Navigator.of(context).pop(),
-                  trailing: 'Start',
-                  onTrailingTap: () {
-                    unawaited(_startPreflightOrManual());
-                  },
-                ),
-                const SizedBox(height: AppSpacing.block),
-              ],
-            ),
+    return _buildScrollableStep(
+      key: const ValueKey('live-session-setup-scroll'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: AppSpacing.block),
+          _TopBar(theme: theme, trailing: 'GUIDED LIVE'),
+          const SizedBox(height: AppSpacing.section),
+          Text(
+            'Live',
+            style: AppTypography.headingXLarge(color: theme.ink),
           ),
-        ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Timed session mode. Start here, count clean, save once.',
+            style: AppTypography.bodyLarge(color: theme.secondaryInk),
+          ),
+          const SizedBox(height: AppSpacing.block),
+          Divider(height: 1, color: theme.divider),
+          const SizedBox(height: AppSpacing.block),
+          _SelectorCard(
+            title: 'DEVICE',
+            detail:
+                _preferences.liveDevicePreference ==
+                    LiveDevicePreference.iphoneOnly
+                ? 'iPhone only'
+                : _watchStatus.statusLabel,
+            theme: theme,
+            children: [
+              _DeviceOption(
+                title: 'iPhone only',
+                isSelected:
+                    _preferences.liveDevicePreference ==
+                    LiveDevicePreference.iphoneOnly,
+                theme: theme,
+                onTap: () => setState(() {
+                  _preferences = _preferences.copyWith(
+                    liveDevicePreference: LiveDevicePreference.iphoneOnly,
+                  );
+                }),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _DeviceOption(
+                title: _watchStatus.canUseForWorkout
+                    ? 'iPhone + Apple Watch'
+                    : 'iPhone + Watch fallback',
+                isSelected:
+                    _preferences.liveDevicePreference ==
+                    LiveDevicePreference.iphoneAndWatch,
+                theme: theme,
+                onTap: () => setState(() {
+                  _preferences = _preferences.copyWith(
+                    liveDevicePreference: LiveDevicePreference.iphoneAndWatch,
+                  );
+                }),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xxl),
+          _SelectorCard(
+            title: 'FLOW',
+            detail: 'Camera auto-count',
+            theme: theme,
+            children: [
+              Text(
+                'Lay your phone on the floor, screen up, under your '
+                'chest. The front camera watches your face and counts '
+                'as you go. '
+                'If it is unavailable, add reps manually instead.',
+                style: AppTypography.body(color: theme.secondaryInk),
+              ),
+            ],
+          ),
+          const Spacer(),
+          _BottomPair(
+            theme: theme,
+            leading: 'Exit',
+            onLeadingTap: () => Navigator.of(context).pop(),
+            trailing: 'Start',
+            onTrailingTap: () {
+              unawaited(_startPreflightOrManual());
+            },
+          ),
+          const SizedBox(height: AppSpacing.block),
+        ],
       ),
     );
   }
@@ -212,8 +203,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   Widget _buildPreflight(BuildContext context, AppTheme theme) {
     final countdown = _countdownValue;
     final camera = getIt<FaceTrackingService>().cameraController;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+    return _buildScrollableStep(
+      key: const ValueKey('live-session-preflight-scroll'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -279,6 +270,19 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           ),
           const SizedBox(height: AppSpacing.block),
         ],
+      ),
+    );
+  }
+
+  Widget _buildScrollableStep({required Key key, required Widget child}) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        key: key,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: IntrinsicHeight(child: child),
+        ),
       ),
     );
   }
