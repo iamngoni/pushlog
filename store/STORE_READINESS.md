@@ -1,6 +1,6 @@
 # Pushlog store readiness
 
-Last reviewed: 28 August 2026
+Last reviewed: 31 August 2026
 
 This file is the source of truth for App Store Connect and Google Play Console
 answers. Keep the public policy and the shipped app behaviour aligned with it.
@@ -14,15 +14,18 @@ answers. Keep the public policy and the shipped app behaviour aligned with it.
 | iOS bundle ID | `za.co.codecraftsolutions.pushlog` |
 | Android application ID | `za.co.codecraftsolutions.pushlog` |
 | Current version | `1.1.0` |
-| Current build / version code | `22` |
+| Local Flutter build / Android version code | `25` |
+| Latest valid Xcode Cloud build | `48` |
 | Privacy policy | <https://pushlog.iamngoni.dev/privacy/> |
 | Terms | <https://pushlog.iamngoni.dev/terms/> |
 | Account deletion | <https://pushlog.iamngoni.dev/delete-account/> |
 | Marketing / support site | <https://pushlog.iamngoni.dev/> |
 | Support email | `info@codecraftsolutions.co.za` |
 
-The production mobile flavour uses `https://pushlog-api.imngonii.workers.dev`.
-Development and staging flavours use the isolated staging Worker.
+All mobile flavours currently use the canonical Pushlog Worker at
+`https://pushlog-api-staging.imngonii.workers.dev`. The hostname is retained
+for compatibility, but this is the production data source; do not switch the
+production flavour to the empty legacy Worker.
 
 ## Implemented review requirements
 
@@ -107,7 +110,7 @@ Health apps declaration:
 
 ## Console checklist before submission
 
-- [ ] Set App Store Connect Privacy Policy URL and Support URL to the live URLs.
+- [x] Set App Store Connect Privacy Policy URL and Support URL to the live URLs.
 - [ ] Complete App Privacy using the mapping above and verify the generated
       privacy report from the archived build.
 - [ ] Complete the Google Play Data safety and Health apps declarations using
@@ -115,8 +118,24 @@ Health apps declaration:
 - [ ] Set Google Play's account-deletion web URL to the live deletion page.
 - [x] Confirm the Android phone artifact targets API 36 or later and the Wear OS
       artifact targets API 35 or later.
-- [x] Confirm the release AAB and iOS archive both report version `1.1.0 (22)`
-      and are signed with distribution credentials.
+- [x] Confirm the signed Android phone and Wear OS AABs report version `1.1.0`
+      with version codes `25` and `360110025`, respectively.
+- [x] Confirm the local iOS production build embeds the watch app and reports
+      version `1.1.0 (25)`, and Xcode Cloud build `48` is valid in App Store
+      Connect.
+- [x] Prepare App Store version `1.1.0`, attach build `48`, set the Health &
+      Fitness category, copyright, content rights, age rating, description,
+      keywords, support URL, marketing URL, subtitle, and privacy-policy URL.
+- [x] Add TestFlight build `48` to Internal and External Testers, add test
+      notes, and submit it for beta review.
+- [x] Publish the Google Play title, descriptions, store icon, feature graphic,
+      and four real phone screenshots as listing metadata. Version code `25`
+      remains completed on the internal track; production remains empty.
+- [ ] Add at least one real 1:1 Wear OS screenshot before opting into Wear OS
+      distribution. Do not use a generated or device-framed watch image.
+- [ ] Set App Review contact first name, last name, email, and phone number.
+- [ ] Choose App Store availability territories. Do not infer a global or
+      country-limited launch without an owner decision.
 - [ ] Verify Sign in with Apple and Google sign-in on store-distributed builds.
 - [ ] Verify camera permission, notification permission, HealthKit / Health
       Connect permission, account deletion, report-and-block, and legal links on

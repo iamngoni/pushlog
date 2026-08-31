@@ -15,11 +15,11 @@ and native messaging.
 | Flutter client | Active primary client at `1.1.0+22`, with development, staging, and production flavors. |
 | Product flows | Training-plan onboarding, Today, History, Friends, You, reminders, export, reset, manual logging, and counted sessions are implemented. |
 | Application data | The client reads and writes profiles, workouts, friends, leaderboards, devices, and notifications through the Workers API backed by D1. It does not use Firestore at runtime. |
-| Backend environment | Internal testing uses `pushlog-api-staging` / `pushlog-staging`. Production uses the isolated `pushlog-api` / `pushlog-production` resources. |
+| Backend environment | All mobile flavours currently use the canonical `pushlog-api-staging` Worker and `pushlog-staging` data source. The staging hostname is retained for compatibility and is the production source of truth; the legacy `pushlog-api` Worker is empty. |
 | Firebase | Firebase Auth issues identity tokens. Firebase Messaging remains available for native push delivery; Firestore is retained only as a historical migration source. |
 | iOS platform work | Flutter-to-native bridges exist for HealthKit workout export, ARKit/TrueDepth rep tracking, and WatchConnectivity. These capabilities still require real-device acceptance after relevant changes. |
-| Android platform work | Manual logging and manual counted sessions are supported. The app reports iOS-only camera, HealthKit, and watch capabilities as unavailable instead of presenting false parity. |
-| Apple Watch | The Flutter iPhone host contains the WatchConnectivity bridge, but the replacement watchOS app is not embedded in the current Runner project. The old watch source remains the reference implementation. |
+| Android platform work | Manual logging and counted sessions are supported. The native bridge writes completed workouts to Health Connect, while the embedded Wear OS module can own a live workout and report heart rate, calories, controls, and effort back to the phone. These paths still require real-device acceptance after relevant changes. |
+| Apple Watch | The replacement watchOS app is embedded in the Runner project. The iPhone launches it through HealthKit, negotiates workout ownership over WatchConnectivity, and receives heart rate, calories, controls, and effort during the live session. |
 | Legacy iOS app | `old_ios/` is intentionally retained until Flutter parity and device verification are complete. |
 | Distribution | Repository state, CI configuration, store uploads, internal testing, and real-device behavior are separate proof layers. Confirm live TestFlight and Google Play status independently. |
 

@@ -17,8 +17,16 @@ the marketing canvas.
   at 1080×1920.
 
 The iOS set includes the iPhone camera-counted session screen. The Android set
-uses training-plan onboarding in that slot so the listing does not imply that
-iPhone camera or Apple Watch features are available on Android.
+uses training-plan onboarding in that slot because camera counting remains an
+iPhone-only capability. Wear OS requires a separate real 1:1 watch screenshot;
+do not repurpose, frame, or generate one from the phone captures.
+
+## Google Play graphics
+
+- `android/graphics/icon-512.png`: exact 512×512 store icon derived from the
+  shipped Pushlog master icon.
+- `android/graphics/feature-graphic-1024x500.png`: 1024×500 signal-lime and
+  black feature graphic used by the en-GB listing.
 
 The local iOS 27 simulator cannot currently build Pushlog because Google ML
 Kit's transitive pods do not provide the required arm64 simulator slice. These
