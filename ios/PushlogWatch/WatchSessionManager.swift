@@ -63,7 +63,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
     }
 
     func requestSync() {
-        sendToPhone(["type": "requestSync"], queued: false) { [weak self] reply in
+        sendToPhone(["type": "requestSync"], queued: true) { [weak self] reply in
             Task { @MainActor in
                 self?.handleMessage(reply)
             }
@@ -258,6 +258,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
 
         guard
             (message["activeSession"] as? Bool) == true,
+            (message["requestedWatch"] as? Bool) == true,
             let idString = message["sessionID"] as? String,
             let sessionID = UUID(uuidString: idString)
         else { return }

@@ -13,6 +13,7 @@ import 'package:pushlog/core/views/widgets/pushlog_surface.dart';
 import 'package:pushlog/core/views/widgets/pushlog_toast.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/live/services/face_tracking_service.dart';
+import 'package:pushlog/live/services/session_duration.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/watch/watch_service.dart';
 import 'package:pushlog/platform/watch/watch_state.dart';
@@ -736,6 +737,14 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
     final sessionId = _sessionId;
     final endedAt = DateTime.now();
     _endedAt = endedAt;
+    final startedAt = _startedAt;
+    if (startedAt != null) {
+      _elapsed = finalizedSessionDuration(
+        startedAt: startedAt,
+        endedAt: endedAt,
+        sampledElapsed: _elapsed,
+      );
+    }
 
     if (_usesAutoTracking) {
       final finished = await getIt<FaceTrackingService>().stop();

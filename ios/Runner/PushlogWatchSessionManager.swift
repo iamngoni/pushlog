@@ -3,6 +3,24 @@ import Foundation
 import HealthKit
 import WatchConnectivity
 
+struct PushlogWatchHandoffPolicy {
+  func shouldRequestWatch(preferWatch: Bool) -> Bool {
+    preferWatch
+  }
+
+  func canLaunchWatch(
+    preferWatch: Bool,
+    activationState: WCSessionActivationState,
+    isPaired: Bool,
+    isWatchAppInstalled: Bool
+  ) -> Bool {
+    preferWatch &&
+      activationState == .activated &&
+      isPaired &&
+      isWatchAppInstalled
+  }
+}
+
 final class PushlogWatchSessionManager: NSObject {
   private enum Ownership: String {
     case phone
@@ -34,6 +52,9 @@ final class PushlogWatchSessionManager: NSObject {
   private var controlAction = ""
   private var controlValue = 0
   private var controlSequence = 0
+  private let handoffPolicy = PushlogWatchHandoffPolicy()
+  private var pendingWatchLaunchSessionId: String?
+  private var watchLaunchInFlight = false
 
   override init() {
     super.init()
@@ -95,13 +116,15 @@ final class PushlogWatchSessionManager: NSObject {
       millis: payload["startedAtMillisecondsSinceEpoch"],
       iso: payload["startedAt"]
     ) ?? Date()
-    let shouldUseWatch = preferWatch && canUseWatchForWorkout
+    let shouldRequestWatch = handoffPolicy.shouldRequestWatch(
+      preferWatch: preferWatch
+    )
 
     activeWorkout = ActiveWorkout(
       id: sessionId,
       startedAt: startedAt,
-      requestedWatch: shouldUseWatch,
-      ownership: shouldUseWatch ? .requested : .phone,
+      requestedWatch: shouldRequestWatch,
+      ownership: shouldRequestWatch ? .requested : .phone,
       lastReps: 0,
       lastDuration: 0,
       endedAt: nil,
@@ -112,18 +135,16 @@ final class PushlogWatchSessionManager: NSObject {
     currentActiveCalories = 0
     controlAction = ""
     controlValue = 0
-    statusLabel = shouldUseWatch ? "WATCH REQUESTED" : "IPHONE ONLY"
+    statusLabel = shouldRequestWatch
+      ? (canUseWatchForWorkout ? "WATCH REQUESTED" : "WATCH CONNECTING")
+      : "IPHONE ONLY"
 
-    guard shouldUseWatch else {
+    guard shouldRequestWatch else {
       emit()
       return snapshot()
     }
 
-    sendToWatch(startMessage(for: sessionId), queued: true)
-    Task {
-      await self.startWatchWorkoutApp(for: sessionId)
-    }
-    emit()
+    queueWatchHandoff(for: sessionId)
     return snapshot()
   }
 
@@ -136,6 +157,8 @@ final class PushlogWatchSessionManager: NSObject {
     activeWorkout = workout
 
     guard workout.requestedWatch else { return }
+
+    publishActiveWorkoutContext()
 
     let now = Date()
     if let lastLiveUpdateSent, now.timeIntervalSince(lastLiveUpdateSent) < 0.9 {
@@ -163,12 +186,17 @@ final class PushlogWatchSessionManager: NSObject {
     guard matches(workout, arguments: arguments) else { return "phone" }
     guard let payload = arguments as? [String: Any] else { return "phone" }
 
-    workout.lastReps = payload["reps"] as? Int ?? workout.lastReps
-    workout.lastDuration = payload["durationSeconds"] as? Double ?? workout.lastDuration
     workout.endedAt = date(
       millis: payload["endedAtMillisecondsSinceEpoch"],
       iso: payload["endedAt"]
     ) ?? Date()
+    workout.lastReps = payload["reps"] as? Int ?? workout.lastReps
+    let reportedDuration = payload["durationSeconds"] as? Double ?? workout.lastDuration
+    let timestampDuration = max(
+      workout.endedAt?.timeIntervalSince(workout.startedAt) ?? 0,
+      0
+    )
+    workout.lastDuration = max(reportedDuration, timestampDuration)
 
     switch workout.ownership {
     case .accepted:
@@ -284,22 +312,82 @@ final class PushlogWatchSessionManager: NSObject {
     do {
       try await healthStore.startWatchApp(toHandle: configuration)
       await MainActor.run {
+        self.watchLaunchInFlight = false
         guard self.activeWorkout?.id == sessionId else { return }
         self.statusLabel = "WATCH LAUNCHED"
         self.sendToWatch(self.startMessage(for: sessionId), queued: true)
+        self.publishActiveWorkoutContext()
         self.emit()
       }
     } catch {
       await MainActor.run {
-        guard var workout = self.activeWorkout,
+        self.watchLaunchInFlight = false
+        guard let workout = self.activeWorkout,
               workout.id == sessionId,
               workout.ownership == .requested
         else { return }
-        workout.ownership = .phone
-        self.activeWorkout = workout
-        self.statusLabel = "PHONE FALLBACK"
+        self.statusLabel = self.canUseWatchForWorkout
+          ? "OPEN WATCH TO CONNECT"
+          : "WATCH CONNECTING"
+        self.publishActiveWorkoutContext()
         self.emit()
       }
+    }
+  }
+
+  private func queueWatchHandoff(for sessionId: String) {
+    pendingWatchLaunchSessionId = sessionId
+    sendToWatch(startMessage(for: sessionId), queued: true)
+    publishActiveWorkoutContext()
+    attemptPendingWatchLaunch()
+    emit()
+  }
+
+  private func resumePendingWatchHandoff() {
+    guard
+      let workout = activeWorkout,
+      workout.requestedWatch,
+      workout.ownership == .requested
+    else { return }
+
+    pendingWatchLaunchSessionId = workout.id
+    sendToWatch(startMessage(for: workout.id), queued: true)
+    publishActiveWorkoutContext()
+    attemptPendingWatchLaunch()
+  }
+
+  private func attemptPendingWatchLaunch() {
+    guard
+      let sessionId = pendingWatchLaunchSessionId,
+      activeWorkout?.id == sessionId,
+      !watchLaunchInFlight,
+      WCSession.isSupported()
+    else { return }
+
+    let session = WCSession.default
+    guard handoffPolicy.canLaunchWatch(
+      preferWatch: true,
+      activationState: session.activationState,
+      isPaired: session.isPaired,
+      isWatchAppInstalled: session.isWatchAppInstalled
+    ) else {
+      statusLabel = "WATCH CONNECTING"
+      session.activate()
+      return
+    }
+
+    watchLaunchInFlight = true
+    Task {
+      await self.startWatchWorkoutApp(for: sessionId)
+    }
+  }
+
+  private func publishActiveWorkoutContext() {
+    guard WCSession.isSupported() else { return }
+    do {
+      try WCSession.default.updateApplicationContext(snapshot())
+    } catch {
+      // A queued start message and the Watch's sync request remain as fallbacks.
     }
   }
 
@@ -352,7 +440,7 @@ final class PushlogWatchSessionManager: NSObject {
     case "addReps":
       handleAddReps(message)
     case "requestSync":
-      break
+      resumePendingWatchHandoff()
     case "workoutStopped":
       statusLabel = "WATCH STOPPED"
     case "workoutSaved":
@@ -380,6 +468,10 @@ final class PushlogWatchSessionManager: NSObject {
     let accepted = message["accepted"] as? Bool ?? false
     workout.ownership = accepted ? .accepted : .phone
     activeWorkout = workout
+    if accepted {
+      pendingWatchLaunchSessionId = nil
+      watchLaunchInFlight = false
+    }
     statusLabel = accepted ? "WATCH RECORDING" : "PHONE FALLBACK"
   }
 
@@ -417,6 +509,8 @@ final class PushlogWatchSessionManager: NSObject {
 
   private func clearActiveWorkout() {
     activeWorkout = nil
+    pendingWatchLaunchSessionId = nil
+    watchLaunchInFlight = false
     currentHeartRate = 0
     currentActiveCalories = 0
     lastLiveUpdateSent = nil
@@ -476,6 +570,7 @@ final class PushlogWatchSessionManager: NSObject {
         payload["reps"] = workout.lastReps
         payload["elapsed"] = workout.lastDuration
         payload["ownership"] = workout.ownership.rawValue
+        payload["requestedWatch"] = workout.requestedWatch
         if let score = workout.effortScore {
           payload["effortScore"] = score
         }
@@ -529,6 +624,7 @@ extension PushlogWatchSessionManager: WCSessionDelegate {
   ) {
     DispatchQueue.main.async {
       self.refreshWatchState()
+      self.resumePendingWatchHandoff()
       self.emit()
     }
   }
@@ -536,6 +632,7 @@ extension PushlogWatchSessionManager: WCSessionDelegate {
   func sessionReachabilityDidChange(_ session: WCSession) {
     DispatchQueue.main.async {
       self.refreshWatchState()
+      self.resumePendingWatchHandoff()
       self.emit()
     }
   }
