@@ -35,13 +35,13 @@ struct ActorRow {
     username: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 struct CurrentLeadState {
     actor_sync_id: String,
     actor_count: i64,
-    actor_day_key: Option<String>,
     friend_count: i64,
-    friend_day_key: Option<String>,
+    actor_rank: i64,
+    recipient_rank: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -115,33 +115,57 @@ async fn current_lead_state(
     db: &D1Database,
     actor_uid: &str,
     friend_uid: &str,
+    day_key: &str,
 ) -> worker::Result<Option<CurrentLeadState>> {
     db.prepare(
-        "SELECT snapshots.sync_id AS actor_sync_id,
-                actor.today_count AS actor_count,
-                actor.today_key AS actor_day_key,
-                friend.today_count AS friend_count,
-                friend.today_key AS friend_day_key
-         FROM workout_snapshots snapshots
-         JOIN friend_stats actor ON actor.uid = snapshots.uid
-         JOIN friend_stats friend ON friend.uid = ?
-         WHERE snapshots.uid = ?",
+        "WITH current_scores AS (
+           SELECT snapshots.sync_id AS actor_sync_id,
+                  CASE WHEN actor.today_key = ? THEN actor.today_count ELSE 0 END AS actor_count,
+                  CASE WHEN recipient.today_key = ? THEN recipient.today_count ELSE 0 END AS friend_count
+           FROM workout_snapshots snapshots
+           JOIN friend_stats actor ON actor.uid = snapshots.uid
+           JOIN friend_stats recipient ON recipient.uid = ?
+           WHERE snapshots.uid = ?
+         ),
+         leaderboard AS (
+           SELECT circle.uid,
+                  CASE WHEN stats.today_key = ? THEN stats.today_count ELSE 0 END AS score
+           FROM (
+             SELECT ? AS uid
+             UNION
+             SELECT friend_uid AS uid FROM friend_links WHERE owner_uid = ?
+           ) circle
+           LEFT JOIN friend_stats stats ON stats.uid = circle.uid
+         )
+         SELECT current_scores.actor_sync_id,
+                current_scores.actor_count,
+                current_scores.friend_count,
+                1 + (SELECT COUNT(*) FROM leaderboard
+                     WHERE score > current_scores.actor_count) AS actor_rank,
+                1 + (SELECT COUNT(*) FROM leaderboard
+                     WHERE score > current_scores.friend_count) AS recipient_rank
+         FROM current_scores",
     )
-    .bind_refs(&[D1Type::Text(friend_uid), D1Type::Text(actor_uid)])?
+    .bind_refs(&[
+        D1Type::Text(day_key),
+        D1Type::Text(day_key),
+        D1Type::Text(friend_uid),
+        D1Type::Text(actor_uid),
+        D1Type::Text(day_key),
+        D1Type::Text(friend_uid),
+        D1Type::Text(friend_uid),
+    ])?
     .first::<CurrentLeadState>(None)
     .await
 }
 
-fn current_deficit(state: &CurrentLeadState, day_key: &str) -> Option<i64> {
-    if state.actor_day_key.as_deref() != Some(day_key) {
-        return None;
-    }
-    let friend_count = if state.friend_day_key.as_deref() == Some(day_key) {
-        state.friend_count
-    } else {
-        0
-    };
-    (state.actor_count > friend_count).then_some(state.actor_count - friend_count)
+fn lead_change_input(actor: String, state: &CurrentLeadState) -> Option<LeadChangeInput> {
+    LeadChangeInput::new(
+        actor,
+        state.actor_count.checked_sub(state.friend_count)?,
+        state.actor_rank,
+        state.recipient_rank,
+    )
 }
 
 async fn lead_change_cooldown_active(
@@ -376,10 +400,12 @@ pub async fn notify_friends_passed(
             break;
         }
 
-        let Some(before_generation) = current_lead_state(&db, actor_uid, &friend.uid).await? else {
+        let Some(before_generation) =
+            current_lead_state(&db, actor_uid, &friend.uid, day_key).await?
+        else {
             continue;
         };
-        let Some(deficit) = current_deficit(&before_generation, day_key) else {
+        let Some(copy_input) = lead_change_input(actor_name.clone(), &before_generation) else {
             continue;
         };
         if lead_change_cooldown_active(&db, &friend.uid, actor_uid).await? {
@@ -391,16 +417,8 @@ pub async fn notify_friends_passed(
         }
 
         let notification_id = uuid::Uuid::new_v4().to_string();
-        let generated_copy = generate_lead_change_copy(
-            env,
-            &LeadChangeInput {
-                actor: actor_name.clone(),
-                deficit,
-                reps_to_retake: deficit + 1,
-            },
-            random_variant_index(),
-        )
-        .await;
+        let generated_copy =
+            generate_lead_change_copy(env, &copy_input, random_variant_index()).await;
 
         if lead_change_is_expired(triggered_at, Utc::now()) {
             log::info!("discarding expired lead-change copy for actor_uid={actor_uid}");
@@ -411,29 +429,25 @@ pub async fn notify_friends_passed(
         // Re-read both scores afterward so copy generated from an old gap is
         // never sent. If the lead still exists but changed, use immediate
         // curated copy rather than paying for a second inference.
-        let Some(after_generation) = current_lead_state(&db, actor_uid, &friend.uid).await? else {
+        let Some(after_generation) =
+            current_lead_state(&db, actor_uid, &friend.uid, day_key).await?
+        else {
             continue;
         };
-        let Some(fresh_deficit) = current_deficit(&after_generation, day_key) else {
+        let Some(fresh_input) = lead_change_input(actor_name.clone(), &after_generation) else {
             continue;
         };
         let copy = if after_generation == before_generation {
             generated_copy
         } else {
-            build_lead_change_copy(
-                &LeadChangeInput {
-                    actor: actor_name.clone(),
-                    deficit: fresh_deficit,
-                    reps_to_retake: fresh_deficit + 1,
-                },
-                random_variant_index(),
-            )
+            build_lead_change_copy(&fresh_input, random_variant_index())
         };
-        let friend_count = after_generation.actor_count - fresh_deficit;
         let now = now_iso();
         let payload_json = serde_json::json!({
             "score": after_generation.actor_count,
-            "previousLead": friend_count,
+            "previousLead": after_generation.friend_count,
+            "actorRank": after_generation.actor_rank,
+            "recipientRank": after_generation.recipient_rank,
             "sourceSyncId": after_generation.actor_sync_id,
         })
         .to_string();
@@ -485,7 +499,7 @@ pub async fn notify_friends_passed(
         // Keep the final read as close to FCM delivery as possible. If either
         // score changed while the event row was being reserved, hide the row
         // from the inbox and do not put obsolete copy on the lock screen.
-        let final_state = current_lead_state(&db, actor_uid, &friend.uid).await?;
+        let final_state = current_lead_state(&db, actor_uid, &friend.uid, day_key).await?;
         if final_state.as_ref() != Some(&after_generation)
             || lead_change_is_expired(triggered_at, Utc::now())
         {
@@ -575,22 +589,27 @@ mod tests {
     }
 
     #[test]
-    fn current_deficit_requires_a_current_lead_on_the_same_day() {
+    fn lead_change_input_requires_a_real_pass_and_rank_drop() {
         let state = CurrentLeadState {
             actor_sync_id: "sync-1".to_string(),
             actor_count: 12,
-            actor_day_key: Some("2026-01-01".to_string()),
             friend_count: 8,
-            friend_day_key: Some("2026-01-01".to_string()),
+            actor_rank: 2,
+            recipient_rank: 3,
         };
-        assert_eq!(current_deficit(&state, "2026-01-01"), Some(4));
+        assert!(lead_change_input("ana".to_string(), &state).is_some());
 
         let tied = CurrentLeadState {
             friend_count: 12,
+            ..state.clone()
+        };
+        assert!(lead_change_input("ana".to_string(), &tied).is_none());
+
+        let impossible_rank = CurrentLeadState {
+            recipient_rank: 2,
             ..state
         };
-        assert_eq!(current_deficit(&tied, "2026-01-01"), None);
-        assert_eq!(current_deficit(&tied, "2026-01-02"), None);
+        assert!(lead_change_input("ana".to_string(), &impossible_rank).is_none());
     }
 
     #[test]

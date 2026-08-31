@@ -241,6 +241,7 @@ try {
       duration: 1_000_000,
       averageRepDuration: 83_333,
       manualAdjustments: 0,
+      effortScore: null,
     }],
     preferences: {},
     updatedAt: "2026-08-06T08:00:00.000Z",
@@ -250,6 +251,32 @@ try {
   bobSnapshot.dayTotals["2026-08-06"] = 5;
   bobSnapshot.sessions[0].id = "session-bob-1";
   bobSnapshot.sessions[0].reps = 5;
+  const charlieSnapshot = structuredClone(snapshot);
+  charlieSnapshot.dayTotals["2026-08-06"] = 25;
+  charlieSnapshot.sessions[0].id = "session-charlie-1";
+  charlieSnapshot.sessions[0].reps = 25;
+  await request("/v1/workout-snapshot", {
+    uid: "charlie",
+    method: "PUT",
+    body: {
+      snapshot: charlieSnapshot,
+      clientContext: { dayKey: "2026-08-06", weekKey: "2026-08-03" },
+    },
+    expectedStatus: 202,
+  });
+  // Charlie is already ahead when Bob adds them. Alice subsequently passes
+  // Bob pairwise but remains second on Bob's three-person leaderboard.
+  await request("/v1/friend-requests", {
+    uid: "charlie",
+    method: "POST",
+    body: { receiverUid: "bob" },
+    expectedStatus: 201,
+  });
+  await request("/v1/friend-requests/accept", {
+    uid: "bob",
+    method: "POST",
+    body: { requesterUid: "charlie" },
+  });
   await request("/v1/workout-snapshot", {
     uid: "bob",
     method: "PUT",
@@ -302,6 +329,14 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   assert.equal(bobNotifications.body.notifications.length, 1);
+  const rankAwareCopy = [
+    bobNotifications.body.notifications[0].title,
+    bobNotifications.body.notifications[0].body,
+  ].join(" ");
+  assert.match(rankAwareCopy, /#2\b/, "actor should be second behind Charlie");
+  assert.match(rankAwareCopy, /#3\b/, "recipient should drop to third");
+  assert.match(rankAwareCopy, /8 reps\b/, "copy should retain the pairwise catch-up gap");
+  assert.doesNotMatch(rankAwareCopy, /first place|the lead|leader|top spot|crown/i);
   await request("/v1/notifications", { uid: "alice" });
   await request("/v1/notifications", {
     uid: "alice",
