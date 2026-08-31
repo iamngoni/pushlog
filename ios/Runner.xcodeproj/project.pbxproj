@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C0DE40000000000000000001 /* PushlogWatchProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE40000000000000000003 /* PushlogWatchProtocol.swift */; };
+		C0DE40000000000000000002 /* PushlogWatchProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE40000000000000000003 /* PushlogWatchProtocol.swift */; };
 		0E718FA53D8928FFF8D123D6 /* PushlogWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3260CFF3573CC1C26099D518 /* PushlogWatchApp.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		1BDA9999009C5C31A0EF7A1B /* WatchRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5EB78617D27D517C3091178 /* WatchRootView.swift */; };
@@ -126,6 +128,7 @@
 		C0DE20000000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C0DE30000000000000000003 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C0DE30000000000000000004 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		C0DE40000000000000000003 /* PushlogWatchProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushlogWatchProtocol.swift; sourceTree = "<group>"; };
 		C58CE846C70BCF7B2B948520 /* WatchWorkoutManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchWorkoutManager.swift; sourceTree = "<group>"; };
 		D2428A14501AD7D5B617960D /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D35AFBDBAC251AB0C1C8A845 /* WatchSessionManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchSessionManager.swift; sourceTree = "<group>"; };
@@ -234,6 +237,7 @@
 				3882CF94C28E216B73FFC376 /* Pods */,
 				10FC255286E41665D9B2BB36 /* Frameworks */,
 				984BFB681DD45C59D05AD6F0 /* PushlogWatch */,
+				C0DE40000000000000000004 /* Shared */,
 			);
 			sourceTree = "<group>";
 		};
@@ -283,6 +287,14 @@
 			);
 			name = PushlogWatch;
 			path = PushlogWatch;
+			sourceTree = "<group>";
+		};
+		C0DE40000000000000000004 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				C0DE40000000000000000003 /* PushlogWatchProtocol.swift */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		B55CDB5C2EEC717A009268AC /* AppIcons */ = {
@@ -562,6 +574,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0DE40000000000000000001 /* PushlogWatchProtocol.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				C0DE10000000000000000003 /* PushlogWatchSessionManager.swift in Sources */,
 				97C147101CF9000F007C117D /* SceneDelegate.swift in Sources */,
@@ -573,6 +586,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0DE40000000000000000002 /* PushlogWatchProtocol.swift in Sources */,
 				0E718FA53D8928FFF8D123D6 /* PushlogWatchApp.swift in Sources */,
 				AA9F4CEBB59711BA4969C5BA /* WatchColors.swift in Sources */,
 				3FAC314771EC48BE38ADBEB2 /* WatchLiveView.swift in Sources */,

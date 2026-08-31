@@ -19,6 +19,10 @@ struct PushlogWatchHandoffPolicy {
       isPaired &&
       isWatchAppInstalled
   }
+
+  func canTransfer(activationState: WCSessionActivationState) -> Bool {
+    activationState == .activated
+  }
 }
 
 final class PushlogWatchSessionManager: NSObject {
@@ -321,6 +325,11 @@ final class PushlogWatchSessionManager: NSObject {
       }
     } catch {
       await MainActor.run {
+        NSLog(
+          "[Pushlog][Watch] Failed to launch workout for %@: %@",
+          sessionId,
+          error.localizedDescription
+        )
         self.watchLaunchInFlight = false
         guard let workout = self.activeWorkout,
               workout.id == sessionId,
@@ -371,7 +380,15 @@ final class PushlogWatchSessionManager: NSObject {
       isPaired: session.isPaired,
       isWatchAppInstalled: session.isWatchAppInstalled
     ) else {
-      statusLabel = "WATCH CONNECTING"
+      if session.activationState != .activated {
+        statusLabel = "WATCH CONNECTING"
+      } else if !session.isPaired {
+        statusLabel = "WATCH NOT PAIRED"
+      } else if !session.isWatchAppInstalled {
+        statusLabel = "INSTALL WATCH APP"
+      } else {
+        statusLabel = "WATCH CONNECTING"
+      }
       session.activate()
       return
     }
@@ -384,9 +401,18 @@ final class PushlogWatchSessionManager: NSObject {
 
   private func publishActiveWorkoutContext() {
     guard WCSession.isSupported() else { return }
+    let session = WCSession.default
+    guard handoffPolicy.canTransfer(activationState: session.activationState) else {
+      session.activate()
+      return
+    }
     do {
-      try WCSession.default.updateApplicationContext(snapshot())
+      try session.updateApplicationContext(snapshot())
     } catch {
+      NSLog(
+        "[Pushlog][Watch] Failed to publish workout context: %@",
+        error.localizedDescription
+      )
       // A queued start message and the Watch's sync request remain as fallbacks.
     }
   }
@@ -407,13 +433,21 @@ final class PushlogWatchSessionManager: NSObject {
   private func sendToWatch(_ message: [String: Any], queued: Bool) {
     guard WCSession.isSupported() else { return }
     let session = WCSession.default
+    guard handoffPolicy.canTransfer(activationState: session.activationState) else {
+      session.activate()
+      return
+    }
 
     if session.isReachable {
       session.sendMessage(
         message,
         replyHandler: nil,
-        errorHandler: { _ in
-          if queued {
+        errorHandler: { error in
+          NSLog(
+            "[Pushlog][Watch] Immediate transfer failed: %@",
+            error.localizedDescription
+          )
+          if queued, session.activationState == .activated {
             session.transferUserInfo(message)
           }
         }
@@ -432,7 +466,7 @@ final class PushlogWatchSessionManager: NSObject {
       currentActiveCalories =
         (message["activeCalories"] as? NSNumber)?.doubleValue ?? currentActiveCalories
       if
-        let sessionId = message["sessionID"] as? String,
+        let sessionId = PushlogWatchProtocol.sessionID(in: message),
         var workout = activeWorkout,
         workout.id == sessionId,
         workout.ownership == .requested
@@ -472,7 +506,7 @@ final class PushlogWatchSessionManager: NSObject {
 
   private func handleSessionAck(_ message: [String: Any]) {
     guard
-      let sessionId = message["sessionID"] as? String,
+      let sessionId = PushlogWatchProtocol.sessionID(in: message),
       var workout = activeWorkout,
       workout.id == sessionId
     else { return }
@@ -532,10 +566,7 @@ final class PushlogWatchSessionManager: NSObject {
 
   private func matches(_ workout: ActiveWorkout, arguments: Any?) -> Bool {
     guard let payload = arguments as? [String: Any] else { return true }
-    guard let sessionId = (payload["sessionId"] ?? payload["sessionID"]) as? String else {
-      return true
-    }
-    return workout.id == sessionId
+    return PushlogWatchProtocol.matches(sessionID: workout.id, message: payload)
   }
 
   private func date(millis: Any?, iso: Any?) -> Date? {
@@ -635,6 +666,12 @@ extension PushlogWatchSessionManager: WCSessionDelegate {
     error: Error?
   ) {
     DispatchQueue.main.async {
+      if let error {
+        NSLog(
+          "[Pushlog][Watch] WCSession activation failed: %@",
+          error.localizedDescription
+        )
+      }
       self.refreshWatchState()
       self.resumePendingWatchHandoff()
       self.emit()
@@ -642,6 +679,14 @@ extension PushlogWatchSessionManager: WCSessionDelegate {
   }
 
   func sessionReachabilityDidChange(_ session: WCSession) {
+    DispatchQueue.main.async {
+      self.refreshWatchState()
+      self.resumePendingWatchHandoff()
+      self.emit()
+    }
+  }
+
+  func sessionWatchStateDidChange(_ session: WCSession) {
     DispatchQueue.main.async {
       self.refreshWatchState()
       self.resumePendingWatchHandoff()

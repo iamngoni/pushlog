@@ -31,8 +31,8 @@ final class WatchSessionManager: NSObject, ObservableObject {
         }
     }
 
-    private var activeSessionID: UUID?
-    private var pendingStart: (sessionID: UUID, startedAt: Date)?
+    private var activeSessionID: String?
+    private var pendingStart: (sessionID: String, startedAt: Date)?
     private var pendingWorkoutConfiguration: HKWorkoutConfiguration?
 
     override init() {
@@ -51,7 +51,9 @@ final class WatchSessionManager: NSObject, ObservableObject {
             pendingWorkoutConfiguration = workoutConfiguration
         }
         if WCSession.isSupported() {
-            handleMessage(WCSession.default.applicationContext)
+            // applicationContext is what this Watch sent. Recovery needs the
+            // latest context received from the companion iPhone.
+            handleMessage(WCSession.default.receivedApplicationContext)
         }
         guard !isLiveActive else { return }
         requestSync()
@@ -91,11 +93,19 @@ final class WatchSessionManager: NSObject, ObservableObject {
             "sampledAtEpochMilliseconds": sampledAt.timeIntervalSince1970 * 1_000
         ]
         if let activeSessionID {
-            message["sessionID"] = activeSessionID.uuidString
+            message["sessionID"] = activeSessionID
         }
 
-        if WCSession.isSupported() {
-            try? WCSession.default.updateApplicationContext(message)
+        if WCSession.isSupported(),
+           WCSession.default.activationState == .activated {
+            do {
+                try WCSession.default.updateApplicationContext(message)
+            } catch {
+                NSLog(
+                    "[Pushlog][Watch] Failed to publish metrics context: %@",
+                    error.localizedDescription
+                )
+            }
         }
 
         sendToPhone(message, queued: false)
@@ -126,40 +136,40 @@ final class WatchSessionManager: NSObject, ObservableObject {
         sendToPhone(
             [
                 "type": "effort",
-                "sessionID": activeSessionID.uuidString,
+                "sessionID": activeSessionID,
                 "effortScore": score
             ],
             queued: true
         )
     }
 
-    func notifyWorkoutStopped(sessionID: UUID) {
+    func notifyWorkoutStopped(sessionID: String) {
         sendToPhone(
             [
                 "type": "workoutStopped",
-                "sessionID": sessionID.uuidString
+                "sessionID": sessionID
             ],
             queued: true
         )
     }
 
-    func notifyWorkoutSaved(sessionID: UUID) {
+    func notifyWorkoutSaved(sessionID: String) {
         sendToPhone(
             [
                 "type": "workoutSaved",
-                "sessionID": sessionID.uuidString
+                "sessionID": sessionID
             ],
             queued: true
         )
     }
 
-    func notifyWorkoutFailed(sessionID: UUID?, reason: String) {
+    func notifyWorkoutFailed(sessionID: String?, reason: String) {
         var message: [String: Any] = [
             "type": "workoutFailed",
             "reason": reason
         ]
         if let sessionID {
-            message["sessionID"] = sessionID.uuidString
+            message["sessionID"] = sessionID
         }
         sendToPhone(message, queued: true)
     }
@@ -189,8 +199,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
 
         case "sessionStarted":
             guard
-                let idString = message["sessionID"] as? String,
-                let sessionID = UUID(uuidString: idString)
+                let sessionID = PushlogWatchProtocol.sessionID(in: message)
             else { return }
 
             let startDate = (message["startedAt"] as? Double).map {
@@ -274,8 +283,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
         guard
             (message["activeSession"] as? Bool) == true,
             (message["requestedWatch"] as? Bool) == true,
-            let idString = message["sessionID"] as? String,
-            let sessionID = UUID(uuidString: idString)
+            let sessionID = PushlogWatchProtocol.sessionID(in: message)
         else { return }
 
         let ownership = message["ownership"] as? String
@@ -291,7 +299,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
         startLiveSession(sessionID: sessionID, startedAt: startDate)
     }
 
-    private func startLiveSession(sessionID: UUID, startedAt: Date) {
+    private func startLiveSession(sessionID: String, startedAt: Date) {
         guard let workoutManager else {
             pendingStart = (sessionID, startedAt)
             return
@@ -345,15 +353,17 @@ final class WatchSessionManager: NSObject, ObservableObject {
 
     private func matchesActiveSession(_ message: [String: Any]) -> Bool {
         guard let activeSessionID else { return false }
-        guard let idString = message["sessionID"] as? String else { return true }
-        return UUID(uuidString: idString) == activeSessionID
+        return PushlogWatchProtocol.matches(
+            sessionID: activeSessionID,
+            message: message
+        )
     }
 
-    private func sendSessionAck(sessionID: UUID, accepted: Bool) {
+    private func sendSessionAck(sessionID: String, accepted: Bool) {
         sendToPhone(
             [
                 "type": "sessionAck",
-                "sessionID": sessionID.uuidString,
+                "sessionID": sessionID,
                 "accepted": accepted
             ],
             queued: true
@@ -365,7 +375,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
         sendToPhone(
             [
                 "type": "watchControl",
-                "sessionID": activeSessionID.uuidString,
+                "sessionID": activeSessionID,
                 "action": action
             ],
             queued: true
@@ -379,13 +389,21 @@ final class WatchSessionManager: NSObject, ObservableObject {
     ) {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
+        guard session.activationState == .activated else {
+            session.activate()
+            return
+        }
 
         if session.isReachable {
             session.sendMessage(
                 message,
                 replyHandler: replyHandler,
-                errorHandler: { _ in
-                    if queued {
+                errorHandler: { error in
+                    NSLog(
+                        "[Pushlog][Watch] Immediate phone transfer failed: %@",
+                        error.localizedDescription
+                    )
+                    if queued, session.activationState == .activated {
                         session.transferUserInfo(message)
                     }
                 }
@@ -421,8 +439,13 @@ extension WatchSessionManager: WCSessionDelegate {
         if activationState == .activated {
             Task { @MainActor in
                 self.requestSync()
-                self.handleMessage(session.applicationContext)
+                self.handleMessage(session.receivedApplicationContext)
             }
+        } else if let error {
+            NSLog(
+                "[Pushlog][Watch] WCSession activation failed: %@",
+                error.localizedDescription
+            )
         }
     }
 

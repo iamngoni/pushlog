@@ -16,7 +16,7 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
     weak var watchSessionManager: WatchSessionManager?
 
     private struct PendingWorkout {
-        let sessionID: UUID
+        let sessionID: String
         var reps: Int
         var duration: TimeInterval
         var endedAt: Date
@@ -26,9 +26,9 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
     private let healthStore = HKHealthStore()
     private var workoutSession: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
-    private var activeSessionID: UUID?
+    private var activeSessionID: String?
     private var pendingWorkout: PendingWorkout?
-    private var collectionEndedSessionID: UUID?
+    private var collectionEndedSessionID: String?
     private var saveAfterCollectionEnds = false
 
     func requestAuthorization() {
@@ -51,7 +51,7 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
 
     @discardableResult
     func startWorkout(
-        sessionID: UUID,
+        sessionID: String,
         startDate: Date,
         configuration: HKWorkoutConfiguration? = nil
     ) -> Bool {
@@ -110,19 +110,19 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
         }
     }
 
-    func pauseWorkout(sessionID: UUID) {
+    func pauseWorkout(sessionID: String) {
         guard activeSessionID == sessionID, isSessionActive else { return }
         workoutSession?.pause()
         isPaused = true
     }
 
-    func resumeWorkout(sessionID: UUID) {
+    func resumeWorkout(sessionID: String) {
         guard activeSessionID == sessionID, isSessionActive else { return }
         workoutSession?.resume()
         isPaused = false
     }
 
-    func stopWorkout(sessionID: UUID, reps: Int, duration: TimeInterval, endedAt: Date) {
+    func stopWorkout(sessionID: String, reps: Int, duration: TimeInterval, endedAt: Date) {
         guard activeSessionID == sessionID else { return }
 
         pendingWorkout = PendingWorkout(
@@ -151,7 +151,7 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
     }
 
     func saveStoppedWorkout(
-        sessionID: UUID,
+        sessionID: String,
         reps: Int,
         duration: TimeInterval,
         endedAt: Date,
@@ -178,7 +178,7 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
         finishPendingWorkout()
     }
 
-    func discardWorkout(sessionID: UUID) {
+    func discardWorkout(sessionID: String) {
         guard activeSessionID == sessionID || pendingWorkout?.sessionID == sessionID else { return }
 
         workoutSession?.end()
@@ -186,7 +186,7 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
         resetWorkoutState()
     }
 
-    private func handleCollectionEnded(sessionID: UUID, error: Error?) {
+    private func handleCollectionEnded(sessionID: String, error: Error?) {
         guard activeSessionID == sessionID else { return }
 
         if let error {
@@ -214,7 +214,7 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
         let metadata: [String: Any] = [
             "PushlogRepCount": pendingWorkout.reps,
             "PushlogDuration": pendingWorkout.duration,
-            "PushlogExternalSessionID": pendingWorkout.sessionID.uuidString
+            "PushlogExternalSessionID": pendingWorkout.sessionID
         ]
 
         builder.addMetadata(metadata) { [weak self] _, metadataError in
