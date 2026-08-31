@@ -133,7 +133,7 @@ Health apps declaration:
       remains completed on the internal track; production remains empty.
 - [ ] Add at least one real 1:1 Wear OS screenshot before opting into Wear OS
       distribution. Do not use a generated or device-framed watch image.
-- [ ] Set App Review contact first name, last name, email, and phone number.
+- [x] Set App Review contact first name, last name, email, and phone number.
 - [ ] Choose App Store availability territories. Do not infer a global or
       country-limited launch without an owner decision.
 - [ ] Verify Sign in with Apple and Google sign-in on store-distributed builds.
