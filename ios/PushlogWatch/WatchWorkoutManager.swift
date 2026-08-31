@@ -50,7 +50,11 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
     }
 
     @discardableResult
-    func startWorkout(sessionID: UUID, startDate: Date) -> Bool {
+    func startWorkout(
+        sessionID: UUID,
+        startDate: Date,
+        configuration: HKWorkoutConfiguration? = nil
+    ) -> Bool {
         if activeSessionID == sessionID, isSessionActive {
             return true
         }
@@ -59,9 +63,11 @@ final class WatchWorkoutManager: NSObject, ObservableObject {
             discardWorkout(sessionID: activeSessionID)
         }
 
-        let config = HKWorkoutConfiguration()
-        config.activityType = .functionalStrengthTraining
-        config.locationType = .indoor
+        let config = configuration ?? HKWorkoutConfiguration()
+        if configuration == nil {
+            config.activityType = .functionalStrengthTraining
+            config.locationType = .indoor
+        }
 
         do {
             let session = try HKWorkoutSession(healthStore: healthStore, configuration: config)

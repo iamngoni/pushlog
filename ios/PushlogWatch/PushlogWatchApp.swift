@@ -4,35 +4,53 @@ import HealthKit
 import SwiftUI
 import WatchKit
 
-extension Notification.Name {
-    static let pushlogWorkoutConfigurationReceived = Notification.Name("pushlogWorkoutConfigurationReceived")
+@MainActor
+final class WatchExtensionDelegate: NSObject, WKApplicationDelegate {
+    func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
+        // HealthKit launches the app in the background and calls this delegate
+        // before SwiftUI is guaranteed to appear. Start the handoff here so
+        // the Watch can create its HKWorkoutSession and acknowledge the phone.
+        WatchRuntime.shared.handle(workoutConfiguration)
+    }
 }
 
-final class WatchExtensionDelegate: NSObject, WKApplicationDelegate {
-    private let pendingLaunchLock = NSLock()
-    private var hasPendingWorkoutConfiguration = false
+@MainActor
+final class WatchRuntime {
+    static let shared = WatchRuntime()
 
-    func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
-        pendingLaunchLock.lock()
-        hasPendingWorkoutConfiguration = true
-        pendingLaunchLock.unlock()
-        NotificationCenter.default.post(name: .pushlogWorkoutConfigurationReceived, object: nil)
+    let sessionManager: WatchSessionManager
+    let workoutManager: WatchWorkoutManager
+
+    private init() {
+        let sessionManager = WatchSessionManager()
+        let workoutManager = WatchWorkoutManager()
+        self.sessionManager = sessionManager
+        self.workoutManager = workoutManager
+        sessionManager.workoutManager = workoutManager
+        workoutManager.watchSessionManager = sessionManager
+        workoutManager.requestAuthorization()
     }
 
-    func consumePendingWorkoutConfiguration() -> Bool {
-        pendingLaunchLock.lock()
-        defer { pendingLaunchLock.unlock() }
-        let wasPending = hasPendingWorkoutConfiguration
-        hasPendingWorkoutConfiguration = false
-        return wasPending
+    func handle(_ workoutConfiguration: HKWorkoutConfiguration) {
+        sessionManager.handleWorkoutConfigurationLaunch(workoutConfiguration)
+    }
+
+    func handleForegroundLaunch() {
+        sessionManager.handleWorkoutConfigurationLaunch()
     }
 }
 
 @main
 struct PushlogWatchApp: App {
     @WKApplicationDelegateAdaptor(WatchExtensionDelegate.self) private var extensionDelegate
-    @StateObject private var sessionManager = WatchSessionManager()
-    @StateObject private var workoutManager = WatchWorkoutManager()
+    @StateObject private var sessionManager: WatchSessionManager
+    @StateObject private var workoutManager: WatchWorkoutManager
+
+    init() {
+        let runtime = WatchRuntime.shared
+        _sessionManager = StateObject(wrappedValue: runtime.sessionManager)
+        _workoutManager = StateObject(wrappedValue: runtime.workoutManager)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -40,17 +58,9 @@ struct PushlogWatchApp: App {
                 .environmentObject(sessionManager)
                 .environmentObject(workoutManager)
                 .onAppear {
-                    sessionManager.workoutManager = workoutManager
-                    workoutManager.watchSessionManager = sessionManager
-                    workoutManager.requestAuthorization()
                     // A normal manual launch must recover the phone's pending
                     // workout too, not only launches initiated by HealthKit.
-                    sessionManager.handleWorkoutConfigurationLaunch()
-                    _ = extensionDelegate.consumePendingWorkoutConfiguration()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .pushlogWorkoutConfigurationReceived)) { _ in
-                    _ = extensionDelegate.consumePendingWorkoutConfiguration()
-                    sessionManager.handleWorkoutConfigurationLaunch()
+                    WatchRuntime.shared.handleForegroundLaunch()
                 }
         }
     }

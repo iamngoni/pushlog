@@ -431,6 +431,18 @@ final class PushlogWatchSessionManager: NSObject {
       currentHeartRate = (message["bpm"] as? NSNumber)?.doubleValue ?? currentHeartRate
       currentActiveCalories =
         (message["activeCalories"] as? NSNumber)?.doubleValue ?? currentActiveCalories
+      if
+        let sessionId = message["sessionID"] as? String,
+        var workout = activeWorkout,
+        workout.id == sessionId,
+        workout.ownership == .requested
+      {
+        workout.ownership = .accepted
+        activeWorkout = workout
+        pendingWatchLaunchSessionId = nil
+        watchLaunchInFlight = false
+        statusLabel = "WATCH RECORDING"
+      }
     case "sessionAck":
       handleSessionAck(message)
     case "watchControl":

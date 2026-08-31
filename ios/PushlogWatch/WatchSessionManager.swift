@@ -2,6 +2,7 @@
 
 import Combine
 import Foundation
+import HealthKit
 import WatchConnectivity
 
 private let appGroup = "group.za.co.codecraftsolutions.pushlog"
@@ -32,6 +33,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
 
     private var activeSessionID: UUID?
     private var pendingStart: (sessionID: UUID, startedAt: Date)?
+    private var pendingWorkoutConfiguration: HKWorkoutConfiguration?
 
     override init() {
         super.init()
@@ -42,7 +44,16 @@ final class WatchSessionManager: NSObject, ObservableObject {
         }
     }
 
-    func handleWorkoutConfigurationLaunch() {
+    func handleWorkoutConfigurationLaunch(
+        _ workoutConfiguration: HKWorkoutConfiguration? = nil
+    ) {
+        if let workoutConfiguration {
+            pendingWorkoutConfiguration = workoutConfiguration
+        }
+        if WCSession.isSupported() {
+            handleMessage(WCSession.default.applicationContext)
+        }
+        guard !isLiveActive else { return }
         requestSync()
     }
 
@@ -81,6 +92,10 @@ final class WatchSessionManager: NSObject, ObservableObject {
         ]
         if let activeSessionID {
             message["sessionID"] = activeSessionID.uuidString
+        }
+
+        if WCSession.isSupported() {
+            try? WCSession.default.updateApplicationContext(message)
         }
 
         sendToPhone(message, queued: false)
@@ -301,7 +316,14 @@ final class WatchSessionManager: NSObject, ObservableObject {
         isAwaitingEffort = false
         effortScore = nil
 
-        let accepted = workoutManager.startWorkout(sessionID: sessionID, startDate: startedAt)
+        let accepted = workoutManager.startWorkout(
+            sessionID: sessionID,
+            startDate: startedAt,
+            configuration: pendingWorkoutConfiguration
+        )
+        if accepted {
+            pendingWorkoutConfiguration = nil
+        }
         isLiveActive = accepted
         sendSessionAck(sessionID: sessionID, accepted: accepted)
     }
