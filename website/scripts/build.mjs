@@ -21,10 +21,6 @@ await Promise.all([
     resolve(repositoryDirectory, 'assets/brand/pushlog_icon_master.png'),
     resolve(assetDirectory, 'pushlog-icon.png'),
   ),
-  copyFile(
-    resolve(repositoryDirectory, 'store/ios/screenshots/raw/01-today.png'),
-    resolve(assetDirectory, 'pushlog-today.png'),
-  ),
 ]);
 
 console.log(`Built Pushlog site at ${outputDirectory}`);
