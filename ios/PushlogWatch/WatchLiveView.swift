@@ -190,8 +190,10 @@ private struct PauseEndControl: View {
 
     @State private var holdProgress: CGFloat = 0
     @State private var holdStartedAt: Date?
-    @State private var holdCompleted = false
+    @State private var holdCompletion = PushlogWatchHoldCompletion()
     @State private var holdTask: Task<Void, Never>?
+
+    private let holdPolicy = PushlogWatchHoldPolicy()
 
     private var isPaused: Bool {
         session.isPaused || workout.isPaused
@@ -245,18 +247,19 @@ private struct PauseEndControl: View {
         guard holdTask == nil else { return }
 
         holdStartedAt = Date()
-        holdCompleted = false
+        holdCompletion.reset()
 
-        withAnimation(.linear(duration: 3.0)) {
+        withAnimation(.linear(duration: PushlogWatchHoldPolicy.holdDuration)) {
             holdProgress = 1
         }
 
         holdTask = Task {
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(
+                for: .seconds(PushlogWatchHoldPolicy.holdDuration)
+            )
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                holdCompleted = true
-                session.requestEndFromWatch()
+                completeHoldIfNeeded()
             }
         }
     }
@@ -264,11 +267,23 @@ private struct PauseEndControl: View {
     private func finishPress() {
         let elapsed = holdStartedAt.map { Date().timeIntervalSince($0) } ?? 0
 
-        if !holdCompleted, elapsed < 0.65 {
-            session.togglePauseFromWatch()
+        if !holdCompletion.didComplete {
+            switch holdPolicy.action(for: elapsed) {
+            case .togglePause:
+                session.togglePauseFromWatch()
+            case .end:
+                completeHoldIfNeeded()
+            case .none:
+                break
+            }
         }
 
         cancelHold(animated: true)
+    }
+
+    private func completeHoldIfNeeded() {
+        guard holdCompletion.completeIfNeeded() else { return }
+        session.requestEndFromWatch()
     }
 
     private func cancelHold(animated: Bool) {
@@ -278,7 +293,7 @@ private struct PauseEndControl: View {
 
         let reset = {
             holdProgress = 0
-            holdCompleted = false
+            holdCompletion.reset()
         }
 
         if animated {

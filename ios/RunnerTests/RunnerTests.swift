@@ -67,4 +67,31 @@ class RunnerTests: XCTestCase {
     XCTAssertTrue(policy.canTransfer(activationState: .activated))
   }
 
+  func testWatchHoldEndsWhenReleasedAtCompletionThreshold() {
+    let policy = PushlogWatchHoldPolicy()
+
+    XCTAssertEqual(
+      policy.action(for: PushlogWatchHoldPolicy.holdDuration),
+      .end
+    )
+    XCTAssertEqual(policy.action(for: 3.5), .end)
+  }
+
+  func testWatchHoldDoesNotEndBeforeCompletionThreshold() {
+    let policy = PushlogWatchHoldPolicy()
+
+    XCTAssertEqual(policy.action(for: 0.2), .togglePause)
+    XCTAssertEqual(policy.action(for: 0.65), .none)
+    XCTAssertEqual(policy.action(for: 2.999), .none)
+  }
+
+  func testWatchHoldCompletionOnlyFiresOnceForTimerReleaseRace() {
+    var completion = PushlogWatchHoldCompletion()
+
+    XCTAssertTrue(completion.completeIfNeeded())
+    XCTAssertFalse(completion.completeIfNeeded())
+    completion.reset()
+    XCTAssertTrue(completion.completeIfNeeded())
+  }
+
 }
