@@ -1,6 +1,6 @@
 # Pushlog store readiness
 
-Last reviewed: 31 August 2026
+Last reviewed: 3 September 2026
 
 This file is the source of truth for App Store Connect and Google Play Console
 answers. Keep the public policy and the shipped app behaviour aligned with it.
@@ -14,7 +14,7 @@ answers. Keep the public policy and the shipped app behaviour aligned with it.
 | iOS bundle ID | `za.co.codecraftsolutions.pushlog` |
 | Android application ID | `za.co.codecraftsolutions.pushlog` |
 | Current version | `1.1.0` |
-| Local Flutter build / Android version code | `25` |
+| Local Flutter build / Android version code | `26` |
 | Latest valid Xcode Cloud build | `48` |
 | Privacy policy | <https://pushlog.iamngoni.dev/privacy/> |
 | Terms | <https://pushlog.iamngoni.dev/terms/> |
@@ -62,14 +62,23 @@ Data linked to the user, used only for **App Functionality**:
 | Name | Sign-in display name, when supplied by Apple or Google |
 | Email Address | Authentication and account support |
 | User ID | Firebase UID and Pushlog username |
+| Health | Latest heart-rate and active-calorie summaries saved with a live session |
 | Fitness | Workout counts, sessions, duration, plan and progress |
 | Device ID | Push messaging token registered to the account |
 | Other User Content | A safety report submitted about another profile |
 
+Data not linked to the user, used only for **App Functionality**:
+
+| App Store category | Pushlog use |
+|---|---|
+| Crash Data | Sentry crash reports used for app functionality |
+| Performance Data | Limited Sentry performance traces used for app functionality |
+
 Do not declare camera images or videos: no frame leaves the device or is saved.
-Do not declare Health data as developer-collected: heart-rate and active-energy
-samples are used during the local workout / health export and are not uploaded
-to the Pushlog cloud service. The fitness workout record itself is declared.
+Declare the saved latest heart-rate and active-calorie session summaries as
+developer-collected Health data. The underlying sensor sample stream remains
+on-device and is not uploaded. Sentry is configured without default PII and no
+Pushlog account identity is attached to diagnostic events.
 
 App Review notes:
 
@@ -84,17 +93,20 @@ App Review notes:
 ## Google Play Data safety answers
 
 - Data collected: personal info (name, email, user IDs), health and fitness
-  (workout activity), user-generated content (safety reports), and device or
+  (workout activity plus saved latest heart-rate and active-calorie session
+  summaries), app info and performance (crash logs, diagnostics, and limited
+  performance traces), user-generated content (safety reports), and device or
   other IDs (push token).
 - Data shared: **No**, when completing the form under Google's service-provider
-  exception. Firebase and Cloudflare process data to provide Pushlog and are not
-  used for advertising.
+  exception. Firebase, Cloudflare, and Sentry process data to provide Pushlog
+  and are not used for advertising.
 - Purposes: app functionality, account management, fraud prevention / security,
   and developer communications only when the user contacts support.
 - Data is encrypted in transit: **Yes**.
 - Users can request deletion: **Yes** — use the public deletion URL above.
-- Data collection is required for account identity and cloud sync. Friends,
-  notifications, camera counting and health export are optional.
+- Data collection is required for account identity, cloud sync, and production
+  diagnostics. Friends, notifications, camera counting and health export are
+  optional.
 - Ads declaration: **No ads**.
 
 Health apps declaration:
@@ -119,9 +131,9 @@ Health apps declaration:
 - [x] Confirm the Android phone artifact targets API 36 or later and the Wear OS
       artifact targets API 35 or later.
 - [x] Confirm the signed Android phone and Wear OS AABs report version `1.1.0`
-      with version codes `25` and `360110025`, respectively.
+      with version codes `26` and `360110026`, respectively.
 - [x] Confirm the local iOS production build embeds the watch app and reports
-      version `1.1.0 (25)`, and Xcode Cloud build `48` is valid in App Store
+      version `1.1.0 (26)`, and Xcode Cloud build `48` is valid in App Store
       Connect.
 - [x] Prepare App Store version `1.1.0`, attach build `48`, set the Health &
       Fitness category, copyright, content rights, age rating, description,
