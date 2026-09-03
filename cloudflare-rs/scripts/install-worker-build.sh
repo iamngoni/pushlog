@@ -7,7 +7,7 @@ readonly worker_build_url="https://static.crates.io/crates/worker-build/worker-b
 
 if command -v worker-build >/dev/null &&
   [ "$(worker-build --version)" = "$worker_build_version" ]; then
-  exit 0
+  exec worker-build "$@"
 fi
 
 # worker-build uses native-tls. The self-hosted runner intentionally executes
@@ -17,7 +17,7 @@ fi
 # directory instead.
 if command -v pkg-config >/dev/null && pkg-config --exists openssl; then
   cargo install --locked --version "$worker_build_version" worker-build
-  exit 0
+  exec "${CARGO_HOME:-$HOME/.cargo}/bin/worker-build" "$@"
 fi
 
 for required_command in curl tar cargo; do
@@ -63,3 +63,4 @@ cargo metadata \
   --manifest-path "$worker_build_source/Cargo.toml" \
   >/dev/null
 cargo install --locked --path "$worker_build_source"
+exec "${CARGO_HOME:-$HOME/.cargo}/bin/worker-build" "$@"

@@ -30,4 +30,4 @@ enabled = true
 invocation_logs = true
 
 [build]
-command = "./scripts/install-worker-build.sh && worker-build --release"
+command = "./scripts/install-worker-build.sh --release"
