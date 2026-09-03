@@ -92,7 +92,7 @@ database_id = "150fa67b-ecf6-4833-a10a-2be0816e7678"
 migrations_dir = "${join(projectDirectory, "migrations")}"
 
 [build]
-command = "cd ${projectDirectory} && cargo install -q worker-build --version 0.8.5 && worker-build --release --features integration-test-auth"
+command = "cd ${projectDirectory} && ./scripts/install-worker-build.sh && worker-build --release --features integration-test-auth"
 `);
 run("wrangler", [
   "d1",

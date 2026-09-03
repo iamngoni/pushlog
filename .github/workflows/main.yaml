@@ -26,11 +26,7 @@ jobs:
       - run: flutter test --concurrency=1
 
   worker:
-    # The self-hosted ARM runner is an unprivileged container without the
-    # OpenSSL development headers required to compile worker-build. GitHub's
-    # Ubuntu image provides the native toolchain needed for this portable WASM
-    # build and keeps the Worker gate reproducible.
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 30
     defaults:
       run:
