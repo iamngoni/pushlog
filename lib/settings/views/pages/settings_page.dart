@@ -785,26 +785,34 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     final h = time.hour.toString().padLeft(2, '0');
     final m = time.minute.toString().padLeft(2, '0');
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showTimePicker(
-          context: context,
-          initialTime: time,
-        );
-        if (picked != null && context.mounted) {
-          final updated = prefs.copyWith(
-            reminderHour: picked.hour,
-            reminderMinute: picked.minute,
-          );
-          context.read<WorkoutBloc>().add(
-            UpdatePreferencesEvent(updated),
-          );
-        }
-      },
-      child: buildInfoRow(
-        title: 'Reminder time',
-        detail: '$h:$m',
-        theme: theme,
+    return Semantics(
+      button: true,
+      label: 'Change reminder time, current $h:$m',
+      excludeSemantics: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: () async {
+            final picked = await showTimePicker(
+              context: context,
+              initialTime: time,
+            );
+            if (picked != null && context.mounted) {
+              final updated = prefs.copyWith(
+                reminderHour: picked.hour,
+                reminderMinute: picked.minute,
+              );
+              context.read<WorkoutBloc>().add(
+                UpdatePreferencesEvent(updated),
+              );
+            }
+          },
+          child: buildInfoRow(
+            title: 'Reminder time',
+            detail: '$h:$m',
+            theme: theme,
+          ),
+        ),
       ),
     );
   }

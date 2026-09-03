@@ -85,8 +85,8 @@ mocktail: ^1.0.1               # Mocking library
 ## Full pubspec.yaml Template
 
 ```yaml
-name: sipmate
-description: SipMate Flutter Application
+name: pushlog
+description: Pushlog Flutter Application
 version: 1.0.0+1
 publish_to: none
 

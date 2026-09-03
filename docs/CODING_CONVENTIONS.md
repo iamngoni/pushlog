@@ -100,7 +100,7 @@ Use relative imports for project files:
 import '../models/data/user.dart';
 
 // Avoid
-import 'package:sipmate/auth/models/data/user.dart';
+import 'package:pushlog/auth/models/data/user.dart';
 ```
 
 ### Class Structure
