@@ -54,7 +54,7 @@
       <p class="eyebrow">Legal</p>
       <h1>Privacy policy</h1>
       <p>This policy explains what data Pushlog uses, why it uses it, and how to export or delete it.</p>
-      <div class="meta-line">Effective 28 August 2026 · Last updated 31 August 2026</div>
+      <div class="meta-line">Effective 28 August 2026 · Last updated 3 September 2026</div>
     </header>
 
     <div class="legal-layout">
@@ -81,16 +81,19 @@
         <p>When you sign in with Apple or Google, we receive the account identifier needed to authenticate you and, when the provider makes them available, your email address, name, and profile photo. You may also choose a Pushlog username. Your email is not shown to other Pushlog users.</p>
 
         <h3>Training and preference data</h3>
-        <p>We store the training record you create, including completed rep counts, session dates and times, session duration, manual adjustments, progress totals, plan settings, reminder preferences, and sync timestamps. This lets Pushlog restore your record across devices and calculate your progress.</p>
+        <p>We store the training record you create, including completed rep counts, session dates and times, session duration, manual adjustments, effort level, the latest heart-rate and active-calorie summaries recorded for a live session, progress totals, plan settings, reminder preferences, and sync timestamps. This lets Pushlog restore your record across devices and calculate your progress.</p>
 
         <h3>Friends and notifications</h3>
-        <p>If you use optional friend features, we store usernames, friend requests, friend links, leaderboard totals, blocks, and safety reports you submit. If you enable notifications, we store a device messaging token, platform and time zone, notification preferences, and a history of Pushlog notifications so they can be delivered and shown consistently.</p>
+        <p>If you use optional friend features, we store usernames, friend requests, friend links, leaderboard totals, blocks, and safety reports you submit. Accepted friends can view each other's shared workout record, including session rep count, time, duration, effort level, manual adjustments, and available heart-rate and active-calorie summaries. Your email address, settings, messaging token, and safety reports are not shown to friends. If you enable notifications, we store a device messaging token, platform and time zone, notification preferences, and a history of Pushlog notifications so they can be delivered and shown consistently.</p>
 
         <h3>Camera processing</h3>
         <p>The optional live counter uses the front camera to detect the size of a face and count movement. <strong>Camera frames are processed on your device in real time and are not saved, uploaded, or added to your account.</strong> You can use manual entry instead.</p>
 
         <h3>Apple Health, Health Connect, and watch sensors</h3>
-        <p>Health access is optional and is requested only when you enable it. Pushlog can write completed workouts to Apple Health or Health Connect. A connected watch may read heart rate and active energy during a live workout so those metrics can be shown during the session and written to the health store. Pushlog does not use health information for advertising, marketing, or data brokerage. Heart-rate and active-energy samples are not uploaded to the Pushlog cloud account.</p>
+        <p>Health access is optional and is requested only when you enable it. Pushlog can write completed workouts to Apple Health or Health Connect. A connected watch may read heart rate and active energy during a live workout so those metrics can be shown during the session and written to the health store. Pushlog stores only the latest heart-rate value and active-calorie total saved with the workout session, not the underlying stream of sensor samples. These summaries are included in cloud sync and are visible to accepted friends. Pushlog does not use health information for advertising, marketing, or data brokerage.</p>
+
+        <h3>Diagnostics and reliability</h3>
+        <p>Production versions use Sentry to receive crash reports, error details, performance traces, and technical context such as the app version, operating system, device model, and screen or API route involved. Sentry is configured not to collect default personally identifiable information, and Pushlog does not attach your account identity to Sentry events. Diagnostic data is used only to investigate failures, maintain security, and improve reliability.</p>
 
         <h3>Website and technical requests</h3>
         <p>This website does not use advertising cookies. Cloudflare delivers, protects, and measures traffic to the website and may process request information such as IP address, browser details, security signals, and server logs.</p>
@@ -113,6 +116,7 @@
         <ul>
           <li><strong>Firebase</strong> for authentication, app integrity checks, and push messaging;</li>
           <li><strong>Cloudflare</strong> for website delivery, API hosting, security, and database storage;</li>
+          <li><strong>Sentry</strong> for application and API error monitoring, crash diagnostics, and limited performance monitoring;</li>
           <li><strong>Apple and Google</strong> when you choose their sign-in, health, app-store, or device services; and</li>
           <li><strong>Google ML Kit</strong> for on-device face detection used by the optional camera counter.</li>
         </ul>

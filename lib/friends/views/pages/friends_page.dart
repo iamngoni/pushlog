@@ -10,6 +10,7 @@ import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/app_scaffold.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
+import 'package:pushlog/friends/views/widgets/friend_profile_sheet.dart';
 import 'package:pushlog/today/views/widgets/friends_leaderboard.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 
@@ -102,6 +103,16 @@ class _FriendsPageState extends State<FriendsPage> {
                 totalAllTime: workoutState.totalAllTime,
                 period: _period,
                 showHeader: false,
+                onEntryTap: (profile) => unawaited(
+                  showFriendProfileSheet(
+                    context: context,
+                    theme: theme,
+                    profile: profile,
+                    loadActivity: () => context
+                        .read<FriendsCubit>()
+                        .loadFriendActivity(profile.uid),
+                  ),
+                ),
               ),
               const SizedBox(height: AppSpacing.block),
               Divider(color: theme.divider),

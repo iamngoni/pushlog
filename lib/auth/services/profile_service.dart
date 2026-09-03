@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/core/services/pushlog_api_client.dart';
+import 'package:pushlog/friends/models/friend_activity.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/models/friend_request.dart';
 
@@ -123,6 +124,13 @@ class ProfileService {
           (left, right) => right.todayCount.compareTo(left.todayCount),
         );
     return entries;
+  }
+
+  Future<FriendActivity> loadFriendActivity(String friendUid) async {
+    final response = await _api.get(
+      '/v1/friends/${Uri.encodeComponent(friendUid)}',
+    );
+    return FriendActivity.fromJson(response);
   }
 
   Future<List<FriendRequest>> loadIncomingFriendRequests({

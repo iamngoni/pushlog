@@ -25,6 +25,7 @@ class FriendsLeaderboard extends StatelessWidget {
     this.period = LeaderboardPeriod.today,
     this.showHeader = true,
     this.limit,
+    this.onEntryTap,
     super.key,
   });
 
@@ -36,6 +37,7 @@ class FriendsLeaderboard extends StatelessWidget {
   final LeaderboardPeriod period;
   final bool showHeader;
   final int? limit;
+  final ValueChanged<FriendProfile>? onEntryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +161,9 @@ class FriendsLeaderboard extends StatelessWidget {
                       entry: indexedEntry.$2,
                       period: period,
                       theme: theme,
+                      onTap: onEntryTap == null
+                          ? null
+                          : () => onEntryTap!(indexedEntry.$2),
                     ),
                 ],
               ),
@@ -206,6 +211,7 @@ class _LeaderboardRow extends StatelessWidget {
     required this.entry,
     required this.period,
     required this.theme,
+    this.onTap,
   });
 
   final int? competitionRank;
@@ -213,6 +219,7 @@ class _LeaderboardRow extends StatelessWidget {
   final FriendProfile entry;
   final LeaderboardPeriod period;
   final AppTheme theme;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -232,68 +239,81 @@ class _LeaderboardRow extends StatelessWidget {
       label:
           '${entry.isMe ? 'You' : entry.label}, '
           '$rankDescription, $score reps',
+      hint: onTap == null ? null : 'View profile',
+      button: onTap != null,
       excludeSemantics: true,
-      child: Container(
-        // The row that is *you* gets a tinted band. On a list where every
-        // entry looks alike, finding yourself should not require reading.
-        color: entry.isMe ? theme.accentSoft : null,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.lg,
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 28,
-              child: Text(
-                rankLabel,
-                style: AppTypography.metricInline(
-                  color: (competitionRank ?? 4) <= 3
-                      ? theme.ink
-                      : theme.tertiaryInk,
-                  weight: (competitionRank ?? 4) <= 3
-                      ? FontWeight.w800
-                      : FontWeight.w600,
-                ),
-              ),
+      child: Material(
+        color: entry.isMe ? theme.accentSoft : Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.lg,
             ),
-            const SizedBox(width: AppSpacing.md),
-            AvatarBadge(
-              initials: entry.initials,
-              seed: entry.uid,
-              isMe: entry.isMe,
-            ),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.isMe ? 'You' : entry.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.title(color: theme.ink),
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    '@${entry.username}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodySmall(
-                      color: theme.secondaryInk,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 28,
+                  child: Text(
+                    rankLabel,
+                    style: AppTypography.metricInline(
+                      color: (competitionRank ?? 4) <= 3
+                          ? theme.ink
+                          : theme.tertiaryInk,
+                      weight: (competitionRank ?? 4) <= 3
+                          ? FontWeight.w800
+                          : FontWeight.w600,
                     ),
                   ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                AvatarBadge(
+                  initials: entry.initials,
+                  seed: entry.uid,
+                  isMe: entry.isMe,
+                ),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.isMe ? 'You' : entry.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.title(color: theme.ink),
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        '@${entry.username}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodySmall(
+                          color: theme.secondaryInk,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.lg),
+                Text(
+                  _formatScore(score),
+                  style: AppTypography.metricSmall(
+                    color: entry.isMe ? theme.accentInk : theme.ink,
+                  ),
+                ),
+                if (onTap != null) ...[
+                  const SizedBox(width: AppSpacing.md),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: theme.tertiaryInk,
+                  ),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(width: AppSpacing.lg),
-            Text(
-              _formatScore(score),
-              style: AppTypography.metricSmall(
-                color: entry.isMe ? theme.accentInk : theme.ink,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

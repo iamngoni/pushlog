@@ -13,6 +13,7 @@ const port = 8791;
 const baseUrl = `http://127.0.0.1:${port}`;
 const stateDirectory = ".wrangler/integration-state";
 const config = join(stateDirectory, "wrangler.toml");
+const readinessTimeoutMs = 10 * 60 * 1000;
 
 function run(command, args) {
   const result = spawnSync(command, args, { encoding: "utf8", stdio: "pipe" });
@@ -22,7 +23,8 @@ function run(command, args) {
 }
 
 async function waitUntilReady(process) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+  const deadline = Date.now() + readinessTimeoutMs;
+  while (Date.now() < deadline) {
     if (process.exitCode !== null) {
       throw new Error(`Wrangler exited before becoming ready (${process.exitCode}).`);
     }
@@ -34,7 +36,9 @@ async function waitUntilReady(process) {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error("Wrangler did not become ready within 60 seconds.");
+  throw new Error(
+    `Wrangler did not become ready within ${readinessTimeoutMs / 1000} seconds.`,
+  );
 }
 
 function auth(uid) {
@@ -77,8 +81,9 @@ const projectDirectory = process.cwd();
 writeFileSync(config, `
 # Generated local-only configuration. It is kept under ignored disposable state.
 name = "pushlog-api-integration"
-main = "${join(projectDirectory, "build/worker/shim.mjs")}"
+main = "${join(projectDirectory, "src/entry.mjs")}"
 compatibility_date = "2026-08-06"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 FIREBASE_PROJECT_ID = "pushlog-app"
@@ -91,7 +96,7 @@ database_id = "150fa67b-ecf6-4833-a10a-2be0816e7678"
 migrations_dir = "${join(projectDirectory, "migrations")}"
 
 [build]
-command = "cd ${projectDirectory} && cargo install -q worker-build --version 0.8.5 && worker-build --release --features integration-test-auth"
+command = "cd ${projectDirectory} && ./scripts/install-worker-build.sh && worker-build --release --features integration-test-auth"
 `);
 run("wrangler", [
   "d1",
@@ -251,6 +256,11 @@ try {
   bobSnapshot.dayTotals["2026-08-06"] = 5;
   bobSnapshot.sessions[0].id = "session-bob-1";
   bobSnapshot.sessions[0].reps = 5;
+  bobSnapshot.sessions[0].source = "live";
+  bobSnapshot.sessions[0].manualAdjustments = 2;
+  bobSnapshot.sessions[0].effortScore = 8;
+  bobSnapshot.sessions[0].latestHeartRate = 142.5;
+  bobSnapshot.sessions[0].activeCalories = 18.75;
   const charlieSnapshot = structuredClone(snapshot);
   charlieSnapshot.dayTotals["2026-08-06"] = 25;
   charlieSnapshot.sessions[0].id = "session-charlie-1";
@@ -286,6 +296,21 @@ try {
     },
     expectedStatus: 202,
   });
+  const friendActivity = await request("/v1/friends/bob", { uid: "alice" });
+  assert.equal(friendActivity.body.profile.uid, "bob");
+  assert.equal(friendActivity.body.profile.email, undefined);
+  assert.deepEqual(friendActivity.body.dayTotals, { "2026-08-06": 5 });
+  assert.equal(friendActivity.body.sessions[0].source, "live");
+  assert.equal(friendActivity.body.sessions[0].effortScore, 8);
+  assert.equal(friendActivity.body.sessions[0].latestHeartRate, 142.5);
+  assert.equal(friendActivity.body.sessions[0].activeCalories, 18.75);
+  assert.equal(friendActivity.body.preferences, undefined);
+  const hiddenFriendActivity = await request("/v1/friends/alice", {
+    uid: "charlie",
+    expectedStatus: 404,
+  });
+  assert.equal(hiddenFriendActivity.body.error.code, "friend_not_found");
+  assert.ok(hiddenFriendActivity.response.headers.get("x-request-id"));
   await request("/v1/workout-snapshot", {
     uid: "alice",
     method: "PUT",
@@ -400,6 +425,11 @@ try {
     { uid: "alice" },
   );
   assert.deepEqual(friendsAfterBlock.body.friends, []);
+  const blockedFriendActivity = await request("/v1/friends/bob", {
+    uid: "alice",
+    expectedStatus: 404,
+  });
+  assert.equal(blockedFriendActivity.body.error.code, "friend_not_found");
   const searchAfterBlock = await request("/v1/users/search?q=bo", { uid: "alice" });
   assert.deepEqual(searchAfterBlock.body.profiles, []);
   const blockedRequest = await request("/v1/friend-requests", {

@@ -191,6 +191,8 @@ class WorkoutBloc extends Bloc<WorkoutEvent, WorkoutState> {
       averageRepDuration: event.avgRepDuration,
       manualAdjustments: event.manualAdjustments,
       effortScore: event.effortScore,
+      latestHeartRate: event.latestHeartRate,
+      activeCalories: event.activeCalories,
     );
 
     final updatedTotals = Map<String, int>.from(current.dayTotals);

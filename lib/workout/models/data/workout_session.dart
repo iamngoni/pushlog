@@ -23,6 +23,8 @@ class WorkoutSession extends Equatable {
     this.averageRepDuration,
     this.manualAdjustments = 0,
     this.effortScore,
+    this.latestHeartRate,
+    this.activeCalories,
   });
 
   factory WorkoutSession.fromJson(
@@ -48,6 +50,8 @@ class WorkoutSession extends Equatable {
           : null,
       manualAdjustments: (json['manualAdjustments'] as int?) ?? 0,
       effortScore: (json['effortScore'] as num?)?.toInt(),
+      latestHeartRate: (json['latestHeartRate'] as num?)?.toDouble(),
+      activeCalories: (json['activeCalories'] as num?)?.toDouble(),
     );
   }
 
@@ -59,6 +63,8 @@ class WorkoutSession extends Equatable {
   final Duration? averageRepDuration;
   final int manualAdjustments;
   final int? effortScore;
+  final double? latestHeartRate;
+  final double? activeCalories;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -69,6 +75,8 @@ class WorkoutSession extends Equatable {
     'averageRepDuration': averageRepDuration?.inMicroseconds,
     'manualAdjustments': manualAdjustments,
     'effortScore': effortScore,
+    'latestHeartRate': latestHeartRate,
+    'activeCalories': activeCalories,
   };
 
   WorkoutSession copyWith({
@@ -80,6 +88,8 @@ class WorkoutSession extends Equatable {
     Duration? averageRepDuration,
     int? manualAdjustments,
     int? Function()? effortScore,
+    double? Function()? latestHeartRate,
+    double? Function()? activeCalories,
   }) => WorkoutSession(
     id: id ?? this.id,
     date: date ?? this.date,
@@ -89,6 +99,12 @@ class WorkoutSession extends Equatable {
     averageRepDuration: averageRepDuration ?? this.averageRepDuration,
     manualAdjustments: manualAdjustments ?? this.manualAdjustments,
     effortScore: effortScore == null ? this.effortScore : effortScore(),
+    latestHeartRate: latestHeartRate == null
+        ? this.latestHeartRate
+        : latestHeartRate(),
+    activeCalories: activeCalories == null
+        ? this.activeCalories
+        : activeCalories(),
   );
 
   @override
@@ -101,5 +117,7 @@ class WorkoutSession extends Equatable {
     averageRepDuration,
     manualAdjustments,
     effortScore,
+    latestHeartRate,
+    activeCalories,
   ];
 }

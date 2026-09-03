@@ -5,19 +5,23 @@ import 'package:pushlog/workout/models/data/workout_snapshot.dart';
 
 void main() {
   group('WorkoutSnapshot', () {
-    test('round trips a live session effort score', () {
+    test('round trips live session effort and watch metrics', () {
       final session = WorkoutSession(
         id: 'effort-session',
         date: DateTime(2026, 8, 28, 12),
         reps: 25,
         source: WorkoutSource.live,
         effortScore: 8,
+        latestHeartRate: 142.5,
+        activeCalories: 18.75,
       );
 
       final restored = WorkoutSession.fromJson(session.toJson());
 
       expect(restored, session);
       expect(restored.effortScore, 8);
+      expect(restored.latestHeartRate, 142.5);
+      expect(restored.activeCalories, 18.75);
     });
 
     test('round trips engagement reminder preferences', () {

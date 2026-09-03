@@ -43,6 +43,8 @@ class SaveLiveSessionEvent extends WorkoutEvent {
     this.avgRepDuration,
     this.manualAdjustments = 0,
     this.effortScore,
+    this.latestHeartRate,
+    this.activeCalories,
   });
 
   final int reps;
@@ -51,6 +53,8 @@ class SaveLiveSessionEvent extends WorkoutEvent {
   final Duration? avgRepDuration;
   final int manualAdjustments;
   final int? effortScore;
+  final double? latestHeartRate;
+  final double? activeCalories;
 
   @override
   List<Object?> get props => [
@@ -60,6 +64,8 @@ class SaveLiveSessionEvent extends WorkoutEvent {
     avgRepDuration,
     manualAdjustments,
     effortScore,
+    latestHeartRate,
+    activeCalories,
   ];
 }
 

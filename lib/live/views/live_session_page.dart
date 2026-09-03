@@ -49,6 +49,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
   bool _didLoadWatchStatus = false;
   int _lastWatchControlSequence = 0;
   int? _effortScore;
+  double _latestHeartRate = 0;
+  double _activeCalories = 0;
 
   bool get _wantsWatch =>
       _preferences.liveDevicePreference == LiveDevicePreference.iphoneAndWatch;
@@ -387,8 +389,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                 Expanded(
                   child: _LiveMetric(
                     label: 'HEART RATE',
-                    value: _watchStatus.currentHeartRate > 0
-                        ? '${_watchStatus.currentHeartRate.round()} BPM'
+                    value: _latestHeartRate > 0
+                        ? '${_latestHeartRate.round()} BPM'
                         : '-- BPM',
                     theme: theme,
                   ),
@@ -397,8 +399,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                 Expanded(
                   child: _LiveMetric(
                     label: 'ACTIVE ENERGY',
-                    value: _watchStatus.activeCalories > 0
-                        ? '${_watchStatus.activeCalories.round()} KCAL'
+                    value: _activeCalories > 0
+                        ? '${_activeCalories.round()} KCAL'
                         : '-- KCAL',
                     theme: theme,
                   ),
@@ -452,15 +454,15 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
                     : _watchStatus.statusLabel,
               ),
               ('Health owner', _healthKitWriteOwner.name),
-              if (_watchStatus.currentHeartRate > 0)
+              if (_latestHeartRate > 0)
                 (
                   'Latest heart rate',
-                  '${_watchStatus.currentHeartRate.round()} BPM',
+                  '${_latestHeartRate.round()} BPM',
                 ),
-              if (_watchStatus.activeCalories > 0)
+              if (_activeCalories > 0)
                 (
                   'Active energy',
-                  '${_watchStatus.activeCalories.toStringAsFixed(1)} kcal',
+                  '${_activeCalories.toStringAsFixed(1)} kcal',
                 ),
               ('Adjustments', '$_manualAdjustments'),
             ],
@@ -512,6 +514,14 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
           _watchStatus = status;
           if (status.effortScore != null) {
             _effortScore = status.effortScore;
+          }
+          if (_step == _LiveStep.tracking || _step == _LiveStep.summary) {
+            if (status.currentHeartRate > 0) {
+              _latestHeartRate = status.currentHeartRate;
+            }
+            if (status.activeCalories > 0) {
+              _activeCalories = status.activeCalories;
+            }
           }
           _lastWatchControlSequence = status.controlSequence;
         });
@@ -610,6 +620,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
       _sessionId = WorkoutBloc.generateId();
       _healthKitWriteOwner = HealthKitWriteOwner.phone;
       _effortScore = null;
+      _latestHeartRate = 0;
+      _activeCalories = 0;
     });
     _beginWatchWorkoutIfNeeded();
     _ticker?.cancel();
@@ -789,6 +801,8 @@ class _LiveSessionPageState extends State<LiveSessionPage> {
         avgRepDuration: avgRepDuration,
         manualAdjustments: _manualAdjustments,
         effortScore: _effortScore,
+        latestHeartRate: _latestHeartRate > 0 ? _latestHeartRate : null,
+        activeCalories: _activeCalories > 0 ? _activeCalories : null,
       ),
     );
 

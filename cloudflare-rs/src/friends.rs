@@ -11,6 +11,11 @@ use crate::env::AuthenticatedUser;
 use crate::error::{json_body, ApiError, ApiResult};
 use crate::profile::{ensure_profile, profile_json, profile_row, ProfileRow};
 
+#[derive(Debug, Deserialize)]
+struct StoredFriendSnapshot {
+    snapshot_json: String,
+}
+
 pub async fn get_friends(
     request: &Request,
     db: &D1Database,
@@ -54,6 +59,70 @@ pub async fn get_friends(
 
     Ok(serde_json::json!({
         "friends": rows.iter().map(|row| profile_json(row, false)).collect::<Vec<_>>(),
+    }))
+}
+
+pub async fn get_friend_activity(
+    db: &D1Database,
+    user: &AuthenticatedUser,
+    friend_uid: &str,
+) -> ApiResult<serde_json::Value> {
+    let allowed = friend_uid == user.uid()
+        || db
+            .prepare(
+                "SELECT 1 AS found FROM friend_links
+                 WHERE owner_uid = ? AND friend_uid = ?",
+            )
+            .bind_refs(&[D1Type::Text(user.uid()), D1Type::Text(friend_uid)])?
+            .first::<serde_json::Value>(None)
+            .await?
+            .is_some();
+    if !allowed {
+        return Err(ApiError::new(
+            404,
+            "friend_not_found",
+            "That friend is no longer available.",
+        ));
+    }
+
+    let profile = profile_row(db, friend_uid).await?.ok_or_else(|| {
+        ApiError::new(
+            404,
+            "friend_not_found",
+            "That friend is no longer available.",
+        )
+    })?;
+    let snapshot = db
+        .prepare("SELECT snapshot_json FROM workout_snapshots WHERE uid = ?")
+        .bind_refs(&[D1Type::Text(friend_uid)])?
+        .first::<StoredFriendSnapshot>(None)
+        .await?;
+    let (day_totals, sessions) = match snapshot {
+        None => (serde_json::json!({}), serde_json::json!([])),
+        Some(snapshot) => {
+            let stored: serde_json::Value =
+                serde_json::from_str(&snapshot.snapshot_json).map_err(|error| {
+                    log::error!("stored friend snapshot is invalid uid={friend_uid}: {error}");
+                    ApiError::internal()
+                })?;
+            let day_totals = stored
+                .get("dayTotals")
+                .filter(|value| value.is_object())
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
+            let sessions = stored
+                .get("sessions")
+                .filter(|value| value.is_array())
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!([]));
+            (day_totals, sessions)
+        }
+    };
+
+    Ok(serde_json::json!({
+        "profile": profile_json(&profile, false),
+        "dayTotals": day_totals,
+        "sessions": sessions,
     }))
 }
 
