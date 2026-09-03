@@ -266,6 +266,7 @@ pub async fn get_notifications(
                     day_key, payload_json, created_at
              FROM notification_events
              WHERE uid = ? AND read_at IS NULL
+               AND delivery_status IN ('failed', 'no_devices', 'not_configured')
                AND (
                  type <> 'lead_change'
                  OR EXISTS (

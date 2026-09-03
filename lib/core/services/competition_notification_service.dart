@@ -13,10 +13,14 @@ class CompetitionNotificationService {
     required PushlogApiClient api,
     FirebaseMessaging? messaging,
     FlutterLocalNotificationsPlugin? localNotifications,
+    Stream<RemoteMessage>? foregroundMessages,
+    Stream<RemoteMessage>? openedMessages,
   }) : _api = api,
        _messaging = messaging ?? FirebaseMessaging.instance,
        _localNotifications =
-           localNotifications ?? FlutterLocalNotificationsPlugin();
+           localNotifications ?? FlutterLocalNotificationsPlugin(),
+       _foregroundMessages = foregroundMessages ?? FirebaseMessaging.onMessage,
+       _openedMessages = openedMessages ?? FirebaseMessaging.onMessageOpenedApp;
 
   static const _channel = AndroidNotificationChannel(
     'pushlog_competition',
@@ -34,10 +38,14 @@ class CompetitionNotificationService {
   final PushlogApiClient _api;
   final FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications;
+  final Stream<RemoteMessage> _foregroundMessages;
+  final Stream<RemoteMessage> _openedMessages;
 
   StreamSubscription<String>? _tokenSubscription;
   StreamSubscription<RemoteMessage>? _messageSubscription;
+  StreamSubscription<RemoteMessage>? _openedMessageSubscription;
   Timer? _notificationPoller;
+  final Set<String> _handledNotificationIds = {};
   String? _uid;
   String? _token;
   bool _initialized = false;
@@ -68,8 +76,9 @@ class CompetitionNotificationService {
       _dailyRemindersChannel,
     );
 
-    _messageSubscription = FirebaseMessaging.onMessage.listen(
-      _showForegroundMessage,
+    _messageSubscription = _foregroundMessages.listen(_showForegroundMessage);
+    _openedMessageSubscription = _openedMessages.listen(
+      (message) => unawaited(_acknowledgeRemoteMessage(message)),
     );
 
     final remoteMessage = await _messaging.getInitialMessage();
@@ -77,6 +86,7 @@ class CompetitionNotificationService {
 
     if (remoteMessage != null) {
       _log('handling a message from a tapped notification');
+      await _acknowledgeRemoteMessage(remoteMessage);
     }
 
     if (Platform.isIOS) {
@@ -208,6 +218,7 @@ class CompetitionNotificationService {
     _notificationPoller?.cancel();
     await _tokenSubscription?.cancel();
     await _messageSubscription?.cancel();
+    await _openedMessageSubscription?.cancel();
   }
 
   /// Polls for the native APNs device token on iOS/macOS. Android and other
@@ -246,11 +257,7 @@ class CompetitionNotificationService {
     }
     await _api.put(
       '/v1/devices',
-      body: {
-        'token': token,
-        'platform': _platformName,
-        'timeZone': ?timeZone,
-      },
+      body: {'token': token, 'platform': _platformName, 'timeZone': ?timeZone},
     );
   }
 
@@ -281,6 +288,8 @@ class CompetitionNotificationService {
         (type != 'lead_change' && type != 'engagement_reminder')) {
       return;
     }
+    final eventId = _eventId(message);
+    if (eventId != null && !_claimNotification(eventId)) return;
     final androidDetails = type == 'engagement_reminder'
         ? const AndroidNotificationDetails(
             'pushlog_daily_reminders',
@@ -297,24 +306,49 @@ class CompetitionNotificationService {
             priority: Priority.high,
           );
 
-    final displayId =
-        (message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch) &
-        0x7fffffff;
-    await _localNotifications.show(
-      displayId,
-      notification.title,
-      notification.body,
-      NotificationDetails(
-        android: androidDetails,
-        iOS: const DarwinNotificationDetails(),
-        macOS: const DarwinNotificationDetails(),
-      ),
-      payload: message.data['notificationId'] as String?,
-    );
-    final eventId = message.data['notificationId'];
-    if (eventId is String && eventId.isNotEmpty) {
+    // iOS presents foreground notification messages itself because foreground
+    // presentation options are enabled in initialize(). Calling the local
+    // plugin as well creates a second Notification Center card.
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      final displayId =
+          (eventId?.hashCode ??
+              message.messageId?.hashCode ??
+              DateTime.now().millisecondsSinceEpoch) &
+          0x7fffffff;
+      await _localNotifications.show(
+        displayId,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: androidDetails,
+          macOS: const DarwinNotificationDetails(),
+        ),
+        payload: eventId,
+      );
+    }
+    if (eventId != null) {
       await _markRead([eventId]);
     }
+  }
+
+  Future<void> _acknowledgeRemoteMessage(RemoteMessage message) async {
+    final eventId = _eventId(message);
+    if (eventId == null) return;
+    _claimNotification(eventId);
+    await _markRead([eventId]);
+  }
+
+  String? _eventId(RemoteMessage message) {
+    final eventId = message.data['notificationId'];
+    return eventId is String && eventId.isNotEmpty ? eventId : null;
+  }
+
+  bool _claimNotification(String eventId) {
+    final claimed = _handledNotificationIds.add(eventId);
+    if (_handledNotificationIds.length > 100) {
+      _handledNotificationIds.remove(_handledNotificationIds.first);
+    }
+    return claimed;
   }
 
   Future<void> _pollNotifications() async {
@@ -339,6 +373,10 @@ class CompetitionNotificationService {
             notificationId.isEmpty ||
             title is! String ||
             body is! String) {
+          continue;
+        }
+        if (!_claimNotification(notificationId)) {
+          displayed.add(notificationId);
           continue;
         }
         await _localNotifications.show(

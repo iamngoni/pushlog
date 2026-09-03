@@ -337,6 +337,44 @@ try {
   assert.match(rankAwareCopy, /#3\b/, "recipient should drop to third");
   assert.match(rankAwareCopy, /8 reps\b/, "copy should retain the pairwise catch-up gap");
   assert.doesNotMatch(rankAwareCopy, /first place|the lead|leader|top spot|crown/i);
+  await request("/v1/notifications", {
+    uid: "bob",
+    method: "POST",
+    body: {
+      notificationIds: [bobNotifications.body.notifications[0].notificationId],
+    },
+  });
+
+  run("wrangler", [
+    "d1",
+    "execute",
+    "pushlog-integration",
+    "--local",
+    "--persist-to",
+    stateDirectory,
+    "--config",
+    config,
+    "--command",
+    `INSERT INTO notification_events (
+      uid, notification_id, type, title, body, source_sync_id,
+      delivery_status, payload_json, created_at
+    ) VALUES
+      ('bob', 'delivered-push', 'engagement_reminder', 'Delivered',
+       'Already presented by FCM', 'delivered-source', 'delivered', '{}',
+       '2026-08-06T09:00:00.000Z'),
+      ('bob', 'pending-push', 'engagement_reminder', 'Pending',
+       'FCM delivery is still in flight', 'pending-source', 'pending', '{}',
+       '2026-08-06T09:00:30.000Z'),
+      ('bob', 'failed-fallback', 'engagement_reminder', 'Fallback',
+       'FCM failed, so polling may present this', 'failed-source', 'failed', '{}',
+       '2026-08-06T09:01:00.000Z');`,
+  ]);
+  const fallbackNotifications = await request("/v1/notifications", { uid: "bob" });
+  assert.deepEqual(
+    fallbackNotifications.body.notifications.map(({ notificationId }) => notificationId),
+    ["failed-fallback"],
+    "polling must omit delivered and in-flight push notifications",
+  );
   await request("/v1/notifications", { uid: "alice" });
   await request("/v1/notifications", {
     uid: "alice",
