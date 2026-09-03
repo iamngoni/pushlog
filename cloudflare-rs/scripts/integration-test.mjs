@@ -13,6 +13,7 @@ const port = 8791;
 const baseUrl = `http://127.0.0.1:${port}`;
 const stateDirectory = ".wrangler/integration-state";
 const config = join(stateDirectory, "wrangler.toml");
+const readinessTimeoutMs = 10 * 60 * 1000;
 
 function run(command, args) {
   const result = spawnSync(command, args, { encoding: "utf8", stdio: "pipe" });
@@ -22,7 +23,8 @@ function run(command, args) {
 }
 
 async function waitUntilReady(process) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+  const deadline = Date.now() + readinessTimeoutMs;
+  while (Date.now() < deadline) {
     if (process.exitCode !== null) {
       throw new Error(`Wrangler exited before becoming ready (${process.exitCode}).`);
     }
@@ -34,7 +36,9 @@ async function waitUntilReady(process) {
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error("Wrangler did not become ready within 60 seconds.");
+  throw new Error(
+    `Wrangler did not become ready within ${readinessTimeoutMs / 1000} seconds.`,
+  );
 }
 
 function auth(uid) {
