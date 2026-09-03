@@ -4,10 +4,16 @@ set -euo pipefail
 readonly worker_build_version="0.8.5"
 readonly worker_build_sha256="06c489585a93ce94210df365a879c8a5ceab27f4d2c380484c26642469e78a36"
 readonly worker_build_url="https://static.crates.io/crates/worker-build/worker-build-${worker_build_version}.crate"
+readonly worker_build_binary="${CARGO_HOME:-$HOME/.cargo}/bin/worker-build"
 
 if command -v worker-build >/dev/null &&
   [ "$(worker-build --version)" = "$worker_build_version" ]; then
-  exit 0
+  exec worker-build "$@"
+fi
+
+if [ -x "$worker_build_binary" ] &&
+  [ "$("$worker_build_binary" --version)" = "$worker_build_version" ]; then
+  exec "$worker_build_binary" "$@"
 fi
 
 # worker-build uses native-tls. The self-hosted runner intentionally executes
@@ -17,7 +23,7 @@ fi
 # directory instead.
 if command -v pkg-config >/dev/null && pkg-config --exists openssl; then
   cargo install --locked --version "$worker_build_version" worker-build
-  exit 0
+  exec "$worker_build_binary" "$@"
 fi
 
 for required_command in curl tar cargo; do
@@ -63,3 +69,4 @@ cargo metadata \
   --manifest-path "$worker_build_source/Cargo.toml" \
   >/dev/null
 cargo install --locked --path "$worker_build_source"
+exec "$worker_build_binary" "$@"
