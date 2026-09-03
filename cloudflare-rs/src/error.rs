@@ -97,7 +97,7 @@ pub fn no_content() -> Result<Response> {
 }
 
 pub fn error_response(error: &ApiError, request_id: &str) -> Result<Response> {
-    json_response(
+    let mut response = json_response(
         &serde_json::json!({
             "error": {
                 "code": error.code,
@@ -106,7 +106,9 @@ pub fn error_response(error: &ApiError, request_id: &str) -> Result<Response> {
             }
         }),
         error.status,
-    )
+    )?;
+    response.headers_mut().set("x-request-id", request_id)?;
+    Ok(response)
 }
 
 /// A 405 with the `Allow` header listing the methods this route accepts.

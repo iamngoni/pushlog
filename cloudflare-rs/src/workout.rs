@@ -40,6 +40,10 @@ struct WorkoutSessionPayload {
     average_rep_duration: Option<i64>,
     manual_adjustments: i64,
     effort_score: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    latest_heart_rate: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    active_calories: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -150,6 +154,22 @@ fn optional_non_negative_integer(
     }
 }
 
+fn optional_bounded_number(
+    value: Option<&serde_json::Value>,
+    min: f64,
+    max: f64,
+    field: &str,
+) -> ApiResult<Option<f64>> {
+    let Some(value) = value.filter(|value| !value.is_null()) else {
+        return Ok(None);
+    };
+    value
+        .as_f64()
+        .filter(|number| number.is_finite() && (min..=max).contains(number))
+        .map(Some)
+        .ok_or_else(|| invalid_snapshot(format!("{field} must be a valid number.")))
+}
+
 fn parse_day_totals(value: Option<&serde_json::Value>) -> ApiResult<BTreeMap<String, i64>> {
     let object = value
         .and_then(|v| v.as_object())
@@ -223,6 +243,14 @@ fn parse_sessions(value: Option<&serde_json::Value>) -> ApiResult<Vec<WorkoutSes
             None => None,
             Some(value) => Some(bounded_integer(value, 1, 10, "effortScore")?),
         };
+        let latest_heart_rate =
+            optional_bounded_number(item.get("latestHeartRate"), 0.0, 300.0, "latestHeartRate")?;
+        let active_calories = optional_bounded_number(
+            item.get("activeCalories"),
+            0.0,
+            1_000_000.0,
+            "activeCalories",
+        )?;
 
         ids.insert(id.clone());
         sessions.push(WorkoutSessionPayload {
@@ -234,6 +262,8 @@ fn parse_sessions(value: Option<&serde_json::Value>) -> ApiResult<Vec<WorkoutSes
             average_rep_duration,
             manual_adjustments,
             effort_score,
+            latest_heart_rate,
+            active_calories,
         });
     }
     Ok(sessions)
@@ -695,6 +725,8 @@ mod tests {
                 average_rep_duration: None,
                 manual_adjustments: 0,
                 effort_score: Some(7),
+                latest_heart_rate: Some(142.5),
+                active_calories: Some(18.75),
             }],
             preferences: serde_json::json!({}),
             updated_at: Some("2026-08-06T08:01:00.000Z".into()),
@@ -707,6 +739,8 @@ mod tests {
             serde_json::Value::Null
         );
         assert_eq!(json["sessions"][0]["effortScore"], 7);
+        assert_eq!(json["sessions"][0]["latestHeartRate"], 142.5);
+        assert_eq!(json["sessions"][0]["activeCalories"], 18.75);
         assert_eq!(json["updatedAt"], "2026-08-06T08:01:00.000Z");
         assert_eq!(json["lastSyncedAt"], serde_json::Value::Null);
     }

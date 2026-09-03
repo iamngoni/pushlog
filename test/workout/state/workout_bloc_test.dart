@@ -260,6 +260,8 @@ void main() {
           avgRepDuration: Duration(seconds: 7),
           manualAdjustments: 2,
           effortScore: 8,
+          latestHeartRate: 142.5,
+          activeCalories: 18.75,
         ),
       ),
       expect: () => [
@@ -304,6 +306,24 @@ void main() {
                   .effortScore,
               'effort score',
               8,
+            )
+            .having(
+              (s) => s.sessions
+                  .firstWhere(
+                    (session) => session.id == 'live-1',
+                  )
+                  .latestHeartRate,
+              'latest heart rate',
+              142.5,
+            )
+            .having(
+              (s) => s.sessions
+                  .firstWhere(
+                    (session) => session.id == 'live-1',
+                  )
+                  .activeCalories,
+              'active calories',
+              18.75,
             )
             .having((s) => s.pendingUndo, 'pendingUndo', isNull),
         isA<WorkoutLoaded>().having(

@@ -17,6 +17,7 @@ import 'package:flutter/widgets.dart';
 import 'package:pushlog/core/configs/app_environment.dart';
 import 'package:pushlog/firebase_options.dart';
 import 'package:pushlog/injection.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 class AppBlocObserver extends BlocObserver {
   const AppBlocObserver();
@@ -37,6 +38,13 @@ class AppBlocObserver extends BlocObserver {
     Object error,
     StackTrace stackTrace,
   ) {
+    unawaited(
+      Sentry.captureException(
+        error,
+        stackTrace: stackTrace,
+        withScope: (scope) => scope.setTag('bloc', '${bloc.runtimeType}'),
+      ),
+    );
     if (kDebugMode) {
       log(
         'onError(${bloc.runtimeType}, $error, $stackTrace)',
@@ -49,19 +57,46 @@ class AppBlocObserver extends BlocObserver {
 Future<void> bootstrap(
   FutureOr<Widget> Function() builder, {
   required AppEnvironment environment,
+  String sentryDsn = '',
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (sentryDsn.trim().isEmpty) {
+    await _startApp(builder, environment: environment);
+    return;
+  }
+
+  await SentryFlutter.init(
+    (options) {
+      options
+        ..dsn = sentryDsn.trim()
+        ..environment = environment.name
+        ..sendDefaultPii = false
+        ..attachStacktrace = true
+        ..tracesSampleRate = environment == AppEnvironment.production ? 0.1 : 1;
+    },
+    appRunner: () => _startApp(builder, environment: environment),
+  );
+}
+
+Future<void> _startApp(
+  FutureOr<Widget> Function() builder, {
+  required AppEnvironment environment,
+}) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FirebaseAppCheck.instance.activate();
 
+  final previousFlutterErrorHandler = FlutterError.onError;
   FlutterError.onError = (details) {
-    if (!kDebugMode) return;
-    log(
-      details.exceptionAsString(),
-      stackTrace: details.stack,
-    );
+    previousFlutterErrorHandler?.call(details);
+    if (kDebugMode) {
+      log(
+        details.exceptionAsString(),
+        stackTrace: details.stack,
+      );
+    }
   };
 
   await configureInjection(environment: environment);

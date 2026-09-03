@@ -14,5 +14,10 @@ Future<void> main() async {
   await bootstrap(
     () => const App(),
     environment: AppEnvironment.production,
+    sentryDsn: const String.fromEnvironment(
+      'SENTRY_DSN',
+      defaultValue:
+          'https://04068260d79f0124c17ba3ef64fea7a9@o1107818.ingest.us.sentry.io/4512021547122688',
+    ),
   );
 }

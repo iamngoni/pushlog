@@ -24,6 +24,9 @@ import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/training/views/training_onboarding_page.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+final _sentryNavigatorObserver = SentryNavigatorObserver();
 
 class App extends StatelessWidget {
   const App({super.key});
@@ -51,6 +54,7 @@ class App extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: const [Locale('en')],
+          navigatorObservers: [_sentryNavigatorObserver],
           builder: (context, child) {
             final media = MediaQuery.of(context);
             return MediaQuery(

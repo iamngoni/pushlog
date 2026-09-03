@@ -1,10 +1,14 @@
 name = "pushlog-api-staging"
-main = "build/worker/shim.mjs"
+main = "src/entry.mjs"
 compatibility_date = "2026-08-06"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 FIREBASE_PROJECT_ID = "pushlog-app"
 ENVIRONMENT = "staging"
+
+[version_metadata]
+binding = "CF_VERSION_METADATA"
 
 [[d1_databases]]
 binding = "DB"

@@ -14,6 +14,7 @@ import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/core/configs/typography.dart';
 import 'package:pushlog/core/views/widgets/empty_state.dart';
 import 'package:pushlog/history/views/widgets/history_entry_row.dart';
+import 'package:pushlog/history/views/widgets/workout_session_detail.dart';
 import 'package:pushlog/today/views/widgets/stats_block.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
 import 'package:pushlog/workout/models/data/workout_session.dart';
@@ -224,6 +225,11 @@ class _HistoryPageState extends State<HistoryPage> {
             context,
             theme,
             entry,
+            state.sessions
+                .where(
+                  (session) => WorkoutBloc.dayKey(session.date) == entry.id,
+                )
+                .toList(),
           ),
         );
       },
@@ -234,6 +240,7 @@ class _HistoryPageState extends State<HistoryPage> {
     BuildContext context,
     AppTheme theme,
     HistoryEntry entry,
+    List<WorkoutSession> sessions,
   ) {
     // Matches the friend sheet: rounded top, drag handle, safe area. Two
     // sheets in one app should not disagree about what a sheet looks like.
@@ -246,7 +253,11 @@ class _HistoryPageState extends State<HistoryPage> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => DayDetailSheet(entry: entry, theme: theme),
+      builder: (_) => DayDetailSheet(
+        entry: entry,
+        sessions: sessions,
+        theme: theme,
+      ),
     );
   }
 
@@ -285,11 +296,13 @@ class DayDetailSheet extends StatelessWidget {
   const DayDetailSheet({
     required this.entry,
     required this.theme,
+    this.sessions = const [],
     super.key,
   });
 
   final HistoryEntry entry;
   final AppTheme theme;
+  final List<WorkoutSession> sessions;
 
   String rowTitle(DateTime date) {
     final now = DateTime.now();
@@ -328,44 +341,88 @@ class DayDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orderedSessions = List<WorkoutSession>.from(sessions)
+      ..sort((left, right) => right.date.compareTo(left.date));
+
     // `showModalBottomSheet` gives its child loose horizontal constraints.
-    // Without an explicit width this compact content shrink-wraps into the
-    // narrow pill seen on iPhone instead of using the sheet's available width.
+    // Keep the sheet full-width while allowing a busy training day to scroll.
     return SizedBox(
       width: double.infinity,
       child: DraggableScrollableSheet(
-        minChildSize: 0.4,
-        maxChildSize: 0.6,
+        initialChildSize: 0.68,
+        minChildSize: 0.45,
+        maxChildSize: 0.88,
         expand: false,
         builder: (_, scrollController) => ColoredBox(
           color: theme.background,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 28,
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.gutter,
+              AppSpacing.lg,
+              AppSpacing.gutter,
+              AppSpacing.section,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Spacer(),
-                Text(
-                  rowTitle(entry.date),
-                  style: AppTypography.overline(color: theme.tertiaryInk),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    '${entry.count}',
-                    style: AppTypography.metricXLarge(color: theme.ink),
+            children: [
+              Text(
+                rowTitle(entry.date),
+                style: AppTypography.overline(color: theme.tertiaryInk),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${entry.count}',
+                        style: AppTypography.metricXLarge(color: theme.ink),
+                      ),
+                    ),
                   ),
-                ),
-                Text(
-                  'REPS',
-                  style: AppTypography.overline(color: theme.tertiaryInk),
-                ),
-                const Spacer(),
-              ],
-            ),
+                  const SizedBox(width: AppSpacing.lg),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Text(
+                      'TOTAL REPS',
+                      style: AppTypography.overline(
+                        color: theme.tertiaryInk,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+              Divider(height: 1, color: theme.divider),
+              const SizedBox(height: AppSpacing.xxl),
+              Text(
+                orderedSessions.length == 1
+                    ? '1 SESSION'
+                    : '${orderedSessions.length} SESSIONS',
+                style: AppTypography.overline(color: theme.tertiaryInk),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              if (orderedSessions.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.xxl,
+                  ),
+                  child: Text(
+                    'Detailed session data is not available for this older '
+                    'entry.',
+                    style: AppTypography.body(color: theme.secondaryInk),
+                  ),
+                )
+              else
+                for (final indexedSession in orderedSessions.indexed)
+                  WorkoutSessionDetail(
+                    session: indexedSession.$2,
+                    theme: theme,
+                    showDivider: indexedSession.$1 < orderedSessions.length - 1,
+                  ),
+            ],
           ),
         ),
       ),

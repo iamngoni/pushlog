@@ -12,6 +12,9 @@
     "deploy:staging": "wrangler deploy",
     "deploy:production": "wrangler deploy --config wrangler.production.toml"
   },
+  "dependencies": {
+    "@sentry/cloudflare": "10.70.0"
+  },
   "devDependencies": {
     "wrangler": "4.125.0"
   }

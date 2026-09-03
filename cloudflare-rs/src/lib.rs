@@ -64,6 +64,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     let _ = console_log::init_with_level(log::Level::Info);
     if let Err(error) = engagement::deliver_due_reminders(&env).await {
         log::error!("scheduled engagement reminder run failed: {error}");
+        panic!("scheduled engagement reminder run failed: {error}");
     }
 }
 
@@ -162,6 +163,22 @@ async fn route<A: AuthVerifier>(
                 let db = AppConfig::db(env)?;
                 Ok(ok_json(
                     &profile::search_profiles(&request, &db, &user).await?,
+                )?)
+            }
+            _ => Ok(method_not_allowed(&["GET"])?),
+        };
+    }
+
+    if let Some(friend_uid) = path
+        .strip_prefix("/v1/friends/")
+        .filter(|friend_uid| !friend_uid.is_empty() && !friend_uid.contains('/'))
+    {
+        let user = verify_auth.verify(&request, env).await?;
+        return match method {
+            Method::Get => {
+                let db = AppConfig::db(env)?;
+                Ok(ok_json(
+                    &friends::get_friend_activity(&db, &user, friend_uid).await?,
                 )?)
             }
             _ => Ok(method_not_allowed(&["GET"])?),

@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:pushlog/auth/models/user_profile.dart';
 import 'package:pushlog/auth/services/profile_service.dart';
+import 'package:pushlog/friends/models/friend_activity.dart';
 import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/models/friend_request.dart';
 
@@ -11,6 +12,9 @@ class FriendsCubit extends Cubit<FriendsState> {
   FriendsCubit(this._profileService) : super(const FriendsState());
 
   final ProfileService _profileService;
+
+  Future<FriendActivity> loadFriendActivity(String friendUid) =>
+      _profileService.loadFriendActivity(friendUid);
 
   Future<void> load({
     required UserProfile me,

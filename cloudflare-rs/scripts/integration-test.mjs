@@ -77,8 +77,9 @@ const projectDirectory = process.cwd();
 writeFileSync(config, `
 # Generated local-only configuration. It is kept under ignored disposable state.
 name = "pushlog-api-integration"
-main = "${join(projectDirectory, "build/worker/shim.mjs")}"
+main = "${join(projectDirectory, "src/entry.mjs")}"
 compatibility_date = "2026-08-06"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 FIREBASE_PROJECT_ID = "pushlog-app"
@@ -251,6 +252,11 @@ try {
   bobSnapshot.dayTotals["2026-08-06"] = 5;
   bobSnapshot.sessions[0].id = "session-bob-1";
   bobSnapshot.sessions[0].reps = 5;
+  bobSnapshot.sessions[0].source = "live";
+  bobSnapshot.sessions[0].manualAdjustments = 2;
+  bobSnapshot.sessions[0].effortScore = 8;
+  bobSnapshot.sessions[0].latestHeartRate = 142.5;
+  bobSnapshot.sessions[0].activeCalories = 18.75;
   const charlieSnapshot = structuredClone(snapshot);
   charlieSnapshot.dayTotals["2026-08-06"] = 25;
   charlieSnapshot.sessions[0].id = "session-charlie-1";
@@ -286,6 +292,21 @@ try {
     },
     expectedStatus: 202,
   });
+  const friendActivity = await request("/v1/friends/bob", { uid: "alice" });
+  assert.equal(friendActivity.body.profile.uid, "bob");
+  assert.equal(friendActivity.body.profile.email, undefined);
+  assert.deepEqual(friendActivity.body.dayTotals, { "2026-08-06": 5 });
+  assert.equal(friendActivity.body.sessions[0].source, "live");
+  assert.equal(friendActivity.body.sessions[0].effortScore, 8);
+  assert.equal(friendActivity.body.sessions[0].latestHeartRate, 142.5);
+  assert.equal(friendActivity.body.sessions[0].activeCalories, 18.75);
+  assert.equal(friendActivity.body.preferences, undefined);
+  const hiddenFriendActivity = await request("/v1/friends/alice", {
+    uid: "charlie",
+    expectedStatus: 404,
+  });
+  assert.equal(hiddenFriendActivity.body.error.code, "friend_not_found");
+  assert.ok(hiddenFriendActivity.response.headers.get("x-request-id"));
   await request("/v1/workout-snapshot", {
     uid: "alice",
     method: "PUT",
@@ -400,6 +421,11 @@ try {
     { uid: "alice" },
   );
   assert.deepEqual(friendsAfterBlock.body.friends, []);
+  const blockedFriendActivity = await request("/v1/friends/bob", {
+    uid: "alice",
+    expectedStatus: 404,
+  });
+  assert.equal(blockedFriendActivity.body.error.code, "friend_not_found");
   const searchAfterBlock = await request("/v1/users/search?q=bo", { uid: "alice" });
   assert.deepEqual(searchAfterBlock.body.profiles, []);
   const blockedRequest = await request("/v1/friend-requests", {
