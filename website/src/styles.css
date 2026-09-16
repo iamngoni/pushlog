@@ -235,7 +235,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  margin: 2.25rem 0 0;
+  margin: 1.1rem 0 0;
   color: var(--faint);
   font-size: 0.69rem;
   font-weight: 650;
@@ -377,6 +377,40 @@ button:focus-visible {
 
 .actions {
   margin-top: 2rem;
+}
+
+.store-links {
+  --badge-height: 2.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 2.5rem;
+}
+
+.store-badge {
+  display: block;
+  border-radius: 0.5rem;
+  transition: opacity 0.15s ease;
+}
+
+.store-badge:hover {
+  opacity: 0.85;
+}
+
+.store-badge img {
+  display: block;
+  width: auto;
+}
+
+.store-badge-apple img {
+  height: var(--badge-height);
+}
+
+/* Google ships a 646x250 file whose 564x168 pill carries a 41px transparent
+   margin, so it is scaled up for the two pills to read at the same height. */
+.store-badge-google img {
+  height: calc(var(--badge-height) * 250 / 168);
 }
 
 .page-hero {
@@ -638,7 +672,7 @@ button:focus-visible {
 
   .availability {
     align-items: flex-start;
-    margin-top: 2rem;
+    margin-top: 1rem;
     font-size: 0.62rem;
     line-height: 1.55;
   }
