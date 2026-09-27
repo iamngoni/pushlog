@@ -38,6 +38,9 @@ and native messaging.
   daily, weekly, and all-time leaderboards.
 - Training-day reminders and competition notification events.
 - JSON export plus local, cloud, and account reset controls.
+- Private body-weight logging, a History view of how weekly reps move with
+  weight, and an opt-in friends board ranked on goal progress rather than
+  absolute weight.
 
 The product direction is documented in [`PRODUCT.md`](PRODUCT.md). The visual
 system is documented in [`DESIGN.md`](DESIGN.md).

@@ -24,6 +24,10 @@ import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/live/services/face_tracking_service.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/platform/watch/watch_service.dart';
+import 'package:pushlog/weight/models/repos/abs/weight_repository.dart';
+import 'package:pushlog/weight/models/repos/impl/cloud_weight_repository.dart';
+import 'package:pushlog/weight/models/repos/impl/local_weight_repository.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
 import 'package:pushlog/workout/models/repos/abs/workout_repository.dart';
 import 'package:pushlog/workout/models/repos/impl/cloud_workout_repository.dart';
 import 'package:pushlog/workout/models/repos/impl/local_workout_repository.dart';
@@ -60,13 +64,18 @@ Future<void> configureInjection({required AppEnvironment environment}) async {
   const healthService = HealthService();
   final faceTrackingService = FaceTrackingService();
   const watchService = WatchService();
-  final authService = AuthService(
-    firebaseAuth,
-    googleSignIn,
-  );
+  final authService = AuthService(firebaseAuth, googleSignIn);
   final workoutRepo = CloudWorkoutRepository(
     localRepository: localRepository,
     auth: firebaseAuth,
+    api: api,
+  );
+  final localWeightRepository = LocalWeightRepository(
+    storage: storageService,
+    scopeResolver: () => firebaseAuth.currentUser?.uid ?? 'guest',
+  );
+  final weightRepo = CloudWeightRepository(
+    local: localWeightRepository,
     api: api,
   );
 
@@ -86,10 +95,10 @@ Future<void> configureInjection({required AppEnvironment environment}) async {
     ..registerSingleton<HealthService>(healthService)
     ..registerSingleton<FaceTrackingService>(faceTrackingService)
     ..registerSingleton<WatchService>(watchService)
-    ..registerSingleton<LocalWorkoutRepository>(
-      localRepository,
-    )
+    ..registerSingleton<LocalWorkoutRepository>(localRepository)
     ..registerSingleton<WorkoutRepository>(workoutRepo)
+    ..registerSingleton<WeightRepository>(weightRepo)
+    ..registerFactory<WeightCubit>(() => WeightCubit(getIt<WeightRepository>()))
     ..registerFactory<AuthCubit>(
       () => AuthCubit(
         authService: getIt<AuthService>(),
@@ -100,9 +109,7 @@ Future<void> configureInjection({required AppEnvironment environment}) async {
     // Singleton, not a factory: the chosen theme has to outlive any
     // one screen and stay the same instance the MaterialApp listens to.
     ..registerSingleton<ThemeModeCubit>(ThemeModeCubit(storageService))
-    ..registerFactory<FriendsCubit>(
-      () => FriendsCubit(getIt<ProfileService>()),
-    )
+    ..registerFactory<FriendsCubit>(() => FriendsCubit(getIt<ProfileService>()))
     ..registerFactory<WorkoutBloc>(
       () => WorkoutBloc(
         repository: getIt<WorkoutRepository>(),

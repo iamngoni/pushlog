@@ -19,6 +19,7 @@ mod profile;
 mod push;
 mod safety;
 mod safety_validation;
+mod weight;
 mod workout;
 
 use worker::*;
@@ -289,6 +290,41 @@ async fn route<A: AuthVerifier>(
                 Ok(json_response(&value, 201)?)
             }
             _ => Ok(method_not_allowed(&["POST"])?),
+        };
+    }
+
+    if path == "/v1/weight/entries" {
+        let user = verify_auth.verify(&request, env).await?;
+        let db = AppConfig::db(env)?;
+        return match method {
+            Method::Get => Ok(ok_json(&weight::get_entries(&db, &user).await?)?),
+            Method::Put => Ok(ok_json(
+                &weight::put_entry(&mut request, &db, &user).await?,
+            )?),
+            _ => Ok(method_not_allowed(&["GET", "PUT"])?),
+        };
+    }
+
+    if path == "/v1/weight/settings" {
+        let user = verify_auth.verify(&request, env).await?;
+        let db = AppConfig::db(env)?;
+        return match method {
+            Method::Get => Ok(ok_json(&weight::get_settings(&db, &user).await?)?),
+            Method::Put => Ok(ok_json(
+                &weight::put_settings(&mut request, &db, &user).await?,
+            )?),
+            _ => Ok(method_not_allowed(&["GET", "PUT"])?),
+        };
+    }
+
+    if path == "/v1/weight/friends" {
+        let user = verify_auth.verify(&request, env).await?;
+        let db = AppConfig::db(env)?;
+        return match method {
+            Method::Get => Ok(ok_json(
+                &weight::get_friends_board(&request, &db, &user).await?,
+            )?),
+            _ => Ok(method_not_allowed(&["GET"])?),
         };
     }
 

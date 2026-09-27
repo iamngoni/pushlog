@@ -8,6 +8,7 @@
 //
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +29,9 @@ import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/settings/views/widgets/app_version_label.dart';
 import 'package:pushlog/training/models/training_plan.dart';
 import 'package:pushlog/training/views/training_onboarding_page.dart';
+import 'package:pushlog/weight/models/repos/abs/weight_repository.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
+import 'package:pushlog/weight/views/widgets/weight_settings_section.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/models/repos/abs/workout_repository.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
@@ -90,16 +94,11 @@ class _SettingsPageState extends State<SettingsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            buildProfileSection(
-                              context,
-                              theme,
-                            ),
+                            buildProfileSection(context, theme),
                             // The plan section collapses when no plan
                             // exists, so its gap is conditional too.
                             if (state.preferences.trainingPlan != null) ...[
-                              const SizedBox(
-                                height: AppSpacing.sectionLarge,
-                              ),
+                              const SizedBox(height: AppSpacing.sectionLarge),
                               buildTrainingPlanSection(
                                 context,
                                 theme,
@@ -119,26 +118,15 @@ class _SettingsPageState extends State<SettingsPage> {
                               state.preferences,
                             ),
                             const SizedBox(height: AppSpacing.sectionLarge),
-                            buildSyncSection(
-                              context,
-                              theme,
-                              state,
-                            ),
+                            buildSyncSection(context, theme, state),
                             const SizedBox(height: AppSpacing.sectionLarge),
-                            buildDataSection(
-                              context,
-                              theme,
-                            ),
+                            const WeightSettingsSection(),
                             const SizedBox(height: AppSpacing.sectionLarge),
-                            buildLegalSection(
-                              context,
-                              theme,
-                            ),
+                            buildDataSection(context, theme),
                             const SizedBox(height: AppSpacing.sectionLarge),
-                            buildAccountSection(
-                              context,
-                              theme,
-                            ),
+                            buildLegalSection(context, theme),
+                            const SizedBox(height: AppSpacing.sectionLarge),
+                            buildAccountSection(context, theme),
                             const SizedBox(height: AppSpacing.sectionLarge),
                             AppVersionLabel(
                               appInfoService: getIt<AppInfoService>(),
@@ -167,10 +155,7 @@ class _SettingsPageState extends State<SettingsPage> {
           style: AppTypography.overline(color: theme.tertiaryInk),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text(
-          'You',
-          style: AppTypography.headingLarge(color: theme.ink),
-        ),
+        Text('You', style: AppTypography.headingLarge(color: theme.ink)),
         const SizedBox(height: AppSpacing.sm),
         Text(
           'Your plan, account, devices, and alerts.',
@@ -180,10 +165,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget buildSectionLabel(
-    String title,
-    AppTheme theme,
-  ) {
+  Widget buildSectionLabel(String title, AppTheme theme) {
     // A group header, not a page heading. Sized as the label it actually
     // is so it orders the list without competing with the rows inside it.
     return Padding(
@@ -198,10 +180,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget buildProfileSection(
-    BuildContext context,
-    AppTheme theme,
-  ) {
+  Widget buildProfileSection(BuildContext context, AppTheme theme) {
     final authState = context.watch<AuthCubit>().state;
     final profile = authState is AuthAuthenticated ? authState.profile : null;
 
@@ -233,10 +212,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   // Signing out and deleting end the session rather than configure it, so
   // they close the page instead of sitting above settings still in use.
-  Widget buildAccountSection(
-    BuildContext context,
-    AppTheme theme,
-  ) {
+  Widget buildAccountSection(BuildContext context, AppTheme theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -264,10 +240,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget buildLegalSection(
-    BuildContext context,
-    AppTheme theme,
-  ) {
+  Widget buildLegalSection(BuildContext context, AppTheme theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -279,18 +252,16 @@ class _SettingsPageState extends State<SettingsPage> {
               title: 'Privacy policy',
               detail: 'How Pushlog handles your data',
               theme: theme,
-              onTap: () => unawaited(
-                _openExternalLink(context, PushlogLinks.privacy),
-              ),
+              onTap: () =>
+                  unawaited(_openExternalLink(context, PushlogLinks.privacy)),
             ),
             buildDivider(theme),
             buildActionRow(
               title: 'Terms & conditions',
               detail: 'The rules for using Pushlog',
               theme: theme,
-              onTap: () => unawaited(
-                _openExternalLink(context, PushlogLinks.terms),
-              ),
+              onTap: () =>
+                  unawaited(_openExternalLink(context, PushlogLinks.terms)),
             ),
             buildDivider(theme),
             buildActionRow(
@@ -330,11 +301,7 @@ class _SettingsPageState extends State<SettingsPage> {
               theme: theme,
             ),
             buildDivider(theme),
-            buildInfoRow(
-              title: 'Last sync',
-              detail: syncLabel,
-              theme: theme,
-            ),
+            buildInfoRow(title: 'Last sync', detail: syncLabel, theme: theme),
             if (state.syncError != null && state.syncError!.isNotEmpty) ...[
               buildDivider(theme),
               buildInfoRow(
@@ -398,9 +365,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   }
                 }
                 if (!context.mounted) return;
-                final updated = prefs.copyWith(
-                  remindersEnabled: value,
-                );
+                final updated = prefs.copyWith(remindersEnabled: value);
                 context.read<WorkoutBloc>().add(
                   UpdatePreferencesEvent(updated),
                 );
@@ -408,11 +373,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             if (prefs.remindersEnabled) ...[
               buildDivider(theme),
-              buildTimePickerRow(
-                context,
-                theme,
-                prefs,
-              ),
+              buildTimePickerRow(context, theme, prefs),
             ],
             if (prefs.remindersEnabled ||
                 prefs.streakRemindersEnabled ||
@@ -444,9 +405,7 @@ class _SettingsPageState extends State<SettingsPage> {
               isOn: prefs.streakRemindersEnabled,
               theme: theme,
               onChanged: (value) async {
-                final updated = prefs.copyWith(
-                  streakRemindersEnabled: value,
-                );
+                final updated = prefs.copyWith(streakRemindersEnabled: value);
                 if (!await _syncRemoteNotificationPreference(
                   context,
                   updated,
@@ -470,9 +429,7 @@ class _SettingsPageState extends State<SettingsPage> {
               isOn: prefs.comebackRemindersEnabled,
               theme: theme,
               onChanged: (value) async {
-                final updated = prefs.copyWith(
-                  comebackRemindersEnabled: value,
-                );
+                final updated = prefs.copyWith(comebackRemindersEnabled: value);
                 if (!await _syncRemoteNotificationPreference(
                   context,
                   updated,
@@ -656,9 +613,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   }
                 }
                 if (!context.mounted) return;
-                final updated = prefs.copyWith(
-                  healthSyncEnabled: value,
-                );
+                final updated = prefs.copyWith(healthSyncEnabled: value);
                 context.read<WorkoutBloc>().add(
                   UpdatePreferencesEvent(updated),
                 );
@@ -692,10 +647,7 @@ class _SettingsPageState extends State<SettingsPage> {
     };
   }
 
-  Widget buildDataSection(
-    BuildContext context,
-    AppTheme theme,
-  ) {
+  Widget buildDataSection(BuildContext context, AppTheme theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -772,6 +724,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     if (!confirmed || !context.mounted) return;
     context.read<WorkoutBloc>().add(const ResetWorkoutDataEvent());
+    await context.read<WeightCubit>().reset();
   }
 
   Widget buildTimePickerRow(
@@ -802,9 +755,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 reminderHour: picked.hour,
                 reminderMinute: picked.minute,
               );
-              context.read<WorkoutBloc>().add(
-                UpdatePreferencesEvent(updated),
-              );
+              context.read<WorkoutBloc>().add(UpdatePreferencesEvent(updated));
             }
           },
           child: buildInfoRow(
@@ -817,10 +768,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget buildSettingsCard(
-    AppTheme theme, {
-    required List<Widget> children,
-  }) {
+  Widget buildSettingsCard(AppTheme theme, {required List<Widget> children}) {
     // No border. The card already sits a tonal step off the page, and
     // saying the same thing twice is what makes settings look like a stack
     // of boxes rather than grouped content.
@@ -854,10 +802,7 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
-          Text(
-            title,
-            style: AppTypography.body(color: theme.secondaryInk),
-          ),
+          Text(title, style: AppTypography.body(color: theme.secondaryInk)),
           const SizedBox(width: AppSpacing.xl),
           Expanded(
             child: Text(
@@ -911,9 +856,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     detail,
-                    style: AppTypography.bodySmall(
-                      color: theme.secondaryInk,
-                    ),
+                    style: AppTypography.bodySmall(color: theme.secondaryInk),
                   ),
                 ],
               ),
@@ -963,9 +906,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     detail,
-                    style: AppTypography.bodySmall(
-                      color: theme.secondaryInk,
-                    ),
+                    style: AppTypography.bodySmall(color: theme.secondaryInk),
                   ),
                 ],
               ),
@@ -993,11 +934,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget buildLoading(AppTheme theme) {
     return ColoredBox(
       color: theme.background,
-      child: Center(
-        child: CircularProgressIndicator(
-          color: theme.accent,
-        ),
-      ),
+      child: Center(child: CircularProgressIndicator(color: theme.accent)),
     );
   }
 
@@ -1006,12 +943,15 @@ class _SettingsPageState extends State<SettingsPage> {
     final exportResult = await repo.exportJson();
     final json = exportResult.getOrElse(() => '');
     if (json.isEmpty || !mounted) return;
+    final decoded = jsonDecode(json);
+    final payload = decoded is Map<String, dynamic>
+        ? decoded
+        : <String, dynamic>{'workout': decoded};
+    payload['weightEntries'] = getIt<WeightRepository>().exportEntries();
+    final shareText = const JsonEncoder.withIndent('  ').convert(payload);
 
     await SharePlus.instance.share(
-      ShareParams(
-        text: json,
-        subject: 'pushlog-export.json',
-      ),
+      ShareParams(text: shareText, subject: 'pushlog-export.json'),
     );
   }
 
@@ -1037,16 +977,14 @@ class _SettingsPageState extends State<SettingsPage> {
     await authCubit.signOut();
   }
 
-  Future<void> deleteAccount(
-    BuildContext context,
-    AppTheme theme,
-  ) async {
+  Future<void> deleteAccount(BuildContext context, AppTheme theme) async {
     final authCubit = context.read<AuthCubit>();
     final workoutBloc = context.read<WorkoutBloc>();
     try {
       await authCubit.deleteAccount();
       if (!context.mounted) return;
       workoutBloc.add(const ResetWorkoutDataEvent());
+      await context.read<WeightCubit>().reset();
     } on Object catch (error) {
       if (!context.mounted) return;
       PushlogToast.danger(
@@ -1069,15 +1007,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   String formatSettingsDate(DateTime date) {
-    const days = [
-      'MON',
-      'TUE',
-      'WED',
-      'THU',
-      'FRI',
-      'SAT',
-      'SUN',
-    ];
+    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     const months = [
       'JAN',
       'FEB',

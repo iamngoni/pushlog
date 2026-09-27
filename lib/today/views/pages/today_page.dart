@@ -21,6 +21,10 @@ import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/live/views/live_session_page.dart';
 import 'package:pushlog/today/views/widgets/action_strip.dart';
 import 'package:pushlog/today/views/widgets/day_strip_view.dart';
+import 'package:pushlog/weight/models/weight_math.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
+import 'package:pushlog/weight/state/weight_state.dart';
+import 'package:pushlog/weight/views/widgets/log_weight_sheet.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 
 class TodayPage extends StatelessWidget {
@@ -95,11 +99,7 @@ class TodayPage extends StatelessWidget {
     );
   }
 
-  Widget _loaded(
-    BuildContext context,
-    AppTheme theme,
-    WorkoutLoaded state,
-  ) {
+  Widget _loaded(BuildContext context, AppTheme theme, WorkoutLoaded state) {
     final authState = context.watch<AuthCubit>().state;
     final profile = authState is AuthAuthenticated ? authState.profile : null;
 
@@ -127,6 +127,26 @@ class TodayPage extends StatelessWidget {
                     icon: Icons.play_arrow_rounded,
                     variant: PushlogButtonVariant.secondary,
                     onPressed: () => _openLiveSession(context),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  BlocBuilder<WeightCubit, WeightState>(
+                    builder: (context, weightState) {
+                      final today = weightState.entryFor(
+                        localDayKey(DateTime.now()),
+                      );
+                      final grams = today?.weightGrams;
+                      final label = grams == null
+                          ? 'Log weight'
+                          : 'Weight ${formatWeight(
+                              grams,
+                              weightState.settings.unit,
+                            )}';
+                      return PushlogButton(
+                        label: label,
+                        variant: PushlogButtonVariant.secondary,
+                        onPressed: () => showLogWeightSheet(context),
+                      );
+                    },
                   ),
                   const SizedBox(height: AppSpacing.sectionLarge),
                   if (profile != null) ...[
@@ -347,10 +367,7 @@ class _TodayHero extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
-              Text(
-                'reps',
-                style: AppTypography.headingSmall(color: subInk),
-              ),
+              Text('reps', style: AppTypography.headingSmall(color: subInk)),
             ],
           ),
           const SizedBox(height: AppSpacing.xxl),
@@ -388,10 +405,7 @@ class _TodayHero extends StatelessWidget {
           ] else
             Text(
               'Recovery day. Move if you want to — nothing to make up.',
-              style: AppTypography.body(
-                color: subInk,
-                weight: FontWeight.w600,
-              ),
+              style: AppTypography.body(color: subInk, weight: FontWeight.w600),
             ),
         ],
       ),
@@ -463,11 +477,8 @@ class _RacePreview extends StatelessWidget {
           );
         }
         entries.sort(
-          (left, right) => compareLeaderboardEntries(
-            left,
-            right,
-            LeaderboardPeriod.today,
-          ),
+          (left, right) =>
+              compareLeaderboardEntries(left, right, LeaderboardPeriod.today),
         );
         final meEntry = entries.firstWhere((entry) => entry.uid == me.uid);
         final hasFriends = entries.length > 1;
@@ -600,17 +611,11 @@ class _LifetimeStats extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: StatBlock(
-              value: '${state.totalAllTime}',
-              label: 'All time',
-            ),
+            child: StatBlock(value: '${state.totalAllTime}', label: 'All time'),
           ),
           _Rule(theme: theme),
           Expanded(
-            child: StatBlock(
-              value: '${state.bestDay}',
-              label: 'Best day',
-            ),
+            child: StatBlock(value: '${state.bestDay}', label: 'Best day'),
           ),
           _Rule(theme: theme),
           Expanded(

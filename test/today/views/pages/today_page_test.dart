@@ -16,8 +16,11 @@ import 'package:pushlog/platform/watch/watch_service.dart';
 import 'package:pushlog/platform/watch/watch_state.dart';
 import 'package:pushlog/today/views/pages/today_page.dart';
 import 'package:pushlog/training/models/training_plan.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
+
+import '../../../weight/support/memory_weight_repository.dart';
 
 class _MockAuthCubit extends Mock implements AuthCubit {}
 
@@ -27,9 +30,8 @@ class _MockFriendsCubit extends Mock implements FriendsCubit {}
 
 class _ReadyFaceTrackingService extends FaceTrackingService {
   @override
-  Future<FaceTrackingSnapshot> start() async => const FaceTrackingSnapshot(
-    phase: FaceTrackingPhase.ready,
-  );
+  Future<FaceTrackingSnapshot> start() async =>
+      const FaceTrackingSnapshot(phase: FaceTrackingPhase.ready);
 }
 
 class _PhoneOnlyWatchService extends WatchService {
@@ -91,9 +93,7 @@ void main() {
   late WorkoutBloc workoutBloc;
 
   final loadedState = WorkoutLoaded(
-    dayTotals: {
-      WorkoutBloc.dayKey(DateTime.now()): 12,
-    },
+    dayTotals: {WorkoutBloc.dayKey(DateTime.now()): 12},
     sessions: const [],
     preferences: const WorkoutPreferences(),
   );
@@ -140,6 +140,9 @@ void main() {
           providers: [
             BlocProvider<AuthCubit>.value(value: authCubit),
             BlocProvider<WorkoutBloc>.value(value: workoutBloc),
+            BlocProvider<WeightCubit>(
+              create: (_) => WeightCubit(MemoryWeightRepository()),
+            ),
           ],
           child: TodayPage(onTabChanged: (_) {}),
         ),
@@ -207,9 +210,7 @@ void main() {
         ..resetDevicePixelRatio();
     });
     await getIt.unregister<FaceTrackingService>();
-    getIt.registerSingleton<FaceTrackingService>(
-      _ReadyFaceTrackingService(),
-    );
+    getIt.registerSingleton<FaceTrackingService>(_ReadyFaceTrackingService());
     final theme = AppTheme.light();
 
     await tester.pumpWidget(
@@ -264,9 +265,7 @@ void main() {
         ..resetDevicePixelRatio();
     });
     await getIt.unregister<FaceTrackingService>();
-    getIt.registerSingleton<FaceTrackingService>(
-      _ReadyFaceTrackingService(),
-    );
+    getIt.registerSingleton<FaceTrackingService>(_ReadyFaceTrackingService());
     await getIt.unregister<WatchService>();
     getIt.registerSingleton<WatchService>(const _PhoneOnlyWatchService());
 
@@ -288,9 +287,7 @@ void main() {
             calls.add(call);
             return true;
           });
-    addTearDown(
-      () => messenger.setMockMethodCallHandler(healthChannel, null),
-    );
+    addTearDown(() => messenger.setMockMethodCallHandler(healthChannel, null));
 
     final theme = AppTheme.light();
     await tester.pumpWidget(
@@ -374,9 +371,7 @@ void main() {
           ..resetDevicePixelRatio();
       });
       await getIt.unregister<FaceTrackingService>();
-      getIt.registerSingleton<FaceTrackingService>(
-        _ReadyFaceTrackingService(),
-      );
+      getIt.registerSingleton<FaceTrackingService>(_ReadyFaceTrackingService());
       await getIt.unregister<WatchService>();
       final watchService = _ReadyWatchService();
       getIt.registerSingleton<WatchService>(watchService);
@@ -484,6 +479,9 @@ void main() {
           providers: [
             BlocProvider<AuthCubit>.value(value: authCubit),
             BlocProvider<WorkoutBloc>.value(value: workoutBloc),
+            BlocProvider<WeightCubit>(
+              create: (_) => WeightCubit(MemoryWeightRepository()),
+            ),
           ],
           child: TodayPage(onTabChanged: (_) {}),
         ),
@@ -520,11 +518,7 @@ void main() {
         ..resetPhysicalSize()
         ..resetDevicePixelRatio();
     });
-    const me = UserProfile(
-      uid: 'me',
-      username: 'me',
-      usernameLower: 'me',
-    );
+    const me = UserProfile(uid: 'me', username: 'me', usernameLower: 'me');
     const zeroState = WorkoutLoaded(
       dayTotals: {},
       sessions: [],
@@ -567,6 +561,9 @@ void main() {
           providers: [
             BlocProvider<AuthCubit>.value(value: authCubit),
             BlocProvider<WorkoutBloc>.value(value: workoutBloc),
+            BlocProvider<WeightCubit>(
+              create: (_) => WeightCubit(MemoryWeightRepository()),
+            ),
             BlocProvider<FriendsCubit>.value(value: friendsCubit),
           ],
           child: TodayPage(onTabChanged: (_) {}),
