@@ -28,6 +28,10 @@ import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/settings/views/widgets/app_version_label.dart';
 import 'package:pushlog/training/models/training_plan.dart';
 import 'package:pushlog/training/views/training_onboarding_page.dart';
+import 'package:pushlog/weight/models/repos/abs/weight_repository.dart';
+import 'package:pushlog/weight/models/weight_export.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
+import 'package:pushlog/weight/views/widgets/weight_settings_section.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/models/repos/abs/workout_repository.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
@@ -124,6 +128,8 @@ class _SettingsPageState extends State<SettingsPage> {
                               theme,
                               state,
                             ),
+                            const SizedBox(height: AppSpacing.sectionLarge),
+                            const WeightSettingsSection(),
                             const SizedBox(height: AppSpacing.sectionLarge),
                             buildDataSection(
                               context,
@@ -766,12 +772,13 @@ class _SettingsPageState extends State<SettingsPage> {
       context,
       title: 'Reset Pushlog?',
       message:
-          'This clears your history, live logs, and preferences — on this '
-          'device and in your cloud backup. It cannot be undone.',
+          'This clears your history, live logs, weigh-ins, and preferences '
+          '— on this device and in your cloud backup. It cannot be undone.',
       confirmLabel: 'Reset data',
     );
     if (!confirmed || !context.mounted) return;
     context.read<WorkoutBloc>().add(const ResetWorkoutDataEvent());
+    await context.read<WeightCubit>().reset();
   }
 
   Widget buildTimePickerRow(
@@ -1006,10 +1013,14 @@ class _SettingsPageState extends State<SettingsPage> {
     final exportResult = await repo.exportJson();
     final json = exportResult.getOrElse(() => '');
     if (json.isEmpty || !mounted) return;
+    final shareText = mergeWeightExport(
+      json,
+      getIt<WeightRepository>().exportEntries(),
+    );
 
     await SharePlus.instance.share(
       ShareParams(
-        text: json,
+        text: shareText,
         subject: 'pushlog-export.json',
       ),
     );
@@ -1043,8 +1054,15 @@ class _SettingsPageState extends State<SettingsPage> {
   ) async {
     final authCubit = context.read<AuthCubit>();
     final workoutBloc = context.read<WorkoutBloc>();
+    // Captured up front: once the account is gone the storage scope falls
+    // back to guest, and this page may unmount as auth flips.
+    final authState = authCubit.state;
+    final uid = authState is AuthAuthenticated ? authState.profile.uid : null;
+    final weightRepository = getIt<WeightRepository>();
     try {
       await authCubit.deleteAccount();
+      // The Worker cascade already removed the cloud rows.
+      if (uid != null) await weightRepository.clearLocal(uid: uid);
       if (!context.mounted) return;
       workoutBloc.add(const ResetWorkoutDataEvent());
     } on Object catch (error) {

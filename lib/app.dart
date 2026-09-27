@@ -23,6 +23,7 @@ import 'package:pushlog/core/views/widgets/pushlog_button.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/training/views/training_onboarding_page.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -115,6 +116,13 @@ class _AuthenticatedRoot extends StatelessWidget {
           create: (_) {
             final cubit = getIt<FriendsCubit>();
             unawaited(cubit.load(me: profile, todayCount: profile.todayCount));
+            return cubit;
+          },
+        ),
+        BlocProvider<WeightCubit>(
+          create: (_) {
+            final cubit = getIt<WeightCubit>();
+            unawaited(cubit.load());
             return cubit;
           },
         ),

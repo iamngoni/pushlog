@@ -6,10 +6,13 @@ import 'package:pushlog/core/configs/colors.dart';
 import 'package:pushlog/core/configs/spacing.dart';
 import 'package:pushlog/history/views/pages/history_page.dart';
 import 'package:pushlog/history/views/widgets/history_entry_row.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/models/data/workout_session.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
+
+import '../../../weight/support/memory_weight_repository.dart';
 
 class _MockWorkoutBloc extends MockBloc<WorkoutEvent, WorkoutState>
     implements WorkoutBloc {}
@@ -121,9 +124,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: theme.toMaterialTheme(Brightness.light),
-        home: BlocProvider<WorkoutBloc>.value(
-          value: bloc,
-          child: const Scaffold(body: HistoryPage()),
+        home: BlocProvider<WeightCubit>(
+          create: (_) => WeightCubit(MemoryWeightRepository()),
+          child: BlocProvider<WorkoutBloc>.value(
+            value: bloc,
+            child: const Scaffold(body: HistoryPage()),
+          ),
         ),
       ),
     );

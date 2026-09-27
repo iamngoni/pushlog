@@ -21,6 +21,10 @@ import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/live/views/live_session_page.dart';
 import 'package:pushlog/today/views/widgets/action_strip.dart';
 import 'package:pushlog/today/views/widgets/day_strip_view.dart';
+import 'package:pushlog/weight/models/weight_math.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
+import 'package:pushlog/weight/state/weight_state.dart';
+import 'package:pushlog/weight/views/widgets/log_weight_sheet.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 
 class TodayPage extends StatelessWidget {
@@ -127,6 +131,22 @@ class TodayPage extends StatelessWidget {
                     icon: Icons.play_arrow_rounded,
                     variant: PushlogButtonVariant.secondary,
                     onPressed: () => _openLiveSession(context),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  BlocBuilder<WeightCubit, WeightState>(
+                    builder: (context, weightState) {
+                      final today = weightState.entryFor(
+                        localDayKey(DateTime.now()),
+                      );
+                      final unit = weightState.settings.unit;
+                      return PushlogButton(
+                        label: today == null
+                            ? 'Log weight'
+                            : 'Weight ${formatWeight(today.weightGrams, unit)}',
+                        variant: PushlogButtonVariant.secondary,
+                        onPressed: () => showLogWeightSheet(context),
+                      );
+                    },
                   ),
                   const SizedBox(height: AppSpacing.sectionLarge),
                   if (profile != null) ...[

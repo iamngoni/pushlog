@@ -16,6 +16,10 @@ import 'package:pushlog/core/views/widgets/empty_state.dart';
 import 'package:pushlog/history/views/widgets/history_entry_row.dart';
 import 'package:pushlog/history/views/widgets/workout_session_detail.dart';
 import 'package:pushlog/today/views/widgets/stats_block.dart';
+import 'package:pushlog/weight/models/weight_correlation.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
+import 'package:pushlog/weight/views/widgets/log_weight_sheet.dart';
+import 'package:pushlog/weight/views/widgets/weight_correlation_section.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
 import 'package:pushlog/workout/models/data/workout_session.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
@@ -210,14 +214,26 @@ class _HistoryPageState extends State<HistoryPage> {
     AppTheme theme,
     WorkoutLoaded state,
   ) {
+    final weight = buildWeightSection(context, state);
     if (state.historyEntries.isEmpty) {
-      return buildEmptyState(theme);
+      if (weight == null) return buildEmptyState(theme);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          weight,
+          Expanded(child: buildEmptyState(theme)),
+        ],
+      );
     }
+    // The weight section scrolls with the days rather than pinning above
+    // them, so a long week table never squeezes the day list.
+    final offset = weight == null ? 0 : 1;
     return ListView.builder(
       padding: EdgeInsets.zero,
-      itemCount: state.historyEntries.length,
+      itemCount: state.historyEntries.length + offset,
       itemBuilder: (context, index) {
-        final entry = state.historyEntries[index];
+        if (weight != null && index == 0) return weight;
+        final entry = state.historyEntries[index - offset];
         return HistoryEntryRow(
           entry: entry,
           theme: theme,
@@ -257,6 +273,25 @@ class _HistoryPageState extends State<HistoryPage> {
         entry: entry,
         sessions: sessions,
         theme: theme,
+      ),
+    );
+  }
+
+  /// Null on a brand-new account, matching the empty rule for the month
+  /// block: no workouts and no weigh-ins means nothing to associate.
+  Widget? buildWeightSection(BuildContext context, WorkoutLoaded state) {
+    final weightState = context.watch<WeightCubit>().state;
+    final correlation = correlateWeight(
+      sessions: state.sessions,
+      entries: weightState.entries,
+    );
+    if (correlation.rows.isEmpty && state.sessions.isEmpty) return null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+      child: WeightCorrelationSection(
+        correlation: correlation,
+        unit: weightState.settings.unit,
+        onLog: () => showLogWeightSheet(context),
       ),
     );
   }

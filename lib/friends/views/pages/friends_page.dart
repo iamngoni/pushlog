@@ -12,6 +12,9 @@ import 'package:pushlog/friends/models/friend_profile.dart';
 import 'package:pushlog/friends/state/friends_cubit.dart';
 import 'package:pushlog/friends/views/widgets/friend_profile_sheet.dart';
 import 'package:pushlog/today/views/widgets/friends_leaderboard.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
+import 'package:pushlog/weight/state/weight_state.dart';
+import 'package:pushlog/weight/views/widgets/weight_friends_board.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
 
 class FriendsPage extends StatefulWidget {
@@ -114,6 +117,16 @@ class _FriendsPageState extends State<FriendsPage> {
                   ),
                 ),
               ),
+              const SizedBox(height: AppSpacing.section),
+              BlocBuilder<WeightCubit, WeightState>(
+                builder: (context, weightState) {
+                  return WeightFriendsBoard(
+                    entries: weightState.board,
+                    unit: weightState.settings.unit,
+                    error: weightState.boardError,
+                  );
+                },
+              ),
               const SizedBox(height: AppSpacing.block),
               Divider(color: theme.divider),
               const SizedBox(height: AppSpacing.xl),
@@ -154,6 +167,8 @@ class _FriendsPageState extends State<FriendsPage> {
       weekCount: workoutState.weekCount,
       totalAllTime: workoutState.totalAllTime,
     );
+    if (!mounted) return;
+    await context.read<WeightCubit>().loadBoard();
   }
 }
 

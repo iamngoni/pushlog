@@ -9,8 +9,11 @@ import 'package:pushlog/core/services/app_info_service.dart';
 import 'package:pushlog/injection.dart';
 import 'package:pushlog/platform/health/health_service.dart';
 import 'package:pushlog/settings/views/pages/settings_page.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
+
+import '../../../weight/support/memory_weight_repository.dart';
 
 class _MockAuthCubit extends MockCubit<AuthState> implements AuthCubit {}
 
@@ -83,6 +86,9 @@ void main() {
           providers: [
             BlocProvider<AuthCubit>.value(value: authCubit),
             BlocProvider<WorkoutBloc>.value(value: workoutBloc),
+            BlocProvider<WeightCubit>(
+              create: (_) => WeightCubit(MemoryWeightRepository()),
+            ),
           ],
           child: const Scaffold(body: SettingsPage()),
         ),

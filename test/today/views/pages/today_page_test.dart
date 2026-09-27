@@ -16,8 +16,11 @@ import 'package:pushlog/platform/watch/watch_service.dart';
 import 'package:pushlog/platform/watch/watch_state.dart';
 import 'package:pushlog/today/views/pages/today_page.dart';
 import 'package:pushlog/training/models/training_plan.dart';
+import 'package:pushlog/weight/state/weight_cubit.dart';
 import 'package:pushlog/workout/models/data/workout_preferences.dart';
 import 'package:pushlog/workout/state/workout/workout_bloc.dart';
+
+import '../../../weight/support/memory_weight_repository.dart';
 
 class _MockAuthCubit extends Mock implements AuthCubit {}
 
@@ -140,6 +143,9 @@ void main() {
           providers: [
             BlocProvider<AuthCubit>.value(value: authCubit),
             BlocProvider<WorkoutBloc>.value(value: workoutBloc),
+            BlocProvider<WeightCubit>(
+              create: (_) => WeightCubit(MemoryWeightRepository()),
+            ),
           ],
           child: TodayPage(onTabChanged: (_) {}),
         ),
@@ -484,6 +490,9 @@ void main() {
           providers: [
             BlocProvider<AuthCubit>.value(value: authCubit),
             BlocProvider<WorkoutBloc>.value(value: workoutBloc),
+            BlocProvider<WeightCubit>(
+              create: (_) => WeightCubit(MemoryWeightRepository()),
+            ),
           ],
           child: TodayPage(onTabChanged: (_) {}),
         ),
@@ -567,6 +576,9 @@ void main() {
           providers: [
             BlocProvider<AuthCubit>.value(value: authCubit),
             BlocProvider<WorkoutBloc>.value(value: workoutBloc),
+            BlocProvider<WeightCubit>(
+              create: (_) => WeightCubit(MemoryWeightRepository()),
+            ),
             BlocProvider<FriendsCubit>.value(value: friendsCubit),
           ],
           child: TodayPage(onTabChanged: (_) {}),

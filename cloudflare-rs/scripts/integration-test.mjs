@@ -413,6 +413,159 @@ try {
     body: { notificationIds: ["missing-but-valid"] },
   });
 
+  await request("/v1/weight/entries", { expectedStatus: 401 });
+  const zeroGrams = await request("/v1/weight/entries", {
+    uid: "alice",
+    method: "PUT",
+    body: { recordedOn: "2026-07-01", weightGrams: 0 },
+    expectedStatus: 400,
+  });
+  assert.equal(zeroGrams.body.error.code, "invalid_weight");
+  const tooHeavy = await request("/v1/weight/entries", {
+    uid: "alice",
+    method: "PUT",
+    body: { recordedOn: "2026-07-01", weightGrams: 500000 },
+    expectedStatus: 400,
+  });
+  assert.equal(tooHeavy.body.error.code, "invalid_weight");
+  await request("/v1/weight/entries", {
+    uid: "alice",
+    method: "PUT",
+    body: { recordedOn: "2026-07-01", weightGrams: 72500 },
+  });
+  await request("/v1/weight/entries", {
+    uid: "alice",
+    method: "PUT",
+    body: { recordedOn: "2026-07-01", weightGrams: 73000 },
+  });
+  const replaced = await request("/v1/weight/entries", { uid: "alice" });
+  assert.equal(replaced.body.entries.length, 1);
+  assert.equal(replaced.body.entries[0].recordedOn, "2026-07-01");
+  assert.equal(replaced.body.entries[0].weightGrams, 73000);
+
+  const hiddenBeforeShare = await request(
+    "/v1/weight/friends?asOf=2026-09-27",
+    { uid: "alice" },
+  );
+  assert.deepEqual(hiddenBeforeShare.body.entries, []);
+
+  await request("/v1/weight/settings", {
+    uid: "bob",
+    method: "PUT",
+    body: {
+      unit: "kg",
+      goal: "maintain",
+      shareProgress: true,
+      shareLatestWeight: false,
+    },
+  });
+  await request("/v1/weight/entries", {
+    uid: "bob",
+    method: "PUT",
+    body: { recordedOn: "2026-09-02", weightGrams: 80000 },
+  });
+  await request("/v1/weight/entries", {
+    uid: "bob",
+    method: "PUT",
+    body: { recordedOn: "2026-09-21", weightGrams: 80100 },
+  });
+  await request("/v1/weight/settings", {
+    uid: "alice",
+    method: "PUT",
+    body: {
+      unit: "kg",
+      goal: "maintain",
+      shareProgress: true,
+      shareLatestWeight: false,
+    },
+  });
+  await request("/v1/weight/entries", {
+    uid: "alice",
+    method: "PUT",
+    body: { recordedOn: "2026-09-01", weightGrams: 70000 },
+  });
+  await request("/v1/weight/entries", {
+    uid: "alice",
+    method: "PUT",
+    body: { recordedOn: "2026-09-20", weightGrams: 69600 },
+  });
+  const ranked = await request("/v1/weight/friends?asOf=2026-09-27", {
+    uid: "alice",
+  });
+  assert.deepEqual(
+    ranked.body.entries.map((entry) => entry.uid),
+    ["bob", "alice"],
+  );
+  assert.equal(ranked.body.entries[0].signedChangeGrams, 100);
+  assert.equal(ranked.body.entries[0].weighInCount, 2);
+  assert.equal(ranked.body.entries[0].latestWeightGrams, undefined);
+  assert.equal(JSON.stringify(ranked.body.entries[0]).includes("latestWeightGrams"), false);
+
+  await request("/v1/weight/settings", {
+    uid: "bob",
+    method: "PUT",
+    body: {
+      unit: "kg",
+      goal: "maintain",
+      shareProgress: true,
+      shareLatestWeight: true,
+    },
+  });
+  const withLatest = await request("/v1/weight/friends?asOf=2026-09-27", {
+    uid: "alice",
+  });
+  assert.equal(withLatest.body.entries[0].latestWeightGrams, 80100);
+
+  await request("/v1/weight/settings", {
+    uid: "charlie",
+    method: "PUT",
+    body: {
+      unit: "kg",
+      goal: "lose",
+      shareProgress: true,
+      shareLatestWeight: true,
+    },
+  });
+  await request("/v1/weight/entries", {
+    uid: "charlie",
+    method: "PUT",
+    body: { recordedOn: "2026-09-01", weightGrams: 70000 },
+  });
+  await request("/v1/weight/entries", {
+    uid: "charlie",
+    method: "PUT",
+    body: { recordedOn: "2026-09-20", weightGrams: 69000 },
+  });
+  const withoutStranger = await request("/v1/weight/friends?asOf=2026-09-27", {
+    uid: "alice",
+  });
+  assert.equal(
+    withoutStranger.body.entries.some((entry) => entry.uid === "charlie"),
+    false,
+  );
+
+  await request("/v1/weight", { method: "DELETE", expectedStatus: 401 });
+  await request("/v1/weight", {
+    uid: "charlie",
+    method: "DELETE",
+    expectedStatus: 204,
+  });
+  const charlieAfterReset = await request("/v1/weight/entries", {
+    uid: "charlie",
+  });
+  assert.deepEqual(charlieAfterReset.body.entries, []);
+  const charlieSettingsAfterReset = await request("/v1/weight/settings", {
+    uid: "charlie",
+  });
+  assert.equal(charlieSettingsAfterReset.body.shareProgress, false);
+  assert.equal(charlieSettingsAfterReset.body.shareLatestWeight, false);
+
+  const searchAfterWeight = await request("/v1/users/search?q=bo", { uid: "alice" });
+  assert.equal(JSON.stringify(searchAfterWeight.body).includes("weightGrams"), false);
+  const activity = await request("/v1/friends/bob", { uid: "alice" });
+  assert.equal(JSON.stringify(activity.body).includes("weightGrams"), false);
+  assert.equal(JSON.stringify(activity.body).includes("signedChangeGrams"), false);
+
   const report = await request("/v1/reports", {
     uid: "alice",
     method: "POST",
@@ -451,6 +604,8 @@ try {
     method: "DELETE",
     expectedStatus: 204,
   });
+  const weightAfterDelete = await request("/v1/weight/entries", { uid: "alice" });
+  assert.deepEqual(weightAfterDelete.body.entries, []);
 
   console.log("Worker integration routes passed.");
 } catch (error) {
