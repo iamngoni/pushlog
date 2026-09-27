@@ -77,8 +77,28 @@ void main() {
         weigh('2026-09-29', 66000),
       ],
     );
-    expect(result.rows.first.reps, 0);
+    expect(result.rows.last.reps, 0);
     expect(result.showCoefficient, isTrue);
+  });
+
+  test('lists only weigh-in weeks, newest first', () {
+    final result = correlateWeight(
+      sessions: [
+        session('2026-08-04', 50),
+        session('2026-09-01', 10),
+        session('2026-09-15', 20),
+      ],
+      entries: [
+        weigh('2026-09-01', 70000),
+        weigh('2026-09-16', 69500),
+      ],
+    );
+    expect(
+      result.rows.map((row) => row.weekStart),
+      ['2026-09-14', '2026-08-31'],
+    );
+    expect(result.rows.first.changeGrams, -500);
+    expect(result.rows.last.changeGrams, isNull);
   });
 
   test('no weigh-ins returns an empty row list when there are no sessions', () {

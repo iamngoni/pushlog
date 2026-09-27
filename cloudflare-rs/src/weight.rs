@@ -336,6 +336,18 @@ pub async fn put_settings(
     }))
 }
 
+/// Removes every weigh-in and the settings row, so a reset also stops sharing.
+pub async fn delete_all(db: &D1Database, user: &AuthenticatedUser) -> ApiResult<()> {
+    db.batch(vec![
+        db.prepare("DELETE FROM weight_entries WHERE uid = ?")
+            .bind_refs(&[D1Type::Text(user.uid())])?,
+        db.prepare("DELETE FROM weight_settings WHERE uid = ?")
+            .bind_refs(&[D1Type::Text(user.uid())])?,
+    ])
+    .await?;
+    Ok(())
+}
+
 pub async fn get_friends_board(
     request: &Request,
     db: &D1Database,

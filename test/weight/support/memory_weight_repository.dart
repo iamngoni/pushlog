@@ -40,6 +40,9 @@ class MemoryWeightRepository implements WeightRepository {
   }
 
   @override
+  Future<void> clearLocal({required String uid}) => reset();
+
+  @override
   Future<Either<ApplicationError, WeightEntry>> saveEntry(
     WeightEntry entry,
   ) async {

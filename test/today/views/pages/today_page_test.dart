@@ -30,8 +30,9 @@ class _MockFriendsCubit extends Mock implements FriendsCubit {}
 
 class _ReadyFaceTrackingService extends FaceTrackingService {
   @override
-  Future<FaceTrackingSnapshot> start() async =>
-      const FaceTrackingSnapshot(phase: FaceTrackingPhase.ready);
+  Future<FaceTrackingSnapshot> start() async => const FaceTrackingSnapshot(
+    phase: FaceTrackingPhase.ready,
+  );
 }
 
 class _PhoneOnlyWatchService extends WatchService {
@@ -93,7 +94,9 @@ void main() {
   late WorkoutBloc workoutBloc;
 
   final loadedState = WorkoutLoaded(
-    dayTotals: {WorkoutBloc.dayKey(DateTime.now()): 12},
+    dayTotals: {
+      WorkoutBloc.dayKey(DateTime.now()): 12,
+    },
     sessions: const [],
     preferences: const WorkoutPreferences(),
   );
@@ -210,7 +213,9 @@ void main() {
         ..resetDevicePixelRatio();
     });
     await getIt.unregister<FaceTrackingService>();
-    getIt.registerSingleton<FaceTrackingService>(_ReadyFaceTrackingService());
+    getIt.registerSingleton<FaceTrackingService>(
+      _ReadyFaceTrackingService(),
+    );
     final theme = AppTheme.light();
 
     await tester.pumpWidget(
@@ -265,7 +270,9 @@ void main() {
         ..resetDevicePixelRatio();
     });
     await getIt.unregister<FaceTrackingService>();
-    getIt.registerSingleton<FaceTrackingService>(_ReadyFaceTrackingService());
+    getIt.registerSingleton<FaceTrackingService>(
+      _ReadyFaceTrackingService(),
+    );
     await getIt.unregister<WatchService>();
     getIt.registerSingleton<WatchService>(const _PhoneOnlyWatchService());
 
@@ -287,7 +294,9 @@ void main() {
             calls.add(call);
             return true;
           });
-    addTearDown(() => messenger.setMockMethodCallHandler(healthChannel, null));
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(healthChannel, null),
+    );
 
     final theme = AppTheme.light();
     await tester.pumpWidget(
@@ -371,7 +380,9 @@ void main() {
           ..resetDevicePixelRatio();
       });
       await getIt.unregister<FaceTrackingService>();
-      getIt.registerSingleton<FaceTrackingService>(_ReadyFaceTrackingService());
+      getIt.registerSingleton<FaceTrackingService>(
+        _ReadyFaceTrackingService(),
+      );
       await getIt.unregister<WatchService>();
       final watchService = _ReadyWatchService();
       getIt.registerSingleton<WatchService>(watchService);
@@ -518,7 +529,11 @@ void main() {
         ..resetPhysicalSize()
         ..resetDevicePixelRatio();
     });
-    const me = UserProfile(uid: 'me', username: 'me', usernameLower: 'me');
+    const me = UserProfile(
+      uid: 'me',
+      username: 'me',
+      usernameLower: 'me',
+    );
     const zeroState = WorkoutLoaded(
       dayTotals: {},
       sessions: [],

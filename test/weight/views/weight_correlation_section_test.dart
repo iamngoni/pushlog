@@ -73,9 +73,7 @@ void main() {
   });
 
   testWidgets('workouts without a weigh-in invite a log', (tester) async {
-    const correlation = WeightCorrelation(
-      rows: [WeightWeekRow(weekStart: '2026-09-21', reps: 12, meanGrams: null)],
-    );
+    const correlation = WeightCorrelation(rows: []);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light().toMaterialTheme(Brightness.light),

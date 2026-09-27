@@ -293,6 +293,18 @@ async fn route<A: AuthVerifier>(
         };
     }
 
+    if path == "/v1/weight" {
+        let user = verify_auth.verify(&request, env).await?;
+        return match method {
+            Method::Delete => {
+                let db = AppConfig::db(env)?;
+                weight::delete_all(&db, &user).await?;
+                Ok(no_content()?)
+            }
+            _ => Ok(method_not_allowed(&["DELETE"])?),
+        };
+    }
+
     if path == "/v1/weight/entries" {
         let user = verify_auth.verify(&request, env).await?;
         let db = AppConfig::db(env)?;

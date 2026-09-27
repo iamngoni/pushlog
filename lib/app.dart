@@ -213,7 +213,9 @@ class _LoadingScreen extends StatelessWidget {
       backgroundColor: theme.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.gutter,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

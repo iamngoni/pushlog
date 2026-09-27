@@ -64,7 +64,10 @@ Future<void> configureInjection({required AppEnvironment environment}) async {
   const healthService = HealthService();
   final faceTrackingService = FaceTrackingService();
   const watchService = WatchService();
-  final authService = AuthService(firebaseAuth, googleSignIn);
+  final authService = AuthService(
+    firebaseAuth,
+    googleSignIn,
+  );
   final workoutRepo = CloudWorkoutRepository(
     localRepository: localRepository,
     auth: firebaseAuth,
@@ -95,10 +98,14 @@ Future<void> configureInjection({required AppEnvironment environment}) async {
     ..registerSingleton<HealthService>(healthService)
     ..registerSingleton<FaceTrackingService>(faceTrackingService)
     ..registerSingleton<WatchService>(watchService)
-    ..registerSingleton<LocalWorkoutRepository>(localRepository)
+    ..registerSingleton<LocalWorkoutRepository>(
+      localRepository,
+    )
     ..registerSingleton<WorkoutRepository>(workoutRepo)
     ..registerSingleton<WeightRepository>(weightRepo)
-    ..registerFactory<WeightCubit>(() => WeightCubit(getIt<WeightRepository>()))
+    ..registerFactory<WeightCubit>(
+      () => WeightCubit(getIt<WeightRepository>()),
+    )
     ..registerFactory<AuthCubit>(
       () => AuthCubit(
         authService: getIt<AuthService>(),
@@ -109,7 +116,9 @@ Future<void> configureInjection({required AppEnvironment environment}) async {
     // Singleton, not a factory: the chosen theme has to outlive any
     // one screen and stay the same instance the MaterialApp listens to.
     ..registerSingleton<ThemeModeCubit>(ThemeModeCubit(storageService))
-    ..registerFactory<FriendsCubit>(() => FriendsCubit(getIt<ProfileService>()))
+    ..registerFactory<FriendsCubit>(
+      () => FriendsCubit(getIt<ProfileService>()),
+    )
     ..registerFactory<WorkoutBloc>(
       () => WorkoutBloc(
         repository: getIt<WorkoutRepository>(),

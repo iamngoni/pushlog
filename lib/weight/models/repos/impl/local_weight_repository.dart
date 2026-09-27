@@ -12,6 +12,18 @@ class LocalWeightRepository {
 
   static const String entriesKey = 'pushlog.weight.entries';
   static const String settingsKey = 'pushlog.weight.settings';
+  static const String resetPendingKey = 'pushlog.weight.reset_pending';
+
+  /// True while a reset has cleared this device but not yet the cloud.
+  bool get resetPending => storage.getString(_scoped(resetPendingKey)) != null;
+
+  Future<void> markResetPending() async {
+    await storage.setString(_scoped(resetPendingKey), 'true');
+  }
+
+  Future<void> clearResetPending() async {
+    await storage.remove(_scoped(resetPendingKey));
+  }
 
   List<WeightEntry> loadEntries() {
     final raw = storage.getString(_scoped(entriesKey));
@@ -46,10 +58,14 @@ class LocalWeightRepository {
     );
   }
 
-  Future<void> reset() async {
-    await storage.remove(_scoped(entriesKey));
-    await storage.remove(_scoped(settingsKey));
+  /// [scope] names the account explicitly for callers that run after sign-out,
+  /// when the resolver would already have fallen back to `guest`.
+  Future<void> reset({String? scope}) async {
+    await storage.remove(_scoped(entriesKey, scope));
+    await storage.remove(_scoped(settingsKey, scope));
+    await storage.remove(_scoped(resetPendingKey, scope));
   }
 
-  String _scoped(String baseKey) => '$baseKey.${scopeResolver()}';
+  String _scoped(String baseKey, [String? scope]) =>
+      '$baseKey.${scope ?? scopeResolver()}';
 }

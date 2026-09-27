@@ -18,7 +18,6 @@ import 'package:pushlog/history/views/widgets/workout_session_detail.dart';
 import 'package:pushlog/today/views/widgets/stats_block.dart';
 import 'package:pushlog/weight/models/weight_correlation.dart';
 import 'package:pushlog/weight/state/weight_cubit.dart';
-import 'package:pushlog/weight/state/weight_state.dart';
 import 'package:pushlog/weight/views/widgets/log_weight_sheet.dart';
 import 'package:pushlog/weight/views/widgets/weight_correlation_section.dart';
 import 'package:pushlog/workout/models/data/history_entry.dart';
@@ -58,7 +57,9 @@ class _HistoryPageState extends State<HistoryPage> {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.gutter,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -75,30 +76,6 @@ class _HistoryPageState extends State<HistoryPage> {
                 Divider(height: 1, color: theme.divider),
                 const SizedBox(height: AppSpacing.xxl),
               ],
-              BlocBuilder<WeightCubit, WeightState>(
-                builder: (context, weightState) {
-                  final correlation = correlateWeight(
-                    sessions: state.sessions,
-                    entries: weightState.entries,
-                  );
-                  final show =
-                      correlation.rows.isNotEmpty || state.sessions.isNotEmpty;
-                  if (!show) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 240),
-                      child: SingleChildScrollView(
-                        child: WeightCorrelationSection(
-                          correlation: correlation,
-                          unit: weightState.settings.unit,
-                          onLog: () => showLogWeightSheet(context),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
               Expanded(child: buildHistoryBody(context, theme, state)),
             ],
           ),
@@ -116,7 +93,10 @@ class _HistoryPageState extends State<HistoryPage> {
           style: AppTypography.overline(color: theme.tertiaryInk),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text('History', style: AppTypography.headingLarge(color: theme.ink)),
+        Text(
+          'History',
+          style: AppTypography.headingLarge(color: theme.ink),
+        ),
         const SizedBox(height: AppSpacing.sm),
         Text(
           DateFormat('MMMM yyyy').format(DateTime.now()),
@@ -126,7 +106,10 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget buildMonthBlock(AppTheme theme, WorkoutLoaded state) {
+  Widget buildMonthBlock(
+    AppTheme theme,
+    WorkoutLoaded state,
+  ) {
     final monthTotal = computeMonthTotal(state);
     final monthBest = computeMonthBest(state);
     final monthAvg = computeMonthAvg(state);
@@ -158,7 +141,11 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
             ),
             Expanded(
-              child: StatColumn(value: '$monthAvg', label: 'AVG', theme: theme),
+              child: StatColumn(
+                value: '$monthAvg',
+                label: 'AVG',
+                theme: theme,
+              ),
             ),
             Expanded(
               child: StatColumn(
@@ -227,14 +214,26 @@ class _HistoryPageState extends State<HistoryPage> {
     AppTheme theme,
     WorkoutLoaded state,
   ) {
+    final weight = buildWeightSection(context, state);
     if (state.historyEntries.isEmpty) {
-      return buildEmptyState(theme);
+      if (weight == null) return buildEmptyState(theme);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          weight,
+          Expanded(child: buildEmptyState(theme)),
+        ],
+      );
     }
+    // The weight section scrolls with the days rather than pinning above
+    // them, so a long week table never squeezes the day list.
+    final offset = weight == null ? 0 : 1;
     return ListView.builder(
       padding: EdgeInsets.zero,
-      itemCount: state.historyEntries.length,
+      itemCount: state.historyEntries.length + offset,
       itemBuilder: (context, index) {
-        final entry = state.historyEntries[index];
+        if (weight != null && index == 0) return weight;
+        final entry = state.historyEntries[index - offset];
         return HistoryEntryRow(
           entry: entry,
           theme: theme,
@@ -264,12 +263,36 @@ class _HistoryPageState extends State<HistoryPage> {
     return showModalBottomSheet<void>(
       context: context,
       backgroundColor: theme.background,
-      shape: RoundedRectangleBorder(borderRadius: AppRadius.top(AppRadius.xxl)),
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.top(AppRadius.xxl),
+      ),
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) =>
-          DayDetailSheet(entry: entry, sessions: sessions, theme: theme),
+      builder: (_) => DayDetailSheet(
+        entry: entry,
+        sessions: sessions,
+        theme: theme,
+      ),
+    );
+  }
+
+  /// Null on a brand-new account, matching the empty rule for the month
+  /// block: no workouts and no weigh-ins means nothing to associate.
+  Widget? buildWeightSection(BuildContext context, WorkoutLoaded state) {
+    final weightState = context.watch<WeightCubit>().state;
+    final correlation = correlateWeight(
+      sessions: state.sessions,
+      entries: weightState.entries,
+    );
+    if (correlation.rows.isEmpty && state.sessions.isEmpty) return null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+      child: WeightCorrelationSection(
+        correlation: correlation,
+        unit: weightState.settings.unit,
+        onLog: () => showLogWeightSheet(context),
+      ),
     );
   }
 
@@ -287,7 +310,11 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget buildLoading(AppTheme theme) {
     return ColoredBox(
       color: theme.background,
-      child: Center(child: CircularProgressIndicator(color: theme.accent)),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: theme.accent,
+        ),
+      ),
     );
   }
 
@@ -318,7 +345,15 @@ class DayDetailSheet extends StatelessWidget {
         date.year == now.year && date.month == now.month && date.day == now.day;
     if (isToday) return 'TODAY';
 
-    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const days = [
+      'MON',
+      'TUE',
+      'WED',
+      'THU',
+      'FRI',
+      'SAT',
+      'SUN',
+    ];
     const months = [
       'JAN',
       'FEB',
@@ -387,7 +422,9 @@ class DayDetailSheet extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: Text(
                       'TOTAL REPS',
-                      style: AppTypography.overline(color: theme.tertiaryInk),
+                      style: AppTypography.overline(
+                        color: theme.tertiaryInk,
+                      ),
                     ),
                   ),
                 ],
@@ -404,7 +441,9 @@ class DayDetailSheet extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               if (orderedSessions.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.xxl,
+                  ),
                   child: Text(
                     'Detailed session data is not available for this older '
                     'entry.',

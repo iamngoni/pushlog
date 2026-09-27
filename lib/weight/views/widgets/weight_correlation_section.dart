@@ -21,7 +21,7 @@ class WeightCorrelationSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
-    final hasWeighIn = correlation.rows.any((row) => row.meanGrams != null);
+    final hasWeighIn = correlation.rows.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -60,9 +60,7 @@ class WeightCorrelationSection extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.lg),
                   Text(
-                    row.meanGrams == null
-                        ? '—'
-                        : formatWeight(row.meanGrams!, unit),
+                    formatWeight(row.meanGrams, unit),
                     style: AppTypography.body(color: theme.ink),
                   ),
                   const SizedBox(width: AppSpacing.lg),

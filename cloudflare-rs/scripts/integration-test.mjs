@@ -544,6 +544,22 @@ try {
     false,
   );
 
+  await request("/v1/weight", { method: "DELETE", expectedStatus: 401 });
+  await request("/v1/weight", {
+    uid: "charlie",
+    method: "DELETE",
+    expectedStatus: 204,
+  });
+  const charlieAfterReset = await request("/v1/weight/entries", {
+    uid: "charlie",
+  });
+  assert.deepEqual(charlieAfterReset.body.entries, []);
+  const charlieSettingsAfterReset = await request("/v1/weight/settings", {
+    uid: "charlie",
+  });
+  assert.equal(charlieSettingsAfterReset.body.shareProgress, false);
+  assert.equal(charlieSettingsAfterReset.body.shareLatestWeight, false);
+
   const searchAfterWeight = await request("/v1/users/search?q=bo", { uid: "alice" });
   assert.equal(JSON.stringify(searchAfterWeight.body).includes("weightGrams"), false);
   const activity = await request("/v1/friends/bob", { uid: "alice" });

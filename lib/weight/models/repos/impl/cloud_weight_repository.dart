@@ -17,13 +17,16 @@ class CloudWeightRepository implements WeightRepository {
   @override
   Future<Either<ApplicationError, List<WeightEntry>>> loadEntries() async {
     try {
+      await _flushReset();
       await _pushDirty(local.loadEntries());
       // Reload after the push. The pre-push list is still marked dirty, and
       // merging that list would put the stale day back over a newer remote.
       final afterPush = local.loadEntries();
       final payload = await api.get('/v1/weight/entries');
       final remote = _entriesFromPayload(payload);
-      final merged = _merge(afterPush, remote);
+      // Re-read after the fetch. A day logged while it was in flight is
+      // newer than the remote list, so it must survive the merge.
+      final merged = _merge(afterPush, local.loadEntries(), remote);
       await local.saveEntries(merged);
       return Right(merged);
     } on Exception catch (error, stackTrace) {
@@ -44,6 +47,7 @@ class CloudWeightRepository implements WeightRepository {
     ]..sort((a, b) => a.recordedOn.compareTo(b.recordedOn));
     await local.saveEntries(next);
     try {
+      await _flushReset();
       final payload = await api.put(
         '/v1/weight/entries',
         body: {
@@ -55,9 +59,14 @@ class CloudWeightRepository implements WeightRepository {
         updatedAt: payload['updatedAt'] as String? ?? entry.updatedAt,
         dirty: false,
       );
+      // Re-read rather than reuse `next`: a pull may have written newer days
+      // while the put was in flight.
+      // A re-log of the same day during the put stays dirty.
+      bool isSaved(WeightEntry item) =>
+          item.recordedOn == saved.recordedOn &&
+          item.weightGrams == saved.weightGrams;
       await local.saveEntries([
-        for (final item in next)
-          if (item.recordedOn == saved.recordedOn) saved else item,
+        for (final item in local.loadEntries()) isSaved(item) ? saved : item,
       ]);
       return Right(saved);
     } on Exception catch (error, stackTrace) {
@@ -74,6 +83,7 @@ class CloudWeightRepository implements WeightRepository {
       return saved.getOrElse(() => localSettings);
     }
     try {
+      await _flushReset();
       final payload = await api.get('/v1/weight/settings');
       final remote = WeightSettings.fromJson(payload);
       await local.saveSettings(remote);
@@ -90,6 +100,7 @@ class CloudWeightRepository implements WeightRepository {
     final pending = settings.copyWith(dirty: true);
     await local.saveSettings(pending);
     try {
+      await _flushReset();
       final payload = await api.put(
         '/v1/weight/settings',
         body: {
@@ -134,12 +145,40 @@ class CloudWeightRepository implements WeightRepository {
     }
   }
 
+  /// Clears the device copy now and the cloud copy as soon as it can.
+  ///
+  /// The pending mark is written before the delete is sent, so an offline
+  /// reset, or one sent before the Worker has the route, is retried on the
+  /// next sync instead of being pulled back down.
   @override
-  Future<void> reset() => local.reset();
+  Future<void> reset() async {
+    await local.reset();
+    await local.markResetPending();
+    try {
+      await _flushReset();
+    } on Exception catch (error, stackTrace) {
+      log('weight reset waits for sync', error: error, stackTrace: stackTrace);
+    }
+  }
+
+  @override
+  Future<void> clearLocal({required String uid}) => local.reset(scope: uid);
 
   @override
   List<Map<String, dynamic>> exportEntries() {
-    return local.loadEntries().map((entry) => entry.toJson()).toList();
+    // `dirty` is sync bookkeeping, not the user's data.
+    return local
+        .loadEntries()
+        .map((entry) => entry.toJson()..remove('dirty'))
+        .toList();
+  }
+
+  /// Throws while a reset still waits on the cloud, so every sync path stays
+  /// local rather than pulling back what the user just cleared.
+  Future<void> _flushReset() async {
+    if (!local.resetPending) return;
+    await api.delete('/v1/weight');
+    await local.clearResetPending();
   }
 
   Future<void> _pushDirty(List<WeightEntry> entries) async {
@@ -158,12 +197,16 @@ class CloudWeightRepository implements WeightRepository {
   }
 
   List<WeightEntry> _merge(
-    List<WeightEntry> localEntries,
+    List<WeightEntry> beforeFetch,
+    List<WeightEntry> afterFetch,
     List<WeightEntry> remote,
   ) {
     final byDay = {for (final entry in remote) entry.recordedOn: entry};
-    for (final entry in localEntries.where((item) => item.dirty)) {
-      byDay[entry.recordedOn] = entry;
+    final unchanged = beforeFetch.toSet();
+    for (final entry in afterFetch) {
+      if (entry.dirty || !unchanged.contains(entry)) {
+        byDay[entry.recordedOn] = entry;
+      }
     }
     final merged = byDay.values.toList()
       ..sort((a, b) => a.recordedOn.compareTo(b.recordedOn));
